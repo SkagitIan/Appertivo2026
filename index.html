@@ -1,693 +1,403 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Appertivo — What's Good Today?</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+<title>Today's Specials — What's Good Today?</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,700;1,9..144,900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-
 :root{
-  --bg:        #0E0C0A;
-  --surface:   #161310;
-  --surface2:  #1E1A15;
-  --surface3:  #28221B;
-  --border:    rgba(255,255,255,0.07);
-  --border2:   rgba(255,255,255,0.12);
-  --text:      #F2EDE6;
-  --text2:     #8A8078;
-  --text3:     #5A544D;
-  --tomato:    #E84830;
-  --tomato2:   #FF6B52;
-  --amber:     #F0A830;
-  --amber2:    #FFD080;
-  --herb:      #3DAF82;
-  --herb2:     #6FDDAA;
-  --plum:      #9B6FD8;
+  --cream:#fff6e8;
+  --cream-2:#f4dfc4;
+  --ink:#201b1f;
+  --muted:#8d6e63;
+  --red:#ef4936;
+  --red-dark:#cc392d;
+  --green:#68aa8b;
+  --yellow:#f7c84f;
+  --purple:#a779d8;
+  --plum:#2b182b;
+  --card:#fff6e8;
+  --line:#eacfb0;
 }
-
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow-x:hidden;min-height:100vh}
-
-/* grain */
-body::before{content:'';position:fixed;inset:0;opacity:.035;pointer-events:none;z-index:9999;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size:180px}
-
-::selection{background:var(--tomato);color:#fff}
-
-/* ── NAV ── */
-nav{
-  position:fixed;top:0;left:0;right:0;z-index:100;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 40px;height:64px;
-  background:rgba(14,12,10,0.85);
-  backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
+html{scroll-behavior:smooth}
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 78% 4%, rgba(239,73,54,.38), transparent 29rem),
+    radial-gradient(circle at 11% 42%, rgba(111,69,42,.58), transparent 29rem),
+    linear-gradient(135deg,#251324 0%,#1d1320 34%,#303534 69%,#3a1d1d 100%);
+  color:var(--cream);
+  font-family:'DM Sans',Arial,sans-serif;
+  overflow-x:hidden;
 }
-.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.nav-logo-dot{width:28px;height:28px;border-radius:50%;background:var(--tomato);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.nav-logo-dot svg{display:block}
-.nav-logo-name{font-family:'Fraunces',serif;font-weight:700;font-size:18px;color:var(--text);letter-spacing:-.02em}
-.nav-links{display:flex;align-items:center;gap:32px}
-.nav-links a{color:var(--text2);text-decoration:none;font-size:14px;font-weight:500;letter-spacing:.01em;transition:color .15s}
-.nav-links a:hover{color:var(--text)}
-.nav-cta{
-  background:var(--tomato);color:#fff;
-  padding:9px 22px;border-radius:100px;
-  font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;
-  text-decoration:none;border:none;cursor:pointer;
-  transition:background .15s, transform .15s;display:inline-flex;align-items:center;gap:6px
-}
-.nav-cta:hover{background:var(--tomato2);transform:translateY(-1px)}
-
-/* ── HERO ── */
-.hero{
-  min-height:100vh;display:flex;flex-direction:column;
-  justify-content:center;padding:100px 40px 0;
-  position:relative;overflow:hidden;
-}
-.hero-glow{
-  position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none;
-}
-.hero-eyebrow{
-  font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--text3);margin-bottom:28px;
-}
-.hero-title{
-  font-family:'Fraunces',serif;font-weight:900;
-  font-size:clamp(56px,8.5vw,120px);line-height:.95;
-  letter-spacing:-.03em;margin-bottom:32px;
-}
-.hero-title em{font-style:italic;color:var(--tomato);font-weight:300}
-.hero-sub{
-  font-size:clamp(15px,1.4vw,18px);line-height:1.65;color:var(--text2);
-  max-width:520px;margin-bottom:44px;font-weight:400;
-}
-.hero-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:28px}
-.btn-primary{
-  background:var(--tomato);color:#fff;
-  padding:14px 30px;border-radius:100px;
-  font-family:'DM Sans',sans-serif;font-weight:600;font-size:15px;
-  text-decoration:none;border:none;cursor:pointer;
-  display:inline-flex;align-items:center;gap:8px;
-  transition:background .15s, transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
-}
-.btn-primary:hover{background:var(--tomato2);transform:translateY(-2px);box-shadow:0 12px 32px rgba(232,72,48,.4)}
-.btn-ghost{
-  background:transparent;color:var(--text2);
-  padding:14px 28px;border-radius:100px;
-  font-family:'DM Sans',sans-serif;font-weight:500;font-size:15px;
-  text-decoration:none;border:1px solid var(--border2);cursor:pointer;
-  display:inline-flex;align-items:center;gap:8px;
-  transition:border-color .15s,color .15s,background .15s;
-}
-.btn-ghost:hover{border-color:var(--text2);color:var(--text);background:var(--surface2)}
-.hero-social{font-size:13px;color:var(--text3)}
-.hero-social strong{color:var(--text2)}
-
-/* ── TICKER ── */
-.ticker{
-  width:100%;padding:14px 0;background:var(--surface);
-  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
-  overflow:hidden;margin-top:64px;
-}
-.ticker-track{display:flex;white-space:nowrap;width:max-content;animation:marquee 28s linear infinite}
-@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-.ticker-item{padding:0 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
-.ticker-sep{color:var(--tomato);padding:0 4px}
-
-/* ── SECTION SHARED ── */
-.section{padding:100px 40px}
-.section-max{max-width:1120px;margin:0 auto}
-.section-eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-bottom:16px}
-.section-title{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(38px,5vw,64px);line-height:1.0;letter-spacing:-.03em;margin-bottom:16px}
-.section-title em{font-style:italic;font-weight:300;color:var(--tomato)}
-
-/* ── FEED SECTION ── */
-.feed-intro{max-width:600px;margin:0 auto 64px;text-align:center}
-.feed-intro p{font-size:17px;color:var(--text2);line-height:1.65}
-
-/* The feed grid */
-.feed-grid{
-  display:grid;
-  grid-template-columns:repeat(12,1fr);
-  grid-template-rows:auto;
-  gap:14px;
-  max-width:1120px;margin:0 auto;
-}
-
-/* ── SPECIAL CARD base ── */
-.sc{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:28px;
-  position:relative;overflow:hidden;
-  cursor:pointer;
-  transition:transform .25s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .25s;
-  display:flex;flex-direction:column;justify-content:space-between;
-}
-.sc:hover{transform:translateY(-5px);border-color:var(--border2);box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.sc::after{
-  content:'';position:absolute;inset:0;border-radius:inherit;
-  background:radial-gradient(ellipse at 70% 20%, rgba(255,255,255,.04), transparent 60%);
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
   pointer-events:none;
+  opacity:.06;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index:10;
 }
-
-/* grid placement */
-.sc-1{grid-column:1/6;grid-row:1/2;min-height:280px}
-.sc-2{grid-column:6/9;grid-row:1/2}
-.sc-3{grid-column:9/13;grid-row:1/2}
-.sc-4{grid-column:1/5;grid-row:2/3}
-.sc-5{grid-column:5/9;grid-row:2/3;min-height:260px}
-.sc-6{grid-column:9/13;grid-row:2/3}
-
-/* accent variants */
-.sc-tomato{background:var(--tomato);border-color:transparent}
-.sc-tomato .sc-restaurant,.sc-tomato .sc-desc{color:rgba(255,255,255,.65)}
-.sc-tomato .sc-tag{background:rgba(0,0,0,.2);color:rgba(255,255,255,.85)}
-.sc-tomato .sc-time{color:rgba(255,255,255,.5)}
-.sc-tomato .sc-price{color:#fff}
-.sc-tomato .sc-name{color:#fff}
-
-.sc-amber-soft{background:linear-gradient(135deg,#1E1A10,#2A2010)}
-.sc-amber-soft .sc-price{color:var(--amber2)}
-
-.sc-herb-soft{background:linear-gradient(135deg,#0E1A14,#121F18)}
-.sc-herb-soft .sc-price{color:var(--herb2)}
-
-/* card typography */
-.sc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:auto}
-.sc-time{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
-.sc-name{font-family:'Fraunces',serif;font-weight:700;font-size:22px;line-height:1.15;letter-spacing:-.02em;color:var(--text);margin-bottom:8px}
-.sc-name-lg{font-size:28px}
-.sc-desc{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:16px}
-.sc-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:20px}
-.sc-tag{
-  display:inline-flex;align-items:center;gap:5px;
-  background:var(--surface3);color:var(--text2);
-  padding:5px 12px;border-radius:100px;
-  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-  border:1px solid var(--border);
+a{color:inherit;text-decoration:none}
+button,input{font:inherit}
+.page{width:min(1280px,calc(100% - 48px));margin:0 auto;padding:38px 0 72px}
+.topbar{
+  min-height:76px;
+  margin:0 auto 76px;
+  padding:14px 20px;
+  border-radius:999px;
+  background:var(--cream);
+  color:var(--ink);
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  box-shadow:0 18px 60px rgba(0,0,0,.18);
 }
-.sc-restaurant{font-size:12px;color:var(--text3);margin-top:4px}
-.sc-price{font-family:'Fraunces',serif;font-weight:700;font-size:32px;letter-spacing:-.03em;color:var(--text);line-height:1}
-.sc-price-sm{font-size:22px}
-.sc-price-sub{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
-
-/* Live badge */
-.live-badge{
-  display:inline-flex;align-items:center;gap:6px;
-  background:rgba(61,175,130,.15);color:var(--herb2);
-  border:1px solid rgba(61,175,130,.25);
-  padding:4px 10px;border-radius:100px;
-  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
-  position:absolute;top:20px;right:20px;
+.location-pill{
+  justify-self:center;
+  background:var(--green);
+  color:var(--cream);
+  border-radius:999px;
+  padding:10px 28px;
+  font-size:20px;
+  font-weight:800;
+  line-height:1;
 }
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--herb2);animation:pulse 2s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
-
-/* big decorative number */
-.sc-num{
-  position:absolute;bottom:-10px;right:16px;
-  font-family:'Fraunces',serif;font-size:120px;font-weight:900;font-style:italic;
-  color:rgba(255,255,255,.04);line-height:1;pointer-events:none;letter-spacing:-.05em;
-  user-select:none;
+.brand-line{
+  color:#e6cdb8;
+  font-size:22px;
+  font-weight:600;
+  letter-spacing:.01em;
+  padding-left:38px;
 }
-
-/* ── HOW IT WORKS ── */
-.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:1120px;margin:0 auto}
-.how-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;position:relative;overflow:hidden}
-.how-card-num{font-family:'Fraunces',serif;font-size:64px;font-weight:900;font-style:italic;color:var(--surface3);line-height:1;margin-bottom:20px}
-.how-card h3{font-family:'Fraunces',serif;font-weight:700;font-size:24px;letter-spacing:-.02em;margin-bottom:10px}
-.how-card p{font-size:15px;color:var(--text2);line-height:1.65}
-.how-card-accent{position:absolute;bottom:0;right:0;width:180px;height:180px;border-radius:50%;filter:blur(60px);pointer-events:none}
-/* sms bubble */
-.sms-bubble{
-  margin-top:28px;background:var(--surface2);border:1px solid var(--border);
-  border-radius:14px;padding:16px 18px;
+.post-button{
+  justify-self:end;
+  background:var(--red);
+  color:white;
+  border-radius:999px;
+  padding:15px 39px;
+  font-size:21px;
+  font-weight:900;
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.1);
 }
-.sms-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
-.sms-msg{background:var(--tomato);color:#fff;border-radius:12px 12px 2px 12px;padding:10px 14px;font-size:14px;display:inline-block;max-width:90%;line-height:1.5}
-.sms-reply{color:var(--herb2);font-size:12px;font-family:'DM Mono',monospace;margin-top:8px;letter-spacing:.04em}
-
-/* ── PRICING ── */
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:860px;margin:0 auto}
-.price-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;transition:transform .2s,border-color .2s}
-.price-card:hover{transform:translateY(-4px);border-color:var(--border2)}
-.price-card-featured{background:var(--tomato);border-color:transparent}
-.price-card-featured .price-name,.price-card-featured .price-desc,.price-card-featured .price-feature{color:rgba(255,255,255,.8)}
-.price-card-featured .price-amount{color:#fff}
-.price-amount{font-family:'Fraunces',serif;font-weight:900;font-size:52px;letter-spacing:-.04em;line-height:1;margin-bottom:4px}
-.price-per{font-size:13px;color:var(--text3);margin-bottom:20px}
-.price-name{font-weight:600;font-size:15px;margin-bottom:8px}
-.price-desc{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px}
-.price-feature{font-size:13px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
-.price-feature:last-child{border-bottom:none}
-.price-check{color:var(--herb2);font-size:16px}
-
-/* ── SIGNUP ── */
-.signup-wrap{max-width:560px;margin:0 auto;text-align:center}
-.signup-form{display:flex;gap:10px;margin-top:32px;margin-bottom:16px}
-.signup-input{
-  flex:1;background:var(--surface);border:1px solid var(--border2);
-  color:var(--text);padding:14px 20px;border-radius:100px;
-  font-family:'DM Sans',sans-serif;font-size:15px;outline:none;
-  transition:border-color .2s;
+.hero{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 420px;
+  gap:76px;
+  align-items:start;
+  margin-bottom:76px;
 }
-.signup-input:focus{border-color:var(--tomato)}
-.signup-input::placeholder{color:var(--text3)}
-.signup-note{font-size:13px;color:var(--text3)}
-.signup-success{
-  display:none;background:rgba(61,175,130,.12);border:1px solid rgba(61,175,130,.25);
-  border-radius:14px;padding:18px 24px;color:var(--herb2);
-  font-size:15px;font-weight:500;margin-top:16px;
+.hero-copy{padding-top:6px}
+h1{
+  max-width:730px;
+  font-size:clamp(64px,7.4vw,122px);
+  line-height:.95;
+  letter-spacing:-.055em;
+  font-weight:900;
+  margin-bottom:26px;
 }
-
-/* ── FOOTER ── */
-footer{
-  border-top:1px solid var(--border);padding:32px 40px;
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+.hero-copy p{
+  max-width:620px;
+  color:#f0d8c6;
+  font-size:clamp(22px,2.25vw,34px);
+  line-height:1.22;
+  letter-spacing:.01em;
+  margin-bottom:44px;
 }
-footer p{font-size:13px;color:var(--text3)}
-footer a{color:var(--text3);text-decoration:none;font-size:13px;transition:color .15s}
-footer a:hover{color:var(--text2)}
-.footer-links{display:flex;gap:24px}
-
-/* responsive */
-@media(max-width:900px){
-  .feed-grid{grid-template-columns:1fr 1fr}
-  .sc-1,.sc-2,.sc-3,.sc-4,.sc-5,.sc-6{grid-column:span 1;grid-row:auto;min-height:220px}
-  .how-grid{grid-template-columns:1fr}
-  .pricing-grid{grid-template-columns:1fr}
-  nav{padding:0 20px}
-  .hero{padding:90px 20px 0}
-  .section{padding:70px 20px}
-  footer{padding:24px 20px;flex-direction:column;text-align:center}
-  .footer-links{justify-content:center}
-  .signup-form{flex-direction:column}
-  .nav-links{display:none}
+.search-card{
+  width:min(100%,710px);
+  background:var(--cream);
+  color:var(--ink);
+  border-radius:38px;
+  padding:28px 38px 34px;
+  box-shadow:0 22px 60px rgba(0,0,0,.16);
 }
-@media(max-width:540px){
-  .feed-grid{grid-template-columns:1fr}
-  .sc-1,.sc-2,.sc-3,.sc-4,.sc-5,.sc-6{grid-column:auto;min-height:200px}
+.search-card label{
+  display:block;
+  font-size:26px;
+  font-weight:900;
+  letter-spacing:-.02em;
+  margin-bottom:14px;
+}
+.search-row{
+  display:flex;
+  gap:10px;
+  padding:8px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:white;
+}
+.search-row input{
+  width:100%;
+  min-width:0;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:var(--ink);
+  padding:9px 22px;
+  font-size:23px;
+}
+.search-row input::placeholder{color:#927a70}
+.search-row button{
+  border:0;
+  border-radius:999px;
+  background:#3a203d;
+  color:white;
+  font-weight:900;
+  padding:11px 33px;
+  font-size:19px;
+  white-space:nowrap;
+}
+.filters{display:flex;flex-wrap:wrap;gap:15px;margin:26px 0 0 22px}
+.filter{
+  border-radius:999px;
+  padding:10px 22px;
+  font-size:20px;
+  font-weight:900;
+  color:white;
+}
+.filter.red{background:var(--red)}
+.filter.yellow{background:var(--yellow);color:#24150e}
+.filter.green{background:var(--green)}
+.filter.purple{background:var(--purple)}
+.phone-wrap{
+  justify-self:center;
+  width:354px;
+  border:4px solid #edd2bb;
+  border-radius:54px;
+  padding:14px;
+  box-shadow:0 20px 70px rgba(0,0,0,.28);
+}
+.phone{
+  min-height:660px;
+  background:var(--cream);
+  color:var(--ink);
+  border:14px solid #111114;
+  border-radius:42px;
+  padding:34px 23px 28px;
+}
+.phone h2{font-size:29px;line-height:1;margin-bottom:18px;font-weight:900;letter-spacing:-.03em}
+.phone-search{
+  border:1px solid var(--line);
+  border-radius:999px;
+  color:#9a8176;
+  padding:12px 20px;
+  font-size:16px;
+  margin-bottom:24px;
+  background:#fffaf1;
+}
+.featured-mini{
+  background:var(--plum);
+  color:white;
+  border-radius:25px;
+  padding:23px 22px;
+  margin-bottom:24px;
+}
+.featured-mini span{display:block;color:#f3c7b7;font-size:16px;font-weight:900;margin-bottom:8px}
+.featured-mini strong{display:block;font-size:25px;line-height:1.05;margin-bottom:5px}
+.featured-mini p{color:#e8d1c6;font-size:16px}
+.mini-special{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  min-height:94px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:white;
+  padding:15px 16px;
+  margin-bottom:20px;
+}
+.mini-dot{width:56px;height:56px;border-radius:50%;flex:0 0 auto}
+.mini-dot.red{background:var(--red)}
+.mini-dot.green{background:var(--green)}
+.mini-dot.yellow{background:var(--yellow)}
+.mini-special strong{display:block;font-size:18px;line-height:1.1;margin-bottom:5px}
+.mini-special span{display:block;color:var(--muted);font-size:14px;line-height:1.1;margin-bottom:5px}
+.mini-special b{color:var(--red);font-size:15px}
+.section-heading{margin-bottom:36px}
+.section-heading h2{font-size:clamp(46px,4.6vw,62px);line-height:1;font-weight:900;letter-spacing:-.045em;margin-bottom:4px}
+.section-heading p{font-size:26px;color:#f0d8c6}
+.special-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px;margin-bottom:36px}
+.special-card{
+  background:var(--card);
+  color:var(--ink);
+  border-radius:34px;
+  padding:20px 22px 30px;
+  box-shadow:0 18px 55px rgba(0,0,0,.16);
+}
+.food-art{
+  position:relative;
+  min-height:258px;
+  border-radius:24px;
+  overflow:hidden;
+  margin-bottom:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.food-art.red-bg{background:#8e3944}
+.food-art.green-bg{background:#2b705e}
+.status-badge{
+  position:absolute;
+  top:21px;
+  left:21px;
+  z-index:2;
+  border-radius:999px;
+  background:var(--red);
+  color:white;
+  padding:9px 18px;
+  font-size:16px;
+  font-weight:900;
+}
+.plate{
+  position:relative;
+  width:268px;
+  height:142px;
+  border-radius:50%;
+  background:#fff0c2;
+  transform:rotate(-1deg);
+  box-shadow:0 2px 0 rgba(0,0,0,.08);
+}
+.plate::before{
+  content:"";
+  position:absolute;
+  inset:27px 36px;
+  border-radius:50%;
+  background:var(--red);
+}
+.plate.green::before{background:var(--green)}
+.garnish{position:absolute;width:12px;height:12px;border-radius:50%;background:var(--yellow);z-index:1}
+.garnish:nth-child(1){left:43px;top:75px}.garnish:nth-child(2){left:80px;top:91px;background:#ffe29a}.garnish:nth-child(3){left:116px;top:55px;background:#ffe29a}.garnish:nth-child(4){left:181px;top:103px}.garnish:nth-child(5){left:74px;top:61px;background:var(--green)}.garnish:nth-child(6){left:150px;top:41px;background:#7b3129}.garnish:nth-child(7){left:128px;top:93px;background:#7b3129}.garnish:nth-child(8){left:190px;top:76px;background:#ffe29a}.garnish:nth-child(9){left:62px;top:84px;background:#ffe29a}.garnish:nth-child(10){left:93px;top:74px;background:#ffe29a}
+.restaurant{color:#8b665c;font-size:24px;font-weight:900;letter-spacing:-.02em;margin-bottom:12px}
+.special-card h3{font-size:38px;line-height:1.03;letter-spacing:-.045em;margin-bottom:12px}
+.special-card p{max-width:430px;color:#5f4842;font-size:23px;line-height:1.15;margin-bottom:34px}
+.card-footer{display:flex;align-items:center;gap:12px}
+.price-pill,.tag-pill{
+  border-radius:999px;
+  padding:11px 26px;
+  font-size:19px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.price-pill{background:#3a203d;color:white}
+.tag-pill{background:#efdcc5;color:#6f514a}
+.card-actions{margin-left:auto;display:flex;gap:16px;color:var(--red);font-size:18px;font-weight:900}
+.bottom-bar{
+  height:62px;
+  background:var(--cream);
+  border-radius:999px;
+  margin-top:22px;
+}
+@media (max-width:980px){
+  .page{width:min(100% - 28px,760px);padding-top:18px}
+  .topbar{grid-template-columns:1fr;gap:14px;border-radius:32px;margin-bottom:48px;text-align:center}
+  .location-pill,.post-button{justify-self:center}.brand-line{padding-left:0;order:2}.post-button{order:3}
+  .hero{grid-template-columns:1fr;gap:44px;margin-bottom:58px}.phone-wrap{width:min(100%,354px)}
+  .special-grid{grid-template-columns:1fr}.hero-copy p{font-size:23px}.search-card{padding:24px}.filters{margin-left:0}
+}
+@media (max-width:560px){
+  .page{width:min(100% - 20px,430px)}
+  h1{font-size:54px}.hero-copy p{font-size:20px}.search-row{border-radius:24px;flex-direction:column;background:transparent}.search-row input{background:white;border-radius:999px}.search-row button{width:100%}
+  .filter{font-size:16px}.phone{min-height:auto;padding:26px 16px;border-width:10px}.phone-wrap{border-radius:42px;padding:10px}.special-card h3{font-size:31px}.special-card p{font-size:19px}.restaurant{font-size:19px}.card-footer{flex-wrap:wrap}.card-actions{width:100%;margin-left:0}.food-art{min-height:210px}.plate{transform:scale(.82)}
 }
 </style>
 </head>
 <body>
+  <main class="page">
+    <nav class="topbar" aria-label="Primary navigation">
+      <span class="location-pill">Skagit</span>
+      <span class="brand-line">Today’s local specials</span>
+      <a class="post-button" href="#post">Post a special</a>
+    </nav>
 
-<!-- NAV -->
-<nav id="nav">
-  <a href="#" class="nav-logo">
-    <div class="nav-logo-dot">
-      <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.5" fill="white"/></svg>
-    </div>
-    <span class="nav-logo-name">Appertivo</span>
-  </a>
-  <div class="nav-links">
-    <a href="#how">How it works</a>
-    <a href="#restaurants">For restaurants</a>
-    <a href="#signup">Early access</a>
-  </div>
-  <a href="#signup" class="nav-cta">Join waitlist <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="display:inline-block;vertical-align:middle"><path d="M2.5 7h9m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-</nav>
-
-<!-- HERO -->
-<section class="hero" id="hero">
-  <!-- ambient glows -->
-  <div class="hero-glow" style="width:500px;height:500px;background:rgba(232,72,48,.12);top:-100px;right:-150px"></div>
-  <div class="hero-glow" style="width:320px;height:320px;background:rgba(61,175,130,.08);bottom:0;left:-80px"></div>
-
-  <div style="max-width:760px;position:relative;z-index:1" id="hero-content">
-    <p class="hero-eyebrow" id="h-eye">Local food discovery</p>
-    <h1 class="hero-title" id="h-title">
-      What's <em>good</em><br>today?
-    </h1>
-    <p class="hero-sub" id="h-sub">Appertivo is the live local feed of restaurant specials. Restaurants send what they're serving. Locals see it all in one place, right now.</p>
-    <div class="hero-actions" id="h-actions">
-      <a href="#signup" class="btn-primary">Get early access <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7h9m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-      <a href="#how" class="btn-ghost">See how it works</a>
-    </div>
-    <p class="hero-social" id="h-social"><strong id="waitlist-count">2,400+</strong> locals already on the waitlist</p>
-  </div>
-
-  <!-- ticker -->
-  <div class="ticker" id="ticker">
-    <div class="ticker-track">
-      <span class="ticker-item">Prime rib tonight<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Lobster bisque · lunch only<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Halibut tacos $18 · 4pm<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Happy hour craft drafts $4<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Farm table brunch · sat &amp; sun<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Wood-fired margherita $14<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">French onion soup today<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Taco Tuesday · $3 each<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Prime rib tonight<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Lobster bisque · lunch only<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Halibut tacos $18 · 4pm<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Happy hour craft drafts $4<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Farm table brunch · sat &amp; sun<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Wood-fired margherita $14<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">French onion soup today<span class="ticker-sep">✦</span></span>
-      <span class="ticker-item">Taco Tuesday · $3 each<span class="ticker-sep">✦</span></span>
-    </div>
-  </div>
-</section>
-
-<!-- FEED SECTION -->
-<section class="section" id="feed">
-  <div class="feed-intro">
-    <p class="section-eyebrow">The feed</p>
-    <h2 class="section-title" style="text-align:center">Tonight's specials,<br><em>live right now.</em></h2>
-    <p style="font-size:16px;color:var(--text2);line-height:1.65;margin-top:16px">One scroll. Every restaurant special in your city. Browse, follow, get alerted.</p>
-  </div>
-
-  <div class="feed-grid" id="feed-grid">
-
-    <!-- Card 1 — featured large tomato -->
-    <div class="sc sc-1 sc-tomato" id="sc1">
-      <div>
-        <p class="sc-time">Dinner · Tonight · 5pm–close</p>
-        <h3 class="sc-name sc-name-lg">Wood-fired<br>Pacific Salmon</h3>
-        <p class="sc-desc">Lemon-herb crust, roasted fingerlings, dill crème fraîche. Sourced this morning.</p>
-      </div>
-      <div class="sc-footer">
-        <div>
-          <span class="sc-tag">🐟 Seafood</span>
-          <p class="sc-restaurant">Harbor Grill</p>
-        </div>
-        <div style="text-align:right">
-          <div class="sc-price">$28</div>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <h1 id="page-title">Find what’s worth eating today.</h1>
+        <p>A live local feed of restaurant specials, limited menus, happy hours, and fresh drops.</p>
+        <form class="search-card" onsubmit="event.preventDefault()">
+          <label for="food-search">Search today’s food</label>
+          <div class="search-row">
+            <input id="food-search" type="search" placeholder="prime rib, tacos, happy hour...">
+            <button type="submit">Near me</button>
+          </div>
+        </form>
+        <div class="filters">
+          <a class="filter red" href="#specials">Live now</a>
+          <a class="filter yellow" href="#specials">Under $15</a>
+          <a class="filter green" href="#specials">Dinner</a>
+          <a class="filter purple" href="#specials">Seafood</a>
         </div>
       </div>
-      <div class="live-badge"><span class="live-dot"></span>Live now</div>
-      <div class="sc-num">1</div>
-    </div>
 
-    <!-- Card 2 — amber soft -->
-    <div class="sc sc-2 sc-amber-soft" id="sc2">
-      <div>
-        <p class="sc-time">Happy hour · 3–6pm</p>
-        <h3 class="sc-name">Craft Draft Special</h3>
-        <p class="sc-desc">All 14 local taps half off. Rotating IPAs, stouts, lagers from WA breweries.</p>
-      </div>
-      <div class="sc-footer">
-        <span class="sc-tag" style="border-color:rgba(240,168,48,.2);color:var(--amber2)">🍺 Drinks</span>
-        <div style="text-align:right">
-          <div class="sc-price sc-price-sm">$4</div>
-          <div class="sc-price-sub">per pint</div>
+      <aside class="phone-wrap" aria-label="Mobile preview of specials feed">
+        <div class="phone">
+          <h2>What’s good?</h2>
+          <div class="phone-search">Search near Mount Vernon</div>
+          <div class="featured-mini">
+            <span>Live now</span>
+            <strong>Halibut tacos</strong>
+            <p>$18 · Riverwalk Cantina</p>
+          </div>
+          <div class="mini-special">
+            <div class="mini-dot red"></div>
+            <div><strong>Prime rib dinner</strong><span>Cascade Grill</span><b>$24</b></div>
+          </div>
+          <div class="mini-special">
+            <div class="mini-dot green"></div>
+            <div><strong>Oyster happy hour</strong><span>Bowline</span><b>$2 ea</b></div>
+          </div>
+          <div class="mini-special">
+            <div class="mini-dot yellow"></div>
+            <div><strong>Smashburger night</strong><span>Train Wreck</span><b>$14</b></div>
+          </div>
         </div>
-      </div>
-      <div class="sc-num">2</div>
-    </div>
+      </aside>
+    </section>
 
-    <!-- Card 3 — herb soft -->
-    <div class="sc sc-3 sc-herb-soft" id="sc3">
-      <div>
-        <p class="sc-time">Lunch · Today only</p>
-        <h3 class="sc-name">Halibut Tacos</h3>
-        <p class="sc-desc">Fresh Pacific halibut, mango slaw, chipotle aioli. Three per order. Starts 4pm.</p>
+    <section id="specials" aria-labelledby="specials-title">
+      <div class="section-heading">
+        <h2 id="specials-title">Live specials</h2>
+        <p>Fresh posts, auto-expired. Built for quick decisions.</p>
       </div>
-      <div class="sc-footer">
-        <span class="sc-tag" style="border-color:rgba(61,175,130,.2);color:var(--herb2)">🌮 Tacos</span>
-        <div style="text-align:right">
-          <div class="sc-price sc-price-sm">$18</div>
-          <div class="sc-price-sub">La Cantina</div>
-        </div>
+
+      <div class="special-grid">
+        <article class="special-card">
+          <div class="food-art red-bg" aria-hidden="true">
+            <span class="status-badge">LIVE</span>
+            <div class="plate"><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span></div>
+          </div>
+          <div class="restaurant">Cascade Grill · Sedro-Woolley</div>
+          <h3>Prime Rib Friday</h3>
+          <p>Slow-roasted prime rib, potato, seasonal vegetables. Limited plates.</p>
+          <div class="card-footer">
+            <span class="price-pill">$24</span>
+            <span class="tag-pill">Dinner · 5pm</span>
+            <div class="card-actions"><a href="#save">Save</a><a href="#share">Share</a></div>
+          </div>
+        </article>
+
+        <article class="special-card">
+          <div class="food-art green-bg" aria-hidden="true">
+            <span class="status-badge">NEW</span>
+            <div class="plate green"><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span><span class="garnish"></span></div>
+          </div>
+          <div class="restaurant">Riverwalk Cantina · Mount Vernon</div>
+          <h3>Halibut Tacos</h3>
+          <p>Crispy halibut, lime crema, fresh slaw, house salsa.</p>
+          <div class="card-footer">
+            <span class="price-pill">$18</span>
+            <span class="tag-pill">Seafood · Today</span>
+            <div class="card-actions"><a href="#save">Save</a><a href="#share">Share</a></div>
+          </div>
+        </article>
       </div>
-      <div class="sc-num">3</div>
-    </div>
-
-    <!-- Card 4 — dark surface -->
-    <div class="sc sc-4" id="sc4">
-      <div>
-        <p class="sc-time">Dinner · Friday only</p>
-        <h3 class="sc-name">Prime Rib Night</h3>
-        <p class="sc-desc">16oz prime rib, au jus, creamed horseradish, twice-baked potato. Legendary every Friday.</p>
-      </div>
-      <div class="sc-footer">
-        <span class="sc-tag">🥩 Steakhouse</span>
-        <div style="text-align:right">
-          <div class="sc-price sc-price-sm" style="color:var(--amber2)">$42</div>
-          <div class="sc-price-sub">The Chop House</div>
-        </div>
-      </div>
-      <div class="sc-num">4</div>
-    </div>
-
-    <!-- Card 5 — large mid -->
-    <div class="sc sc-5" id="sc5" style="background:linear-gradient(135deg,#1A1220,#150F1A)">
-      <div>
-        <p class="sc-time">Weekend · Sat &amp; Sun · 9am–2pm</p>
-        <h3 class="sc-name sc-name-lg">Farm Table<br>Brunch</h3>
-        <p class="sc-desc">Two eggs your way, house-cured bacon, Breadfarm sourdough, local honey butter. The full spread, every weekend.</p>
-      </div>
-      <div class="sc-footer">
-        <div>
-          <span class="sc-tag" style="border-color:rgba(155,111,216,.25);color:var(--plum)">🥚 Brunch</span>
-          <p class="sc-restaurant" style="margin-top:6px">Provisions · Historic District</p>
-        </div>
-        <div style="text-align:right">
-          <div class="sc-price sc-price-sm" style="color:var(--plum)">$16</div>
-        </div>
-      </div>
-      <div class="sc-num">5</div>
-    </div>
-
-    <!-- Card 6 -->
-    <div class="sc sc-6" id="sc6">
-      <div>
-        <p class="sc-time">Lunch · Daily</p>
-        <h3 class="sc-name">French Onion Soup</h3>
-        <p class="sc-desc">Slow-cooked 8 hours. Gruyère broiled to order. Cup or bowl.</p>
-      </div>
-      <div class="sc-footer">
-        <span class="sc-tag">🍲 Soup</span>
-        <div style="text-align:right">
-          <div class="sc-price sc-price-sm">$9</div>
-          <div class="sc-price-sub">Bistro Marché</div>
-        </div>
-      </div>
-      <div class="sc-num">6</div>
-    </div>
-
-  </div>
-</section>
-
-<!-- HOW IT WORKS -->
-<section class="section" id="how" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
-  <div class="section-max">
-    <div style="text-align:center;margin-bottom:56px">
-      <p class="section-eyebrow">The magic</p>
-      <h2 class="section-title">Absurdly simple<br><em>for everyone.</em></h2>
-    </div>
-    <div class="how-grid">
-      <div class="how-card">
-        <div class="how-card-num">01</div>
-        <h3>Restaurants text or email their special</h3>
-        <p>No app. No dashboard. Send <em>"Halibut tacos tonight $18 starts at 4"</em> to a number. Done.</p>
-        <div class="sms-bubble">
-          <div class="sms-label">Text to Appertivo</div>
-          <div class="sms-msg">"Halibut tacos tonight $18 starts at 4"</div>
-          <div class="sms-reply">✓ Published to feed in &lt;60s</div>
-        </div>
-        <div class="how-card-accent" style="background:var(--tomato);opacity:.08"></div>
-      </div>
-      <div class="how-card">
-        <div class="how-card-num">02</div>
-        <h3>AI turns it into a polished post</h3>
-        <p>We extract price, category, time window, and write a clean description. Auto-expires at close. No manual work.</p>
-        <div class="how-card-accent" style="background:var(--amber);opacity:.08"></div>
-      </div>
-      <div class="how-card">
-        <div class="how-card-num">03</div>
-        <h3>Followers get alerted instantly</h3>
-        <p>Customers who follow a restaurant or food category receive a notification the moment a special goes live.</p>
-        <div class="how-card-accent" style="background:var(--herb);opacity:.08"></div>
-      </div>
-      <div class="how-card">
-        <div class="how-card-num">04</div>
-        <h3>Locals check the feed before they eat</h3>
-        <p>One place to see every special in the city right now. Browse by category, price, or neighborhood. The feed becomes the daily habit.</p>
-        <div class="how-card-accent" style="background:var(--plum);opacity:.08"></div>
-      </div>
-    </div>
-    <!-- Not block -->
-    <div style="text-align:center;margin-top:56px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
-      <span style="font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase">Not Yelp</span>
-      <span style="color:var(--border2)">·</span>
-      <span style="font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase">Not DoorDash</span>
-      <span style="color:var(--border2)">·</span>
-      <span style="font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase">Not Instagram</span>
-      <span style="color:var(--border2)">·</span>
-      <span style="font-size:13px;font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--tomato2)">Just: what's good today.</span>
-    </div>
-  </div>
-</section>
-
-<!-- RESTAURANT PRICING -->
-<section class="section" id="restaurants">
-  <div class="section-max">
-    <div style="text-align:center;margin-bottom:56px">
-      <p class="section-eyebrow">For restaurant owners</p>
-      <h2 class="section-title">Your special deserves<br><em>to be seen.</em></h2>
-      <p style="font-size:16px;color:var(--text2);max-width:480px;margin:16px auto 0;line-height:1.65">You already create the specials. Appertivo makes sure locals see them at the right moment.</p>
-    </div>
-    <div class="pricing-grid">
-      <div class="price-card">
-        <div class="price-amount">$29</div>
-        <div class="price-per">/month</div>
-        <div class="price-name">Starter</div>
-        <div class="price-desc">Claim your page, post directly to the feed, reach local browsers.</div>
-        <div class="price-feature"><span class="price-check">✓</span> Claimed restaurant page</div>
-        <div class="price-feature"><span class="price-check">✓</span> Direct posting</div>
-        <div class="price-feature"><span class="price-check">✓</span> Local feed inclusion</div>
-      </div>
-      <div class="price-card price-card-featured">
-        <div class="price-amount">$69</div>
-        <div class="price-per" style="color:rgba(255,255,255,.5)">/month · Most popular</div>
-        <div class="price-name" style="color:#fff">Growth</div>
-        <div class="price-desc">Featured placement + follower alerts + basic analytics.</div>
-        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Everything in Starter</div>
-        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Featured placement</div>
-        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Follower push alerts</div>
-        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Weekly analytics</div>
-      </div>
-      <div class="price-card">
-        <div class="price-amount">$99</div>
-        <div class="price-per">/month</div>
-        <div class="price-name">Pro</div>
-        <div class="price-desc">Priority placement, custom tags, full analytics, SMS intake.</div>
-        <div class="price-feature"><span class="price-check">✓</span> Everything in Growth</div>
-        <div class="price-feature"><span class="price-check">✓</span> Priority placement</div>
-        <div class="price-feature"><span class="price-check">✓</span> Custom food tags</div>
-        <div class="price-feature"><span class="price-check">✓</span> Full analytics</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- SIGNUP -->
-<section class="section" id="signup" style="border-top:1px solid var(--border)">
-  <div class="signup-wrap">
-    <p class="section-eyebrow" style="text-align:center">Early access</p>
-    <h2 class="section-title" style="text-align:center">Be first in<br><em>your city.</em></h2>
-    <p style="font-size:16px;color:var(--text2);margin-top:16px;line-height:1.65">We're launching market by market. Join the waitlist and we'll let you know the moment Appertivo goes live near you.</p>
-    <form class="signup-form" id="signup-form" onsubmit="handleSignup(event)">
-      <input type="email" class="signup-input" placeholder="your@email.com" required id="email-input">
-      <button type="submit" class="btn-primary" id="signup-btn" style="white-space:nowrap">Join waitlist <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:middle"><path d="M2.5 7h9m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    </form>
-    <div class="signup-success" id="signup-success">🎉 You're on the list — we'll email you at launch.</div>
-    <p class="signup-note">No spam. No marketing. Just a launch notification. Restaurants: claim your page free at launch.</p>
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer>
-  <a href="#" class="nav-logo" style="text-decoration:none">
-    <div class="nav-logo-dot"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.5" fill="white"/></svg></div>
-    <span class="nav-logo-name">Appertivo</span>
-  </a>
-  <p>The live layer for local food.</p>
-  <div class="footer-links">
-    <a href="#">Privacy</a>
-    <a href="#">Contact</a>
-  </div>
-</footer>
-
-<script>
-// ── hero entrance ──────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  anime.timeline({ easing: 'easeOutExpo' })
-    .add({ targets: '#h-eye',     opacity:[0,1], translateY:[10,0], duration:500 })
-    .add({ targets: '#h-title',   opacity:[0,1], translateY:[30,0], duration:700 }, '-=200')
-    .add({ targets: '#h-sub',     opacity:[0,1], translateY:[16,0], duration:500 }, '-=300')
-    .add({ targets: '#h-actions', opacity:[0,1], translateY:[12,0], duration:500 }, '-=200')
-    .add({ targets: '#h-social',  opacity:[0,1], duration:400 }, '-=100')
-    .add({ targets: '#ticker',    opacity:[0,1], duration:300 }, '-=100');
-
-  // count-up
-  const el = document.getElementById('waitlist-count');
-  let n = 0; const target = 2400; const step = 40;
-  const t = setInterval(() => {
-    n = Math.min(n + step, target);
-    el.textContent = n.toLocaleString() + '+';
-    if (n >= target) clearInterval(t);
-  }, 16);
-
-  // feed cards stagger on scroll
-  const io = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) {
-      anime({
-        targets: '#feed-grid .sc',
-        opacity: [0, 1],
-        translateY: [24, 0],
-        scale: [0.97, 1],
-        delay: anime.stagger(70, { from: 'first' }),
-        duration: 550,
-        easing: 'easeOutBack(1.2)',
-      });
-      io.disconnect();
-    }
-  }, { threshold: 0.1 });
-  const fg = document.getElementById('feed-grid');
-  if (fg) io.observe(fg);
-
-  // how-cards stagger
-  const io2 = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) {
-      anime({ targets: '.how-card', opacity:[0,1], translateY:[20,0], delay: anime.stagger(80), duration:500, easing:'easeOutExpo' });
-      io2.disconnect();
-    }
-  }, { threshold: 0.15 });
-  const hw = document.querySelector('.how-grid');
-  if (hw) io2.observe(hw);
-
-  // 3d tilt on feed cards
-  document.querySelectorAll('.sc').forEach(card => {
-    card.addEventListener('mousemove', e => {
-      const r = card.getBoundingClientRect();
-      const x = ((e.clientX - r.left) / r.width - 0.5) * 10;
-      const y = ((e.clientY - r.top) / r.height - 0.5) * -8;
-      card.style.transform = `translateY(-5px) rotateX(${y}deg) rotateY(${x}deg)`;
-      card.style.transition = 'transform .1s';
-    });
-    card.addEventListener('mouseleave', () => {
-      card.style.transition = 'transform .4s cubic-bezier(.34,1.56,.64,1)';
-      card.style.transform = '';
-    });
-  });
-
-  // nav scroll highlight
-  const sections = document.querySelectorAll('section[id], div[id]');
-  const navAs = document.querySelectorAll('.nav-links a');
-  window.addEventListener('scroll', () => {
-    let cur = '';
-    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) cur = s.id; });
-    navAs.forEach(a => { a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--text)' : ''; });
-  }, { passive: true });
-});
-
-// ── signup ──────────────────────────────────────
-function handleSignup(e) {
-  e.preventDefault();
-  const btn = document.getElementById('signup-btn');
-  btn.innerHTML = '✓ Done!';
-  btn.style.background = 'var(--herb)';
-  anime({ targets: btn, scale:[1,1.08,1], duration:380, easing:'easeOutBack' });
-  setTimeout(() => {
-    document.getElementById('signup-form').style.display = 'none';
-    const s = document.getElementById('signup-success');
-    s.style.display = 'block';
-    anime({ targets: s, opacity:[0,1], translateY:[8,0], duration:400, easing:'easeOutExpo' });
-  }, 500);
-}
-</script>
+      <div class="bottom-bar" aria-hidden="true"></div>
+    </section>
+  </main>
 </body>
 </html>
