@@ -1,0 +1,627 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Appertivo — What's Good Today?</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          syne: ['Syne', 'sans-serif'],
+          serif: ['Instrument Serif', 'serif'],
+          mono: ['Space Mono', 'monospace'],
+        },
+        colors: {
+          tomato:   { DEFAULT: '#E8472A', light: '#FDF0ED', dark: '#9B2E17' },
+          yolk:     { DEFAULT: '#F5C842', light: '#FFFBEA', dark: '#9B7B0A' },
+          herb:     { DEFAULT: '#3AB08F', light: '#E6F7F3', dark: '#1D6B56' },
+          plum:     { DEFAULT: '#7B3FA0', light: '#F3EAFA', dark: '#4A2060' },
+          cream:    { DEFAULT: '#FAF7F2' },
+          ink:      { DEFAULT: '#1A1612' },
+          muted:    { DEFAULT: '#6B655D' },
+        },
+        animation: {
+          float: 'float 6s ease-in-out infinite',
+          spin_slow: 'spin 20s linear infinite',
+          marquee: 'marquee 22s linear infinite',
+        },
+        keyframes: {
+          float: {
+            '0%, 100%': { transform: 'translateY(0px) rotate(-2deg)' },
+            '50%':       { transform: 'translateY(-18px) rotate(2deg)' },
+          },
+          marquee: {
+            '0%':   { transform: 'translateX(0)' },
+            '100%': { transform: 'translateX(-50%)' },
+          },
+        },
+      }
+    }
+  }
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: #FAF7F2; color: #1A1612; font-family: 'Syne', sans-serif; overflow-x: hidden; }
+
+  ::selection { background: #F5C842; color: #1A1612; }
+
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: .028;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 220px;
+  }
+
+  .hero-word { display: inline-block; overflow: hidden; }
+  .hero-word span { display: block; }
+
+  .wiggle-hover { transition: transform .2s; cursor: default; }
+  .wiggle-hover:hover { transform: rotate(-3deg) scale(1.06); }
+
+  .tag-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    letter-spacing: .03em; text-transform: uppercase; white-space: nowrap;
+  }
+
+  .special-card {
+    border-radius: 20px; padding: 22px 24px;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;
+    cursor: pointer; position: relative; overflow: hidden;
+  }
+  .special-card:hover { transform: translateY(-6px) rotate(.8deg); box-shadow: 0 24px 60px rgba(26,22,18,.13); }
+
+  .step-number {
+    font-family: 'Instrument Serif', serif; font-style: italic;
+    font-size: 80px; line-height: 1; color: #E8472A; opacity: .18;
+    position: absolute; top: 12px; right: 20px; pointer-events: none;
+  }
+
+  .ticker-wrap { overflow: hidden; white-space: nowrap; position: relative; }
+  .ticker-inner { display: inline-flex; gap: 0; }
+  .ticker-item { padding: 0 28px; font-size: 15px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #FAF7F2; }
+  .ticker-dot { color: #F5C842; }
+
+  .blob {
+    border-radius: 60% 40% 70% 30% / 50% 60% 40% 70%;
+    position: absolute; opacity: .55;
+    animation: morph 12s ease-in-out infinite alternate;
+  }
+  @keyframes morph {
+    0%  { border-radius: 60% 40% 70% 30% / 50% 60% 40% 70%; }
+    33% { border-radius: 40% 60% 30% 70% / 70% 30% 60% 40%; }
+    66% { border-radius: 70% 30% 50% 50% / 30% 70% 50% 50%; }
+    100%{ border-radius: 50% 50% 60% 40% / 60% 40% 50% 50%; }
+  }
+
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #E8472A; color: #FAF7F2;
+    padding: 16px 36px; border-radius: 999px;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: .02em;
+    border: none; cursor: pointer;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .2s, box-shadow .2s;
+    text-decoration: none;
+  }
+  .cta-btn:hover { transform: scale(1.06) rotate(-1deg); background: #C73A1E; box-shadow: 0 12px 36px rgba(232,71,42,.38); }
+  .cta-btn-ghost {
+    background: transparent; color: #1A1612; border: 2px solid #1A1612;
+  }
+  .cta-btn-ghost:hover { background: #1A1612; color: #FAF7F2; box-shadow: 0 12px 36px rgba(26,22,18,.18); }
+
+  .email-input {
+    flex: 1; padding: 16px 22px; border-radius: 999px;
+    border: 2px solid #D4CECC; background: #fff;
+    font-family: 'Syne', sans-serif; font-size: 15px; color: #1A1612; outline: none;
+    transition: border-color .2s;
+  }
+  .email-input:focus { border-color: #E8472A; }
+  .email-input::placeholder { color: #9B958E; }
+
+  .floating-card {
+    border-radius: 16px; padding: 16px 20px;
+    box-shadow: 0 8px 40px rgba(26,22,18,.10);
+    background: #fff; position: absolute;
+    animation: float_card 7s ease-in-out infinite;
+  }
+  @keyframes float_card {
+    0%,100% { transform: translateY(0) rotate(-2deg); }
+    50%      { transform: translateY(-12px) rotate(1deg); }
+  }
+
+  .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: #E8472A; display: inline-block; }
+
+  .section-label {
+    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: #9B958E;
+  }
+
+  @media(max-width: 768px) {
+    .floating-card { display: none; }
+    .hero-giant { font-size: 52px !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+
+<!-- NAV -->
+<nav class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-5" style="background: rgba(250,247,242,.88); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(26,22,18,.06);">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:#E8472A;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" fill="#FAF7F2"/><circle cx="8" cy="8" r="2" fill="#E8472A"/></svg>
+    </div>
+    <span class="font-syne font-bold text-lg tracking-tight" style="color:#1A1612;">Appertivo</span>
+    <span class="nav-dot ml-1"></span>
+  </div>
+  <div class="hidden md:flex items-center gap-8 text-sm font-semibold" style="color:#6B655D;">
+    <a href="#how" class="hover:text-tomato transition-colors">How it works</a>
+    <a href="#specials" class="hover:text-tomato transition-colors">For restaurants</a>
+    <a href="#signup" class="hover:text-tomato transition-colors">Get early access</a>
+  </div>
+  <a href="#signup" class="cta-btn" style="padding:10px 24px; font-size:14px;">Join waitlist →</a>
+</nav>
+
+<!-- HERO -->
+<section class="relative min-h-screen flex flex-col justify-center pt-24 pb-0 overflow-hidden">
+
+  <!-- background shapes -->
+  <div class="blob" style="width:480px;height:480px;background:#F5C842;top:-60px;right:-120px;animation-delay:-3s;"></div>
+  <div class="blob" style="width:300px;height:300px;background:#E8472A;opacity:.12;bottom:80px;left:-80px;animation-delay:-6s;"></div>
+  <div class="blob" style="width:200px;height:200px;background:#3AB08F;opacity:.18;top:40%;right:8%;animation-delay:-9s;"></div>
+
+  <!-- Floating notification cards -->
+  <div class="floating-card" style="right:5%;top:28%;width:220px;animation-delay:-2s;">
+    <div class="section-label mb-1">New special 🍝</div>
+    <div class="font-syne font-bold text-sm" style="color:#1A1612;">Spaghetti alle vongole</div>
+    <div class="flex items-center justify-between mt-2">
+      <span class="tag-pill" style="background:#E6F7F3;color:#1D6B56;font-size:11px;">Dinner · Tonight</span>
+      <span class="font-mono font-bold text-sm" style="color:#E8472A;">$22</span>
+    </div>
+  </div>
+  <div class="floating-card" style="right:12%;top:60%;width:200px;animation-delay:-5s;">
+    <div class="flex items-center gap-2 mb-2">
+      <div class="w-6 h-6 rounded-full" style="background:#F5C842;"></div>
+      <span class="font-semibold text-xs" style="color:#6B655D;">La Cantina</span>
+    </div>
+    <div class="font-bold text-sm" style="color:#1A1612;">Halibut tacos tonight $18<br><span style="color:#3AB08F;">starts at 4pm</span></div>
+  </div>
+  <div class="floating-card" style="left:2%;top:35%;width:190px;animation-delay:-8s;">
+    <div class="section-label mb-2">Following</div>
+    <div class="font-bold text-sm mb-1" style="color:#1A1612;">🍺 Happy hour deal</div>
+    <div class="text-xs" style="color:#6B655D;">Craft drafts $4 · 3–6pm<br>Harbor Pub</div>
+  </div>
+
+  <div class="relative z-10 max-w-5xl mx-auto px-8 text-center">
+    <div class="section-label mb-6" id="hero-label">— Local food discovery, reinvented</div>
+
+    <h1 class="font-syne leading-none tracking-tight mb-6 hero-giant" style="font-size:clamp(52px,9vw,108px);" id="hero-title">
+      <div class="hero-word"><span id="w1">What's</span></div>
+      <div class="hero-word" style="color:#E8472A;font-style:italic;font-family:'Instrument Serif',serif;">
+        <span id="w2">good</span>
+      </div>
+      <div class="hero-word"><span id="w3">today?</span></div>
+    </h1>
+
+    <p class="font-syne text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed" style="color:#6B655D;" id="hero-sub">
+      Appertivo is the live local feed of restaurant specials. Restaurants text or email what they're serving. You see it all in one place, right now.
+    </p>
+
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6" id="hero-cta">
+      <a href="#signup" class="cta-btn">
+        Get early access
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="#how" class="cta-btn cta-btn-ghost">See how it works</a>
+    </div>
+
+    <p class="text-sm" style="color:#9B958E;" id="hero-social">
+      Join <strong style="color:#1A1612;">2,400+</strong> locals already on the waitlist
+    </p>
+  </div>
+
+  <!-- Ticker tape -->
+  <div class="w-full mt-16 py-4 overflow-hidden" style="background:#1A1612;" id="ticker">
+    <div class="ticker-wrap">
+      <div class="ticker-inner animate-marquee" id="ticker-inner">
+        <!-- repeated twice for seamless loop -->
+        <span class="ticker-item">Prime rib special tonight <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Lobster bisque · Lunch only <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Taco Tuesday $3 tacos <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Happy hour 3–6 craft beer $4 <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Farm-fresh brunch sunday only <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Wood-fired margherita $14 <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Halibut tacos tonight $18 <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Soup of the day: French onion <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Prime rib special tonight <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Lobster bisque · Lunch only <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Taco Tuesday $3 tacos <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Happy hour 3–6 craft beer $4 <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Farm-fresh brunch sunday only <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Wood-fired margherita $14 <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Halibut tacos tonight $18 <span class="ticker-dot">★</span></span>
+        <span class="ticker-item">Soup of the day: French onion <span class="ticker-dot">★</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SPECIALS FEED PREVIEW -->
+<section class="py-24 px-8 max-w-6xl mx-auto" id="specials">
+  <div class="text-center mb-16">
+    <div class="section-label mb-3">The feed</div>
+    <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight mb-4">Today's local specials,<br><em class="font-serif" style="color:#E8472A;">all in one place.</em></h2>
+    <p class="text-lg max-w-xl mx-auto" style="color:#6B655D;">One scroll. Real restaurants. Real food. Right now.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="cards-grid">
+
+    <div class="special-card" style="background:#E8472A;color:#FAF7F2;" data-tilt>
+      <div class="section-label mb-3" style="color:rgba(250,247,242,.6);">Dinner · Tonight</div>
+      <h3 class="font-syne font-bold text-xl mb-1">Wood-fired Salmon</h3>
+      <p class="text-sm mb-4" style="color:rgba(250,247,242,.8);">Lemon-herb crust, roasted fingerlings, dill crème</p>
+      <div class="flex items-end justify-between">
+        <div>
+          <span class="tag-pill" style="background:rgba(250,247,242,.2);color:#FAF7F2;">🐟 Seafood</span>
+        </div>
+        <div class="text-right">
+          <div class="font-mono font-bold text-2xl">$28</div>
+          <div class="text-xs" style="color:rgba(250,247,242,.6);">Harbor Grill · 5pm–close</div>
+        </div>
+      </div>
+      <div class="step-number">1</div>
+    </div>
+
+    <div class="special-card" style="background:#FFF9E6;border:2px solid #F5C842;">
+      <div class="section-label mb-3" style="color:#9B7B0A;">Happy Hour · 3–6pm</div>
+      <h3 class="font-syne font-bold text-xl mb-1" style="color:#1A1612;">Craft Draft Special</h3>
+      <p class="text-sm mb-4" style="color:#6B655D;">All local drafts on tap, half off. 14 rotating taps.</p>
+      <div class="flex items-end justify-between">
+        <span class="tag-pill" style="background:#F5C842;color:#633806;">🍺 Drinks</span>
+        <div class="text-right">
+          <div class="font-mono font-bold text-2xl" style="color:#E8472A;">$4</div>
+          <div class="text-xs" style="color:#9B958E;">The Taproom · Downtown</div>
+        </div>
+      </div>
+      <div class="step-number" style="color:#F5C842;">2</div>
+    </div>
+
+    <div class="special-card" style="background:#E6F7F3;border:2px solid #3AB08F;">
+      <div class="section-label mb-3" style="color:#1D6B56;">Lunch · Today only</div>
+      <h3 class="font-syne font-bold text-xl mb-1" style="color:#1A1612;">Halibut Tacos</h3>
+      <p class="text-sm mb-4" style="color:#6B655D;">Fresh Pacific halibut, mango slaw, chipotle aioli. Three per order.</p>
+      <div class="flex items-end justify-between">
+        <span class="tag-pill" style="background:#3AB08F;color:#FAF7F2;">🌮 Tacos</span>
+        <div class="text-right">
+          <div class="font-mono font-bold text-2xl" style="color:#1A1612;">$18</div>
+          <div class="text-xs" style="color:#9B958E;">La Cantina · Starts 4pm</div>
+        </div>
+      </div>
+      <div class="step-number" style="color:#3AB08F;">3</div>
+    </div>
+
+    <div class="special-card md:col-span-2" style="background:#F3EAFA;border:2px solid #7B3FA0;">
+      <div class="section-label mb-3" style="color:#4A2060;">Weekend Brunch · Sat & Sun 9–2</div>
+      <h3 class="font-syne font-bold text-2xl mb-2" style="color:#1A1612;">Farm Table Brunch</h3>
+      <p class="text-sm mb-4" style="color:#6B655D;">Two eggs your way, house-cured bacon, sourdough from Breadfarm, local butter. The full spread.</p>
+      <div class="flex items-end justify-between">
+        <div class="flex gap-2 flex-wrap">
+          <span class="tag-pill" style="background:#7B3FA0;color:#FAF7F2;">🥚 Brunch</span>
+          <span class="tag-pill" style="background:#F3EAFA;color:#4A2060;border:1px solid #7B3FA0;">Local sourced</span>
+        </div>
+        <div class="text-right">
+          <div class="font-mono font-bold text-2xl" style="color:#7B3FA0;">$16</div>
+          <div class="text-xs" style="color:#9B958E;">Provisions · Historic District</div>
+        </div>
+      </div>
+      <div class="step-number" style="color:#7B3FA0;">4</div>
+    </div>
+
+    <div class="special-card" style="background:#1A1612;color:#FAF7F2;">
+      <div class="section-label mb-3" style="color:rgba(250,247,242,.4);">Dinner · Fri only</div>
+      <h3 class="font-syne font-bold text-xl mb-1">Prime Rib Night</h3>
+      <p class="text-sm mb-4" style="color:rgba(250,247,242,.7);">16oz prime rib, au jus, creamed horseradish, twice-baked potato.</p>
+      <div class="flex items-end justify-between">
+        <span class="tag-pill" style="background:rgba(255,255,255,.1);color:#FAF7F2;border:1px solid rgba(255,255,255,.2);">🥩 Steakhouse</span>
+        <div class="text-right">
+          <div class="font-mono font-bold text-2xl" style="color:#F5C842;">$42</div>
+          <div class="text-xs" style="color:rgba(250,247,242,.4);">The Chop House · 5pm</div>
+        </div>
+      </div>
+      <div class="step-number" style="color:rgba(245,200,66,.3);">5</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="py-24 overflow-hidden" id="how" style="background:#1A1612;">
+  <div class="max-w-5xl mx-auto px-8">
+    <div class="text-center mb-20">
+      <div class="section-label mb-3" style="color:rgba(250,247,242,.4);">The magic</div>
+      <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight" style="color:#FAF7F2;">
+        Absurdly simple<br><em class="font-serif" style="color:#F5C842;">for everyone.</em>
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-20">
+      <!-- Restaurant side -->
+      <div class="rounded-3xl p-8 relative overflow-hidden" style="background:#252118;">
+        <div class="section-label mb-6" style="color:#F5C842;">For restaurants</div>
+        <div class="space-y-6">
+          <div class="flex gap-5 items-start">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#E8472A;color:#FAF7F2;">1</div>
+            <div>
+              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Text or email your special</h4>
+              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">"Halibut tacos tonight $18 starts at 4." That's all. We handle the rest.</p>
+            </div>
+          </div>
+          <div class="flex gap-5 items-start">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#F5C842;color:#1A1612;">2</div>
+            <div>
+              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">AI builds the post</h4>
+              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">We extract price, tags, time window, and a clean description. Auto-expires at close.</p>
+            </div>
+          </div>
+          <div class="flex gap-5 items-start">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#3AB08F;color:#FAF7F2;">3</div>
+            <div>
+              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Reach local followers</h4>
+              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">Your followers get an alert. New customers discover you in the feed.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- SMS mockup -->
+        <div class="mt-8 rounded-2xl p-5" style="background:#1A1612;border:1px solid rgba(250,247,242,.08);">
+          <div class="section-label mb-3" style="color:rgba(250,247,242,.3);">Text message to Appertivo</div>
+          <div class="rounded-xl p-3 text-sm font-mono" style="background:#E8472A;color:#FAF7F2;display:inline-block;max-width:90%;">"Halibut tacos tonight $18 starts at 4"</div>
+          <div class="mt-3 text-xs" style="color:rgba(250,247,242,.3);">→ Published to feed in &lt;60 seconds ✓</div>
+        </div>
+      </div>
+
+      <!-- Customer side -->
+      <div class="rounded-3xl p-8 relative overflow-hidden" style="background:#252118;">
+        <div class="section-label mb-6" style="color:#3AB08F;">For customers</div>
+        <div class="space-y-6">
+          <div class="flex gap-5 items-start">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#3AB08F;color:#FAF7F2;">1</div>
+            <div>
+              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Open the feed</h4>
+              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">See every special live right now in your area. Browse by food type, price, or time.</p>
+            </div>
+          </div>
+          <div class="flex gap-5 items-start">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#E8472A;color:#FAF7F2;">2</div>
+            <div>
+              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Follow favorites</h4>
+              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">Follow restaurants and food categories. Get alerts when your kind of special goes live.</p>
+            </div>
+          </div>
+          <div class="flex gap-5 items-start">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#7B3FA0;color:#FAF7F2;">3</div>
+            <div>
+              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Decide where to eat</h4>
+              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">No more wondering. Save, share, or just go. The feed becomes your daily food habit.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alert mockup -->
+        <div class="mt-8 rounded-2xl p-5" style="background:#1A1612;border:1px solid rgba(250,247,242,.08);">
+          <div class="section-label mb-3" style="color:rgba(250,247,242,.3);">Alert from Appertivo</div>
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-full flex-shrink-0" style="background:#E8472A;"></div>
+            <div>
+              <div class="font-bold text-sm mb-1" style="color:#FAF7F2;">🌮 Taco special live now</div>
+              <div class="text-xs" style="color:rgba(250,247,242,.55);">La Cantina · Halibut tacos $18 · Tonight starting 4pm → Tap to see</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Why different -->
+    <div class="text-center">
+      <div class="inline-flex flex-wrap gap-3 justify-center">
+        <span class="tag-pill" style="background:rgba(250,247,242,.06);color:rgba(250,247,242,.5);border:1px solid rgba(250,247,242,.1);">Not Yelp</span>
+        <span class="tag-pill" style="background:rgba(250,247,242,.06);color:rgba(250,247,242,.5);border:1px solid rgba(250,247,242,.1);">Not DoorDash</span>
+        <span class="tag-pill" style="background:rgba(250,247,242,.06);color:rgba(250,247,242,.5);border:1px solid rgba(250,247,242,.1);">Not Instagram</span>
+        <span class="tag-pill" style="background:rgba(232,71,42,.2);color:#F5C842;border:1px solid rgba(232,71,42,.4);">Just: what's good today.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESTAURANT PITCH -->
+<section class="py-24 px-8" style="background:#F5C842;">
+  <div class="max-w-4xl mx-auto">
+    <div class="section-label mb-6" style="color:#9B7B0A;">For restaurant owners</div>
+    <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight mb-6" style="color:#1A1612;">
+      Your special deserves<br>to be <em class="font-serif">seen.</em>
+    </h2>
+    <p class="text-lg mb-10 max-w-xl leading-relaxed" style="color:#633806;">
+      You already create the specials. You post to Facebook, Instagram, Google, and your chalkboard. Half your customers never see it.
+      <strong>Appertivo is one place locals check before deciding where to eat.</strong>
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
+      <div class="rounded-2xl p-6" style="background:rgba(26,22,18,.06);">
+        <div class="font-mono font-bold text-3xl mb-2" style="color:#1A1612;">$29</div>
+        <div class="font-bold text-sm mb-1">Starter</div>
+        <div class="text-sm" style="color:#633806;">Claim your page. Post directly. Reach the feed.</div>
+      </div>
+      <div class="rounded-2xl p-6" style="background:#1A1612;">
+        <div class="font-mono font-bold text-3xl mb-2" style="color:#F5C842;">$69</div>
+        <div class="font-bold text-sm mb-1" style="color:#FAF7F2;">Growth</div>
+        <div class="text-sm" style="color:rgba(250,247,242,.6);">Featured placement + follower alerts + analytics.</div>
+      </div>
+      <div class="rounded-2xl p-6" style="background:rgba(26,22,18,.06);">
+        <div class="font-mono font-bold text-3xl mb-2" style="color:#1A1612;">$99</div>
+        <div class="font-bold text-sm mb-1">Pro</div>
+        <div class="text-sm" style="color:#633806;">All features + priority placement + custom tags.</div>
+      </div>
+    </div>
+    <a href="#signup" class="cta-btn" style="background:#1A1612;">
+      Claim your restaurant page free →
+    </a>
+  </div>
+</section>
+
+<!-- EARLY ACCESS SIGNUP -->
+<section class="py-24 px-8 relative overflow-hidden" id="signup">
+  <div class="blob" style="width:400px;height:400px;background:#E8472A;opacity:.07;top:-100px;left:-100px;"></div>
+  <div class="blob" style="width:300px;height:300px;background:#3AB08F;opacity:.07;bottom:-60px;right:-60px;animation-delay:-5s;"></div>
+
+  <div class="max-w-2xl mx-auto text-center relative z-10">
+    <div class="section-label mb-4">Early access</div>
+    <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight mb-4">
+      Be first in<br><em class="font-serif" style="color:#E8472A;">your city.</em>
+    </h2>
+    <p class="text-lg mb-10" style="color:#6B655D;">
+      We're launching market by market. Join the waitlist and we'll let you know the moment Appertivo goes live near you.
+    </p>
+
+    <form id="signup-form" class="flex flex-col sm:flex-row gap-3 justify-center mb-6" onsubmit="handleSignup(event)">
+      <input type="email" class="email-input" placeholder="your@email.com" id="email-field" required>
+      <button type="submit" class="cta-btn flex-shrink-0">
+        Join waitlist
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </form>
+
+    <div id="signup-success" class="hidden text-center py-4 px-6 rounded-2xl mb-4" style="background:#E6F7F3;border:2px solid #3AB08F;">
+      <div class="font-bold text-base mb-1" style="color:#1D6B56;">🎉 You're on the list!</div>
+      <div class="text-sm" style="color:#1D6B56;">We'll email you when Appertivo launches in your area.</div>
+    </div>
+
+    <p class="text-sm" style="color:#9B958E;">
+      No spam. No marketing emails. Just a launch notification.
+      <br>Restaurants: <a href="#signup" style="color:#E8472A;text-decoration:none;font-weight:600;">claim your page free</a> when we launch.
+    </p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="py-12 px-8 border-t" style="border-color:rgba(26,22,18,.08);">
+  <div class="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:#E8472A;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" fill="#FAF7F2"/><circle cx="8" cy="8" r="2" fill="#E8472A"/></svg>
+      </div>
+      <span class="font-syne font-bold tracking-tight" style="color:#1A1612;">Appertivo</span>
+    </div>
+    <p class="text-sm text-center" style="color:#9B958E;">
+      The live layer for local food. <span style="color:#E8472A;">What's good today?</span>
+    </p>
+    <div class="flex items-center gap-6 text-sm" style="color:#9B958E;">
+      <a href="#" style="color:inherit;text-decoration:none;" class="hover:text-tomato transition-colors">Privacy</a>
+      <a href="#" style="color:inherit;text-decoration:none;" class="hover:text-tomato transition-colors">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Hero entrance animation ──────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  anime.timeline({ easing: 'easeOutExpo' })
+    .add({ targets: '#hero-label', opacity: [0,1], translateY: [12,0], duration: 600 })
+    .add({ targets: '#w1', opacity: [0,1], translateY: [40,0], duration: 700 }, '-=300')
+    .add({ targets: '#w2', opacity: [0,1], translateY: [40,0], duration: 700 }, '-=500')
+    .add({ targets: '#w3', opacity: [0,1], translateY: [40,0], duration: 700 }, '-=500')
+    .add({ targets: '#hero-sub', opacity: [0,1], translateY: [16,0], duration: 600 }, '-=300')
+    .add({ targets: '#hero-cta', opacity: [0,1], translateY: [12,0], duration: 500 }, '-=200')
+    .add({ targets: '#hero-social', opacity: [0,1], duration: 400 }, '-=100')
+    .add({ targets: '#ticker', opacity: [0,1], duration: 400 }, '-=200');
+
+  // Stagger the special cards on scroll
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        anime({
+          targets: '#cards-grid .special-card',
+          opacity: [0, 1],
+          translateY: [30, 0],
+          scale: [0.96, 1],
+          delay: anime.stagger(90),
+          duration: 600,
+          easing: 'easeOutBack',
+        });
+        observer.disconnect();
+      }
+    });
+  }, { threshold: 0.2 });
+  const grid = document.getElementById('cards-grid');
+  if (grid) observer.observe(grid);
+
+  // Wiggle cards on mousemove (tilt)
+  document.querySelectorAll('.special-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = `translateY(-6px) rotateY(${x * 12}deg) rotateX(${-y * 10}deg)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+    });
+  });
+
+  // Count-up for waitlist number
+  const heroSocial = document.getElementById('hero-social');
+  const socObserver = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      let count = 0;
+      const target = 2400;
+      const step = Math.ceil(target / 60);
+      const timer = setInterval(() => {
+        count = Math.min(count + step, target);
+        heroSocial.innerHTML = `Join <strong style="color:#1A1612;">${count.toLocaleString()}+</strong> locals already on the waitlist`;
+        if (count >= target) clearInterval(timer);
+      }, 24);
+      socObserver.disconnect();
+    }
+  }, { threshold: 1 });
+  socObserver.observe(heroSocial);
+});
+
+// ── Signup form ──────────────────────────────────────────────────────
+function handleSignup(e) {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.textContent = '✓ Done!';
+  btn.style.background = '#3AB08F';
+
+  anime({ targets: btn, scale: [1, 1.1, 1], duration: 400, easing: 'easeOutBack' });
+
+  setTimeout(() => {
+    document.getElementById('signup-form').style.display = 'none';
+    const success = document.getElementById('signup-success');
+    success.classList.remove('hidden');
+    anime({ targets: success, opacity: [0,1], translateY: [10,0], duration: 500, easing: 'easeOutExpo' });
+  }, 500);
+}
+
+// ── Nav active state on scroll ───────────────────────────────────────
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('nav a[href^="#"]');
+window.addEventListener('scroll', () => {
+  let cur = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 120) cur = s.id;
+  });
+  navLinks.forEach(a => {
+    a.style.color = a.getAttribute('href') === `#${cur}` ? '#E8472A' : '';
+  });
+}, { passive: true });
+</script>
+</body>
+</html>
