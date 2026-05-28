@@ -8,620 +8,686 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: {
-          syne: ['Syne', 'sans-serif'],
-          serif: ['Instrument Serif', 'serif'],
-          mono: ['Space Mono', 'monospace'],
-        },
-        colors: {
-          tomato:   { DEFAULT: '#E8472A', light: '#FDF0ED', dark: '#9B2E17' },
-          yolk:     { DEFAULT: '#F5C842', light: '#FFFBEA', dark: '#9B7B0A' },
-          herb:     { DEFAULT: '#3AB08F', light: '#E6F7F3', dark: '#1D6B56' },
-          plum:     { DEFAULT: '#7B3FA0', light: '#F3EAFA', dark: '#4A2060' },
-          cream:    { DEFAULT: '#FAF7F2' },
-          ink:      { DEFAULT: '#1A1612' },
-          muted:    { DEFAULT: '#6B655D' },
-        },
-        animation: {
-          float: 'float 6s ease-in-out infinite',
-          spin_slow: 'spin 20s linear infinite',
-          marquee: 'marquee 22s linear infinite',
-        },
-        keyframes: {
-          float: {
-            '0%, 100%': { transform: 'translateY(0px) rotate(-2deg)' },
-            '50%':       { transform: 'translateY(-18px) rotate(2deg)' },
-          },
-          marquee: {
-            '0%':   { transform: 'translateX(0)' },
-            '100%': { transform: 'translateX(-50%)' },
-          },
-        },
-      }
-    }
-  }
-</script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;0,9..144,900;1,9..144,300;1,9..144,700;1,9..144,900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body { background: #FAF7F2; color: #1A1612; font-family: 'Syne', sans-serif; overflow-x: hidden; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
 
-  ::selection { background: #F5C842; color: #1A1612; }
+:root{
+  --bg:        #0E0C0A;
+  --surface:   #161310;
+  --surface2:  #1E1A15;
+  --surface3:  #28221B;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --text:      #F2EDE6;
+  --text2:     #8A8078;
+  --text3:     #5A544D;
+  --tomato:    #E84830;
+  --tomato2:   #FF6B52;
+  --amber:     #F0A830;
+  --amber2:    #FFD080;
+  --herb:      #3DAF82;
+  --herb2:     #6FDDAA;
+  --plum:      #9B6FD8;
+}
 
-  .grain {
-    position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: .028;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 220px;
-  }
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow-x:hidden;min-height:100vh}
 
-  .hero-word { display: inline-block; overflow: hidden; }
-  .hero-word span { display: block; }
+/* grain */
+body::before{content:'';position:fixed;inset:0;opacity:.035;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px}
 
-  .wiggle-hover { transition: transform .2s; cursor: default; }
-  .wiggle-hover:hover { transform: rotate(-3deg) scale(1.06); }
+::selection{background:var(--tomato);color:#fff}
 
-  .tag-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
-    letter-spacing: .03em; text-transform: uppercase; white-space: nowrap;
-  }
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;height:64px;
+  background:rgba(14,12,10,0.85);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.nav-logo-dot{width:28px;height:28px;border-radius:50%;background:var(--tomato);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nav-logo-dot svg{display:block}
+.nav-logo-name{font-family:'Fraunces',serif;font-weight:700;font-size:18px;color:var(--text);letter-spacing:-.02em}
+.nav-links{display:flex;align-items:center;gap:32px}
+.nav-links a{color:var(--text2);text-decoration:none;font-size:14px;font-weight:500;letter-spacing:.01em;transition:color .15s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{
+  background:var(--tomato);color:#fff;
+  padding:9px 22px;border-radius:100px;
+  font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;
+  text-decoration:none;border:none;cursor:pointer;
+  transition:background .15s, transform .15s;display:inline-flex;align-items:center;gap:6px
+}
+.nav-cta:hover{background:var(--tomato2);transform:translateY(-1px)}
 
-  .special-card {
-    border-radius: 20px; padding: 22px 24px;
-    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;
-    cursor: pointer; position: relative; overflow: hidden;
-  }
-  .special-card:hover { transform: translateY(-6px) rotate(.8deg); box-shadow: 0 24px 60px rgba(26,22,18,.13); }
+/* ── HERO ── */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  justify-content:center;padding:100px 40px 0;
+  position:relative;overflow:hidden;
+}
+.hero-glow{
+  position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none;
+}
+.hero-eyebrow{
+  font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--text3);margin-bottom:28px;
+}
+.hero-title{
+  font-family:'Fraunces',serif;font-weight:900;
+  font-size:clamp(56px,8.5vw,120px);line-height:.95;
+  letter-spacing:-.03em;margin-bottom:32px;
+}
+.hero-title em{font-style:italic;color:var(--tomato);font-weight:300}
+.hero-sub{
+  font-size:clamp(15px,1.4vw,18px);line-height:1.65;color:var(--text2);
+  max-width:520px;margin-bottom:44px;font-weight:400;
+}
+.hero-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:28px}
+.btn-primary{
+  background:var(--tomato);color:#fff;
+  padding:14px 30px;border-radius:100px;
+  font-family:'DM Sans',sans-serif;font-weight:600;font-size:15px;
+  text-decoration:none;border:none;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:background .15s, transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
+}
+.btn-primary:hover{background:var(--tomato2);transform:translateY(-2px);box-shadow:0 12px 32px rgba(232,72,48,.4)}
+.btn-ghost{
+  background:transparent;color:var(--text2);
+  padding:14px 28px;border-radius:100px;
+  font-family:'DM Sans',sans-serif;font-weight:500;font-size:15px;
+  text-decoration:none;border:1px solid var(--border2);cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.btn-ghost:hover{border-color:var(--text2);color:var(--text);background:var(--surface2)}
+.hero-social{font-size:13px;color:var(--text3)}
+.hero-social strong{color:var(--text2)}
 
-  .step-number {
-    font-family: 'Instrument Serif', serif; font-style: italic;
-    font-size: 80px; line-height: 1; color: #E8472A; opacity: .18;
-    position: absolute; top: 12px; right: 20px; pointer-events: none;
-  }
+/* ── TICKER ── */
+.ticker{
+  width:100%;padding:14px 0;background:var(--surface);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  overflow:hidden;margin-top:64px;
+}
+.ticker-track{display:flex;white-space:nowrap;width:max-content;animation:marquee 28s linear infinite}
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ticker-item{padding:0 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.ticker-sep{color:var(--tomato);padding:0 4px}
 
-  .ticker-wrap { overflow: hidden; white-space: nowrap; position: relative; }
-  .ticker-inner { display: inline-flex; gap: 0; }
-  .ticker-item { padding: 0 28px; font-size: 15px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #FAF7F2; }
-  .ticker-dot { color: #F5C842; }
+/* ── SECTION SHARED ── */
+.section{padding:100px 40px}
+.section-max{max-width:1120px;margin:0 auto}
+.section-eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin-bottom:16px}
+.section-title{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(38px,5vw,64px);line-height:1.0;letter-spacing:-.03em;margin-bottom:16px}
+.section-title em{font-style:italic;font-weight:300;color:var(--tomato)}
 
-  .blob {
-    border-radius: 60% 40% 70% 30% / 50% 60% 40% 70%;
-    position: absolute; opacity: .55;
-    animation: morph 12s ease-in-out infinite alternate;
-  }
-  @keyframes morph {
-    0%  { border-radius: 60% 40% 70% 30% / 50% 60% 40% 70%; }
-    33% { border-radius: 40% 60% 30% 70% / 70% 30% 60% 40%; }
-    66% { border-radius: 70% 30% 50% 50% / 30% 70% 50% 50%; }
-    100%{ border-radius: 50% 50% 60% 40% / 60% 40% 50% 50%; }
-  }
+/* ── FEED SECTION ── */
+.feed-intro{max-width:600px;margin:0 auto 64px;text-align:center}
+.feed-intro p{font-size:17px;color:var(--text2);line-height:1.65}
 
-  .cta-btn {
-    display: inline-flex; align-items: center; gap: 10px;
-    background: #E8472A; color: #FAF7F2;
-    padding: 16px 36px; border-radius: 999px;
-    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: .02em;
-    border: none; cursor: pointer;
-    transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .2s, box-shadow .2s;
-    text-decoration: none;
-  }
-  .cta-btn:hover { transform: scale(1.06) rotate(-1deg); background: #C73A1E; box-shadow: 0 12px 36px rgba(232,71,42,.38); }
-  .cta-btn-ghost {
-    background: transparent; color: #1A1612; border: 2px solid #1A1612;
-  }
-  .cta-btn-ghost:hover { background: #1A1612; color: #FAF7F2; box-shadow: 0 12px 36px rgba(26,22,18,.18); }
+/* The feed grid */
+.feed-grid{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  grid-template-rows:auto;
+  gap:14px;
+  max-width:1120px;margin:0 auto;
+}
 
-  .email-input {
-    flex: 1; padding: 16px 22px; border-radius: 999px;
-    border: 2px solid #D4CECC; background: #fff;
-    font-family: 'Syne', sans-serif; font-size: 15px; color: #1A1612; outline: none;
-    transition: border-color .2s;
-  }
-  .email-input:focus { border-color: #E8472A; }
-  .email-input::placeholder { color: #9B958E; }
+/* ── SPECIAL CARD base ── */
+.sc{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:28px;
+  position:relative;overflow:hidden;
+  cursor:pointer;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1), border-color .2s, box-shadow .25s;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.sc:hover{transform:translateY(-5px);border-color:var(--border2);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.sc::after{
+  content:'';position:absolute;inset:0;border-radius:inherit;
+  background:radial-gradient(ellipse at 70% 20%, rgba(255,255,255,.04), transparent 60%);
+  pointer-events:none;
+}
 
-  .floating-card {
-    border-radius: 16px; padding: 16px 20px;
-    box-shadow: 0 8px 40px rgba(26,22,18,.10);
-    background: #fff; position: absolute;
-    animation: float_card 7s ease-in-out infinite;
-  }
-  @keyframes float_card {
-    0%,100% { transform: translateY(0) rotate(-2deg); }
-    50%      { transform: translateY(-12px) rotate(1deg); }
-  }
+/* grid placement */
+.sc-1{grid-column:1/6;grid-row:1/2;min-height:280px}
+.sc-2{grid-column:6/9;grid-row:1/2}
+.sc-3{grid-column:9/13;grid-row:1/2}
+.sc-4{grid-column:1/5;grid-row:2/3}
+.sc-5{grid-column:5/9;grid-row:2/3;min-height:260px}
+.sc-6{grid-column:9/13;grid-row:2/3}
 
-  .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: #E8472A; display: inline-block; }
+/* accent variants */
+.sc-tomato{background:var(--tomato);border-color:transparent}
+.sc-tomato .sc-restaurant,.sc-tomato .sc-desc{color:rgba(255,255,255,.65)}
+.sc-tomato .sc-tag{background:rgba(0,0,0,.2);color:rgba(255,255,255,.85)}
+.sc-tomato .sc-time{color:rgba(255,255,255,.5)}
+.sc-tomato .sc-price{color:#fff}
+.sc-tomato .sc-name{color:#fff}
 
-  .section-label {
-    font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: .14em;
-    text-transform: uppercase; color: #9B958E;
-  }
+.sc-amber-soft{background:linear-gradient(135deg,#1E1A10,#2A2010)}
+.sc-amber-soft .sc-price{color:var(--amber2)}
 
-  @media(max-width: 768px) {
-    .floating-card { display: none; }
-    .hero-giant { font-size: 52px !important; }
-  }
+.sc-herb-soft{background:linear-gradient(135deg,#0E1A14,#121F18)}
+.sc-herb-soft .sc-price{color:var(--herb2)}
+
+/* card typography */
+.sc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:auto}
+.sc-time{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.sc-name{font-family:'Fraunces',serif;font-weight:700;font-size:22px;line-height:1.15;letter-spacing:-.02em;color:var(--text);margin-bottom:8px}
+.sc-name-lg{font-size:28px}
+.sc-desc{font-size:13px;color:var(--text2);line-height:1.55;margin-bottom:16px}
+.sc-footer{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:20px}
+.sc-tag{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--surface3);color:var(--text2);
+  padding:5px 12px;border-radius:100px;
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  border:1px solid var(--border);
+}
+.sc-restaurant{font-size:12px;color:var(--text3);margin-top:4px}
+.sc-price{font-family:'Fraunces',serif;font-weight:700;font-size:32px;letter-spacing:-.03em;color:var(--text);line-height:1}
+.sc-price-sm{font-size:22px}
+.sc-price-sub{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+
+/* Live badge */
+.live-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(61,175,130,.15);color:var(--herb2);
+  border:1px solid rgba(61,175,130,.25);
+  padding:4px 10px;border-radius:100px;
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  position:absolute;top:20px;right:20px;
+}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--herb2);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+/* big decorative number */
+.sc-num{
+  position:absolute;bottom:-10px;right:16px;
+  font-family:'Fraunces',serif;font-size:120px;font-weight:900;font-style:italic;
+  color:rgba(255,255,255,.04);line-height:1;pointer-events:none;letter-spacing:-.05em;
+  user-select:none;
+}
+
+/* ── HOW IT WORKS ── */
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:1120px;margin:0 auto}
+.how-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;position:relative;overflow:hidden}
+.how-card-num{font-family:'Fraunces',serif;font-size:64px;font-weight:900;font-style:italic;color:var(--surface3);line-height:1;margin-bottom:20px}
+.how-card h3{font-family:'Fraunces',serif;font-weight:700;font-size:24px;letter-spacing:-.02em;margin-bottom:10px}
+.how-card p{font-size:15px;color:var(--text2);line-height:1.65}
+.how-card-accent{position:absolute;bottom:0;right:0;width:180px;height:180px;border-radius:50%;filter:blur(60px);pointer-events:none}
+/* sms bubble */
+.sms-bubble{
+  margin-top:28px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:14px;padding:16px 18px;
+}
+.sms-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.sms-msg{background:var(--tomato);color:#fff;border-radius:12px 12px 2px 12px;padding:10px 14px;font-size:14px;display:inline-block;max-width:90%;line-height:1.5}
+.sms-reply{color:var(--herb2);font-size:12px;font-family:'DM Mono',monospace;margin-top:8px;letter-spacing:.04em}
+
+/* ── PRICING ── */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:860px;margin:0 auto}
+.price-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;transition:transform .2s,border-color .2s}
+.price-card:hover{transform:translateY(-4px);border-color:var(--border2)}
+.price-card-featured{background:var(--tomato);border-color:transparent}
+.price-card-featured .price-name,.price-card-featured .price-desc,.price-card-featured .price-feature{color:rgba(255,255,255,.8)}
+.price-card-featured .price-amount{color:#fff}
+.price-amount{font-family:'Fraunces',serif;font-weight:900;font-size:52px;letter-spacing:-.04em;line-height:1;margin-bottom:4px}
+.price-per{font-size:13px;color:var(--text3);margin-bottom:20px}
+.price-name{font-weight:600;font-size:15px;margin-bottom:8px}
+.price-desc{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px}
+.price-feature{font-size:13px;color:var(--text2);padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.price-feature:last-child{border-bottom:none}
+.price-check{color:var(--herb2);font-size:16px}
+
+/* ── SIGNUP ── */
+.signup-wrap{max-width:560px;margin:0 auto;text-align:center}
+.signup-form{display:flex;gap:10px;margin-top:32px;margin-bottom:16px}
+.signup-input{
+  flex:1;background:var(--surface);border:1px solid var(--border2);
+  color:var(--text);padding:14px 20px;border-radius:100px;
+  font-family:'DM Sans',sans-serif;font-size:15px;outline:none;
+  transition:border-color .2s;
+}
+.signup-input:focus{border-color:var(--tomato)}
+.signup-input::placeholder{color:var(--text3)}
+.signup-note{font-size:13px;color:var(--text3)}
+.signup-success{
+  display:none;background:rgba(61,175,130,.12);border:1px solid rgba(61,175,130,.25);
+  border-radius:14px;padding:18px 24px;color:var(--herb2);
+  font-size:15px;font-weight:500;margin-top:16px;
+}
+
+/* ── FOOTER ── */
+footer{
+  border-top:1px solid var(--border);padding:32px 40px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+}
+footer p{font-size:13px;color:var(--text3)}
+footer a{color:var(--text3);text-decoration:none;font-size:13px;transition:color .15s}
+footer a:hover{color:var(--text2)}
+.footer-links{display:flex;gap:24px}
+
+/* responsive */
+@media(max-width:900px){
+  .feed-grid{grid-template-columns:1fr 1fr}
+  .sc-1,.sc-2,.sc-3,.sc-4,.sc-5,.sc-6{grid-column:span 1;grid-row:auto;min-height:220px}
+  .how-grid{grid-template-columns:1fr}
+  .pricing-grid{grid-template-columns:1fr}
+  nav{padding:0 20px}
+  .hero{padding:90px 20px 0}
+  .section{padding:70px 20px}
+  footer{padding:24px 20px;flex-direction:column;text-align:center}
+  .footer-links{justify-content:center}
+  .signup-form{flex-direction:column}
+  .nav-links{display:none}
+}
+@media(max-width:540px){
+  .feed-grid{grid-template-columns:1fr}
+  .sc-1,.sc-2,.sc-3,.sc-4,.sc-5,.sc-6{grid-column:auto;min-height:200px}
+}
 </style>
 </head>
 <body>
 
-<div class="grain"></div>
-
 <!-- NAV -->
-<nav class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-5" style="background: rgba(250,247,242,.88); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(26,22,18,.06);">
-  <div class="flex items-center gap-3">
-    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:#E8472A;">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" fill="#FAF7F2"/><circle cx="8" cy="8" r="2" fill="#E8472A"/></svg>
+<nav id="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-dot">
+      <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.5" fill="white"/></svg>
     </div>
-    <span class="font-syne font-bold text-lg tracking-tight" style="color:#1A1612;">Appertivo</span>
-    <span class="nav-dot ml-1"></span>
+    <span class="nav-logo-name">Appertivo</span>
+  </a>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#restaurants">For restaurants</a>
+    <a href="#signup">Early access</a>
   </div>
-  <div class="hidden md:flex items-center gap-8 text-sm font-semibold" style="color:#6B655D;">
-    <a href="#how" class="hover:text-tomato transition-colors">How it works</a>
-    <a href="#specials" class="hover:text-tomato transition-colors">For restaurants</a>
-    <a href="#signup" class="hover:text-tomato transition-colors">Get early access</a>
-  </div>
-  <a href="#signup" class="cta-btn" style="padding:10px 24px; font-size:14px;">Join waitlist →</a>
+  <a href="#signup" class="nav-cta">Join waitlist <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="display:inline-block;vertical-align:middle"><path d="M2.5 7h9m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
 </nav>
 
 <!-- HERO -->
-<section class="relative min-h-screen flex flex-col justify-center pt-24 pb-0 overflow-hidden">
+<section class="hero" id="hero">
+  <!-- ambient glows -->
+  <div class="hero-glow" style="width:500px;height:500px;background:rgba(232,72,48,.12);top:-100px;right:-150px"></div>
+  <div class="hero-glow" style="width:320px;height:320px;background:rgba(61,175,130,.08);bottom:0;left:-80px"></div>
 
-  <!-- background shapes -->
-  <div class="blob" style="width:480px;height:480px;background:#F5C842;top:-60px;right:-120px;animation-delay:-3s;"></div>
-  <div class="blob" style="width:300px;height:300px;background:#E8472A;opacity:.12;bottom:80px;left:-80px;animation-delay:-6s;"></div>
-  <div class="blob" style="width:200px;height:200px;background:#3AB08F;opacity:.18;top:40%;right:8%;animation-delay:-9s;"></div>
-
-  <!-- Floating notification cards -->
-  <div class="floating-card" style="right:5%;top:28%;width:220px;animation-delay:-2s;">
-    <div class="section-label mb-1">New special 🍝</div>
-    <div class="font-syne font-bold text-sm" style="color:#1A1612;">Spaghetti alle vongole</div>
-    <div class="flex items-center justify-between mt-2">
-      <span class="tag-pill" style="background:#E6F7F3;color:#1D6B56;font-size:11px;">Dinner · Tonight</span>
-      <span class="font-mono font-bold text-sm" style="color:#E8472A;">$22</span>
-    </div>
-  </div>
-  <div class="floating-card" style="right:12%;top:60%;width:200px;animation-delay:-5s;">
-    <div class="flex items-center gap-2 mb-2">
-      <div class="w-6 h-6 rounded-full" style="background:#F5C842;"></div>
-      <span class="font-semibold text-xs" style="color:#6B655D;">La Cantina</span>
-    </div>
-    <div class="font-bold text-sm" style="color:#1A1612;">Halibut tacos tonight $18<br><span style="color:#3AB08F;">starts at 4pm</span></div>
-  </div>
-  <div class="floating-card" style="left:2%;top:35%;width:190px;animation-delay:-8s;">
-    <div class="section-label mb-2">Following</div>
-    <div class="font-bold text-sm mb-1" style="color:#1A1612;">🍺 Happy hour deal</div>
-    <div class="text-xs" style="color:#6B655D;">Craft drafts $4 · 3–6pm<br>Harbor Pub</div>
-  </div>
-
-  <div class="relative z-10 max-w-5xl mx-auto px-8 text-center">
-    <div class="section-label mb-6" id="hero-label">— Local food discovery, reinvented</div>
-
-    <h1 class="font-syne leading-none tracking-tight mb-6 hero-giant" style="font-size:clamp(52px,9vw,108px);" id="hero-title">
-      <div class="hero-word"><span id="w1">What's</span></div>
-      <div class="hero-word" style="color:#E8472A;font-style:italic;font-family:'Instrument Serif',serif;">
-        <span id="w2">good</span>
-      </div>
-      <div class="hero-word"><span id="w3">today?</span></div>
+  <div style="max-width:760px;position:relative;z-index:1" id="hero-content">
+    <p class="hero-eyebrow" id="h-eye">Local food discovery</p>
+    <h1 class="hero-title" id="h-title">
+      What's <em>good</em><br>today?
     </h1>
-
-    <p class="font-syne text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed" style="color:#6B655D;" id="hero-sub">
-      Appertivo is the live local feed of restaurant specials. Restaurants text or email what they're serving. You see it all in one place, right now.
-    </p>
-
-    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6" id="hero-cta">
-      <a href="#signup" class="cta-btn">
-        Get early access
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
-      <a href="#how" class="cta-btn cta-btn-ghost">See how it works</a>
+    <p class="hero-sub" id="h-sub">Appertivo is the live local feed of restaurant specials. Restaurants send what they're serving. Locals see it all in one place, right now.</p>
+    <div class="hero-actions" id="h-actions">
+      <a href="#signup" class="btn-primary">Get early access <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.5 7h9m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      <a href="#how" class="btn-ghost">See how it works</a>
     </div>
-
-    <p class="text-sm" style="color:#9B958E;" id="hero-social">
-      Join <strong style="color:#1A1612;">2,400+</strong> locals already on the waitlist
-    </p>
+    <p class="hero-social" id="h-social"><strong id="waitlist-count">2,400+</strong> locals already on the waitlist</p>
   </div>
 
-  <!-- Ticker tape -->
-  <div class="w-full mt-16 py-4 overflow-hidden" style="background:#1A1612;" id="ticker">
-    <div class="ticker-wrap">
-      <div class="ticker-inner animate-marquee" id="ticker-inner">
-        <!-- repeated twice for seamless loop -->
-        <span class="ticker-item">Prime rib special tonight <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Lobster bisque · Lunch only <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Taco Tuesday $3 tacos <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Happy hour 3–6 craft beer $4 <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Farm-fresh brunch sunday only <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Wood-fired margherita $14 <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Halibut tacos tonight $18 <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Soup of the day: French onion <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Prime rib special tonight <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Lobster bisque · Lunch only <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Taco Tuesday $3 tacos <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Happy hour 3–6 craft beer $4 <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Farm-fresh brunch sunday only <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Wood-fired margherita $14 <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Halibut tacos tonight $18 <span class="ticker-dot">★</span></span>
-        <span class="ticker-item">Soup of the day: French onion <span class="ticker-dot">★</span></span>
-      </div>
+  <!-- ticker -->
+  <div class="ticker" id="ticker">
+    <div class="ticker-track">
+      <span class="ticker-item">Prime rib tonight<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Lobster bisque · lunch only<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Halibut tacos $18 · 4pm<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Happy hour craft drafts $4<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Farm table brunch · sat &amp; sun<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Wood-fired margherita $14<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">French onion soup today<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Taco Tuesday · $3 each<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Prime rib tonight<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Lobster bisque · lunch only<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Halibut tacos $18 · 4pm<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Happy hour craft drafts $4<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Farm table brunch · sat &amp; sun<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Wood-fired margherita $14<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">French onion soup today<span class="ticker-sep">✦</span></span>
+      <span class="ticker-item">Taco Tuesday · $3 each<span class="ticker-sep">✦</span></span>
     </div>
   </div>
 </section>
 
-<!-- SPECIALS FEED PREVIEW -->
-<section class="py-24 px-8 max-w-6xl mx-auto" id="specials">
-  <div class="text-center mb-16">
-    <div class="section-label mb-3">The feed</div>
-    <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight mb-4">Today's local specials,<br><em class="font-serif" style="color:#E8472A;">all in one place.</em></h2>
-    <p class="text-lg max-w-xl mx-auto" style="color:#6B655D;">One scroll. Real restaurants. Real food. Right now.</p>
+<!-- FEED SECTION -->
+<section class="section" id="feed">
+  <div class="feed-intro">
+    <p class="section-eyebrow">The feed</p>
+    <h2 class="section-title" style="text-align:center">Tonight's specials,<br><em>live right now.</em></h2>
+    <p style="font-size:16px;color:var(--text2);line-height:1.65;margin-top:16px">One scroll. Every restaurant special in your city. Browse, follow, get alerted.</p>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="cards-grid">
+  <div class="feed-grid" id="feed-grid">
 
-    <div class="special-card" style="background:#E8472A;color:#FAF7F2;" data-tilt>
-      <div class="section-label mb-3" style="color:rgba(250,247,242,.6);">Dinner · Tonight</div>
-      <h3 class="font-syne font-bold text-xl mb-1">Wood-fired Salmon</h3>
-      <p class="text-sm mb-4" style="color:rgba(250,247,242,.8);">Lemon-herb crust, roasted fingerlings, dill crème</p>
-      <div class="flex items-end justify-between">
+    <!-- Card 1 — featured large tomato -->
+    <div class="sc sc-1 sc-tomato" id="sc1">
+      <div>
+        <p class="sc-time">Dinner · Tonight · 5pm–close</p>
+        <h3 class="sc-name sc-name-lg">Wood-fired<br>Pacific Salmon</h3>
+        <p class="sc-desc">Lemon-herb crust, roasted fingerlings, dill crème fraîche. Sourced this morning.</p>
+      </div>
+      <div class="sc-footer">
         <div>
-          <span class="tag-pill" style="background:rgba(250,247,242,.2);color:#FAF7F2;">🐟 Seafood</span>
+          <span class="sc-tag">🐟 Seafood</span>
+          <p class="sc-restaurant">Harbor Grill</p>
         </div>
-        <div class="text-right">
-          <div class="font-mono font-bold text-2xl">$28</div>
-          <div class="text-xs" style="color:rgba(250,247,242,.6);">Harbor Grill · 5pm–close</div>
+        <div style="text-align:right">
+          <div class="sc-price">$28</div>
         </div>
       </div>
-      <div class="step-number">1</div>
+      <div class="live-badge"><span class="live-dot"></span>Live now</div>
+      <div class="sc-num">1</div>
     </div>
 
-    <div class="special-card" style="background:#FFF9E6;border:2px solid #F5C842;">
-      <div class="section-label mb-3" style="color:#9B7B0A;">Happy Hour · 3–6pm</div>
-      <h3 class="font-syne font-bold text-xl mb-1" style="color:#1A1612;">Craft Draft Special</h3>
-      <p class="text-sm mb-4" style="color:#6B655D;">All local drafts on tap, half off. 14 rotating taps.</p>
-      <div class="flex items-end justify-between">
-        <span class="tag-pill" style="background:#F5C842;color:#633806;">🍺 Drinks</span>
-        <div class="text-right">
-          <div class="font-mono font-bold text-2xl" style="color:#E8472A;">$4</div>
-          <div class="text-xs" style="color:#9B958E;">The Taproom · Downtown</div>
+    <!-- Card 2 — amber soft -->
+    <div class="sc sc-2 sc-amber-soft" id="sc2">
+      <div>
+        <p class="sc-time">Happy hour · 3–6pm</p>
+        <h3 class="sc-name">Craft Draft Special</h3>
+        <p class="sc-desc">All 14 local taps half off. Rotating IPAs, stouts, lagers from WA breweries.</p>
+      </div>
+      <div class="sc-footer">
+        <span class="sc-tag" style="border-color:rgba(240,168,48,.2);color:var(--amber2)">🍺 Drinks</span>
+        <div style="text-align:right">
+          <div class="sc-price sc-price-sm">$4</div>
+          <div class="sc-price-sub">per pint</div>
         </div>
       </div>
-      <div class="step-number" style="color:#F5C842;">2</div>
+      <div class="sc-num">2</div>
     </div>
 
-    <div class="special-card" style="background:#E6F7F3;border:2px solid #3AB08F;">
-      <div class="section-label mb-3" style="color:#1D6B56;">Lunch · Today only</div>
-      <h3 class="font-syne font-bold text-xl mb-1" style="color:#1A1612;">Halibut Tacos</h3>
-      <p class="text-sm mb-4" style="color:#6B655D;">Fresh Pacific halibut, mango slaw, chipotle aioli. Three per order.</p>
-      <div class="flex items-end justify-between">
-        <span class="tag-pill" style="background:#3AB08F;color:#FAF7F2;">🌮 Tacos</span>
-        <div class="text-right">
-          <div class="font-mono font-bold text-2xl" style="color:#1A1612;">$18</div>
-          <div class="text-xs" style="color:#9B958E;">La Cantina · Starts 4pm</div>
+    <!-- Card 3 — herb soft -->
+    <div class="sc sc-3 sc-herb-soft" id="sc3">
+      <div>
+        <p class="sc-time">Lunch · Today only</p>
+        <h3 class="sc-name">Halibut Tacos</h3>
+        <p class="sc-desc">Fresh Pacific halibut, mango slaw, chipotle aioli. Three per order. Starts 4pm.</p>
+      </div>
+      <div class="sc-footer">
+        <span class="sc-tag" style="border-color:rgba(61,175,130,.2);color:var(--herb2)">🌮 Tacos</span>
+        <div style="text-align:right">
+          <div class="sc-price sc-price-sm">$18</div>
+          <div class="sc-price-sub">La Cantina</div>
         </div>
       </div>
-      <div class="step-number" style="color:#3AB08F;">3</div>
+      <div class="sc-num">3</div>
     </div>
 
-    <div class="special-card md:col-span-2" style="background:#F3EAFA;border:2px solid #7B3FA0;">
-      <div class="section-label mb-3" style="color:#4A2060;">Weekend Brunch · Sat & Sun 9–2</div>
-      <h3 class="font-syne font-bold text-2xl mb-2" style="color:#1A1612;">Farm Table Brunch</h3>
-      <p class="text-sm mb-4" style="color:#6B655D;">Two eggs your way, house-cured bacon, sourdough from Breadfarm, local butter. The full spread.</p>
-      <div class="flex items-end justify-between">
-        <div class="flex gap-2 flex-wrap">
-          <span class="tag-pill" style="background:#7B3FA0;color:#FAF7F2;">🥚 Brunch</span>
-          <span class="tag-pill" style="background:#F3EAFA;color:#4A2060;border:1px solid #7B3FA0;">Local sourced</span>
-        </div>
-        <div class="text-right">
-          <div class="font-mono font-bold text-2xl" style="color:#7B3FA0;">$16</div>
-          <div class="text-xs" style="color:#9B958E;">Provisions · Historic District</div>
+    <!-- Card 4 — dark surface -->
+    <div class="sc sc-4" id="sc4">
+      <div>
+        <p class="sc-time">Dinner · Friday only</p>
+        <h3 class="sc-name">Prime Rib Night</h3>
+        <p class="sc-desc">16oz prime rib, au jus, creamed horseradish, twice-baked potato. Legendary every Friday.</p>
+      </div>
+      <div class="sc-footer">
+        <span class="sc-tag">🥩 Steakhouse</span>
+        <div style="text-align:right">
+          <div class="sc-price sc-price-sm" style="color:var(--amber2)">$42</div>
+          <div class="sc-price-sub">The Chop House</div>
         </div>
       </div>
-      <div class="step-number" style="color:#7B3FA0;">4</div>
+      <div class="sc-num">4</div>
     </div>
 
-    <div class="special-card" style="background:#1A1612;color:#FAF7F2;">
-      <div class="section-label mb-3" style="color:rgba(250,247,242,.4);">Dinner · Fri only</div>
-      <h3 class="font-syne font-bold text-xl mb-1">Prime Rib Night</h3>
-      <p class="text-sm mb-4" style="color:rgba(250,247,242,.7);">16oz prime rib, au jus, creamed horseradish, twice-baked potato.</p>
-      <div class="flex items-end justify-between">
-        <span class="tag-pill" style="background:rgba(255,255,255,.1);color:#FAF7F2;border:1px solid rgba(255,255,255,.2);">🥩 Steakhouse</span>
-        <div class="text-right">
-          <div class="font-mono font-bold text-2xl" style="color:#F5C842;">$42</div>
-          <div class="text-xs" style="color:rgba(250,247,242,.4);">The Chop House · 5pm</div>
+    <!-- Card 5 — large mid -->
+    <div class="sc sc-5" id="sc5" style="background:linear-gradient(135deg,#1A1220,#150F1A)">
+      <div>
+        <p class="sc-time">Weekend · Sat &amp; Sun · 9am–2pm</p>
+        <h3 class="sc-name sc-name-lg">Farm Table<br>Brunch</h3>
+        <p class="sc-desc">Two eggs your way, house-cured bacon, Breadfarm sourdough, local honey butter. The full spread, every weekend.</p>
+      </div>
+      <div class="sc-footer">
+        <div>
+          <span class="sc-tag" style="border-color:rgba(155,111,216,.25);color:var(--plum)">🥚 Brunch</span>
+          <p class="sc-restaurant" style="margin-top:6px">Provisions · Historic District</p>
+        </div>
+        <div style="text-align:right">
+          <div class="sc-price sc-price-sm" style="color:var(--plum)">$16</div>
         </div>
       </div>
-      <div class="step-number" style="color:rgba(245,200,66,.3);">5</div>
+      <div class="sc-num">5</div>
+    </div>
+
+    <!-- Card 6 -->
+    <div class="sc sc-6" id="sc6">
+      <div>
+        <p class="sc-time">Lunch · Daily</p>
+        <h3 class="sc-name">French Onion Soup</h3>
+        <p class="sc-desc">Slow-cooked 8 hours. Gruyère broiled to order. Cup or bowl.</p>
+      </div>
+      <div class="sc-footer">
+        <span class="sc-tag">🍲 Soup</span>
+        <div style="text-align:right">
+          <div class="sc-price sc-price-sm">$9</div>
+          <div class="sc-price-sub">Bistro Marché</div>
+        </div>
+      </div>
+      <div class="sc-num">6</div>
     </div>
 
   </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section class="py-24 overflow-hidden" id="how" style="background:#1A1612;">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="text-center mb-20">
-      <div class="section-label mb-3" style="color:rgba(250,247,242,.4);">The magic</div>
-      <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight" style="color:#FAF7F2;">
-        Absurdly simple<br><em class="font-serif" style="color:#F5C842;">for everyone.</em>
-      </h2>
+<section class="section" id="how" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="section-max">
+    <div style="text-align:center;margin-bottom:56px">
+      <p class="section-eyebrow">The magic</p>
+      <h2 class="section-title">Absurdly simple<br><em>for everyone.</em></h2>
     </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-20">
-      <!-- Restaurant side -->
-      <div class="rounded-3xl p-8 relative overflow-hidden" style="background:#252118;">
-        <div class="section-label mb-6" style="color:#F5C842;">For restaurants</div>
-        <div class="space-y-6">
-          <div class="flex gap-5 items-start">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#E8472A;color:#FAF7F2;">1</div>
-            <div>
-              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Text or email your special</h4>
-              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">"Halibut tacos tonight $18 starts at 4." That's all. We handle the rest.</p>
-            </div>
-          </div>
-          <div class="flex gap-5 items-start">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#F5C842;color:#1A1612;">2</div>
-            <div>
-              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">AI builds the post</h4>
-              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">We extract price, tags, time window, and a clean description. Auto-expires at close.</p>
-            </div>
-          </div>
-          <div class="flex gap-5 items-start">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#3AB08F;color:#FAF7F2;">3</div>
-            <div>
-              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Reach local followers</h4>
-              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">Your followers get an alert. New customers discover you in the feed.</p>
-            </div>
-          </div>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-card-num">01</div>
+        <h3>Restaurants text or email their special</h3>
+        <p>No app. No dashboard. Send <em>"Halibut tacos tonight $18 starts at 4"</em> to a number. Done.</p>
+        <div class="sms-bubble">
+          <div class="sms-label">Text to Appertivo</div>
+          <div class="sms-msg">"Halibut tacos tonight $18 starts at 4"</div>
+          <div class="sms-reply">✓ Published to feed in &lt;60s</div>
         </div>
-
-        <!-- SMS mockup -->
-        <div class="mt-8 rounded-2xl p-5" style="background:#1A1612;border:1px solid rgba(250,247,242,.08);">
-          <div class="section-label mb-3" style="color:rgba(250,247,242,.3);">Text message to Appertivo</div>
-          <div class="rounded-xl p-3 text-sm font-mono" style="background:#E8472A;color:#FAF7F2;display:inline-block;max-width:90%;">"Halibut tacos tonight $18 starts at 4"</div>
-          <div class="mt-3 text-xs" style="color:rgba(250,247,242,.3);">→ Published to feed in &lt;60 seconds ✓</div>
-        </div>
+        <div class="how-card-accent" style="background:var(--tomato);opacity:.08"></div>
       </div>
-
-      <!-- Customer side -->
-      <div class="rounded-3xl p-8 relative overflow-hidden" style="background:#252118;">
-        <div class="section-label mb-6" style="color:#3AB08F;">For customers</div>
-        <div class="space-y-6">
-          <div class="flex gap-5 items-start">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#3AB08F;color:#FAF7F2;">1</div>
-            <div>
-              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Open the feed</h4>
-              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">See every special live right now in your area. Browse by food type, price, or time.</p>
-            </div>
-          </div>
-          <div class="flex gap-5 items-start">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#E8472A;color:#FAF7F2;">2</div>
-            <div>
-              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Follow favorites</h4>
-              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">Follow restaurants and food categories. Get alerts when your kind of special goes live.</p>
-            </div>
-          </div>
-          <div class="flex gap-5 items-start">
-            <div class="w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm flex-shrink-0" style="background:#7B3FA0;color:#FAF7F2;">3</div>
-            <div>
-              <h4 class="font-bold text-base mb-1" style="color:#FAF7F2;">Decide where to eat</h4>
-              <p class="text-sm leading-relaxed" style="color:rgba(250,247,242,.55);">No more wondering. Save, share, or just go. The feed becomes your daily food habit.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Alert mockup -->
-        <div class="mt-8 rounded-2xl p-5" style="background:#1A1612;border:1px solid rgba(250,247,242,.08);">
-          <div class="section-label mb-3" style="color:rgba(250,247,242,.3);">Alert from Appertivo</div>
-          <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-full flex-shrink-0" style="background:#E8472A;"></div>
-            <div>
-              <div class="font-bold text-sm mb-1" style="color:#FAF7F2;">🌮 Taco special live now</div>
-              <div class="text-xs" style="color:rgba(250,247,242,.55);">La Cantina · Halibut tacos $18 · Tonight starting 4pm → Tap to see</div>
-            </div>
-          </div>
-        </div>
+      <div class="how-card">
+        <div class="how-card-num">02</div>
+        <h3>AI turns it into a polished post</h3>
+        <p>We extract price, category, time window, and write a clean description. Auto-expires at close. No manual work.</p>
+        <div class="how-card-accent" style="background:var(--amber);opacity:.08"></div>
+      </div>
+      <div class="how-card">
+        <div class="how-card-num">03</div>
+        <h3>Followers get alerted instantly</h3>
+        <p>Customers who follow a restaurant or food category receive a notification the moment a special goes live.</p>
+        <div class="how-card-accent" style="background:var(--herb);opacity:.08"></div>
+      </div>
+      <div class="how-card">
+        <div class="how-card-num">04</div>
+        <h3>Locals check the feed before they eat</h3>
+        <p>One place to see every special in the city right now. Browse by category, price, or neighborhood. The feed becomes the daily habit.</p>
+        <div class="how-card-accent" style="background:var(--plum);opacity:.08"></div>
       </div>
     </div>
+    <!-- Not block -->
+    <div style="text-align:center;margin-top:56px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase">Not Yelp</span>
+      <span style="color:var(--border2)">·</span>
+      <span style="font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase">Not DoorDash</span>
+      <span style="color:var(--border2)">·</span>
+      <span style="font-size:13px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase">Not Instagram</span>
+      <span style="color:var(--border2)">·</span>
+      <span style="font-size:13px;font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--tomato2)">Just: what's good today.</span>
+    </div>
+  </div>
+</section>
 
-    <!-- Why different -->
-    <div class="text-center">
-      <div class="inline-flex flex-wrap gap-3 justify-center">
-        <span class="tag-pill" style="background:rgba(250,247,242,.06);color:rgba(250,247,242,.5);border:1px solid rgba(250,247,242,.1);">Not Yelp</span>
-        <span class="tag-pill" style="background:rgba(250,247,242,.06);color:rgba(250,247,242,.5);border:1px solid rgba(250,247,242,.1);">Not DoorDash</span>
-        <span class="tag-pill" style="background:rgba(250,247,242,.06);color:rgba(250,247,242,.5);border:1px solid rgba(250,247,242,.1);">Not Instagram</span>
-        <span class="tag-pill" style="background:rgba(232,71,42,.2);color:#F5C842;border:1px solid rgba(232,71,42,.4);">Just: what's good today.</span>
+<!-- RESTAURANT PRICING -->
+<section class="section" id="restaurants">
+  <div class="section-max">
+    <div style="text-align:center;margin-bottom:56px">
+      <p class="section-eyebrow">For restaurant owners</p>
+      <h2 class="section-title">Your special deserves<br><em>to be seen.</em></h2>
+      <p style="font-size:16px;color:var(--text2);max-width:480px;margin:16px auto 0;line-height:1.65">You already create the specials. Appertivo makes sure locals see them at the right moment.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-amount">$29</div>
+        <div class="price-per">/month</div>
+        <div class="price-name">Starter</div>
+        <div class="price-desc">Claim your page, post directly to the feed, reach local browsers.</div>
+        <div class="price-feature"><span class="price-check">✓</span> Claimed restaurant page</div>
+        <div class="price-feature"><span class="price-check">✓</span> Direct posting</div>
+        <div class="price-feature"><span class="price-check">✓</span> Local feed inclusion</div>
+      </div>
+      <div class="price-card price-card-featured">
+        <div class="price-amount">$69</div>
+        <div class="price-per" style="color:rgba(255,255,255,.5)">/month · Most popular</div>
+        <div class="price-name" style="color:#fff">Growth</div>
+        <div class="price-desc">Featured placement + follower alerts + basic analytics.</div>
+        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Everything in Starter</div>
+        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Featured placement</div>
+        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Follower push alerts</div>
+        <div class="price-feature" style="border-color:rgba(255,255,255,.15)"><span style="color:#fff">✓</span> Weekly analytics</div>
+      </div>
+      <div class="price-card">
+        <div class="price-amount">$99</div>
+        <div class="price-per">/month</div>
+        <div class="price-name">Pro</div>
+        <div class="price-desc">Priority placement, custom tags, full analytics, SMS intake.</div>
+        <div class="price-feature"><span class="price-check">✓</span> Everything in Growth</div>
+        <div class="price-feature"><span class="price-check">✓</span> Priority placement</div>
+        <div class="price-feature"><span class="price-check">✓</span> Custom food tags</div>
+        <div class="price-feature"><span class="price-check">✓</span> Full analytics</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- RESTAURANT PITCH -->
-<section class="py-24 px-8" style="background:#F5C842;">
-  <div class="max-w-4xl mx-auto">
-    <div class="section-label mb-6" style="color:#9B7B0A;">For restaurant owners</div>
-    <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight mb-6" style="color:#1A1612;">
-      Your special deserves<br>to be <em class="font-serif">seen.</em>
-    </h2>
-    <p class="text-lg mb-10 max-w-xl leading-relaxed" style="color:#633806;">
-      You already create the specials. You post to Facebook, Instagram, Google, and your chalkboard. Half your customers never see it.
-      <strong>Appertivo is one place locals check before deciding where to eat.</strong>
-    </p>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
-      <div class="rounded-2xl p-6" style="background:rgba(26,22,18,.06);">
-        <div class="font-mono font-bold text-3xl mb-2" style="color:#1A1612;">$29</div>
-        <div class="font-bold text-sm mb-1">Starter</div>
-        <div class="text-sm" style="color:#633806;">Claim your page. Post directly. Reach the feed.</div>
-      </div>
-      <div class="rounded-2xl p-6" style="background:#1A1612;">
-        <div class="font-mono font-bold text-3xl mb-2" style="color:#F5C842;">$69</div>
-        <div class="font-bold text-sm mb-1" style="color:#FAF7F2;">Growth</div>
-        <div class="text-sm" style="color:rgba(250,247,242,.6);">Featured placement + follower alerts + analytics.</div>
-      </div>
-      <div class="rounded-2xl p-6" style="background:rgba(26,22,18,.06);">
-        <div class="font-mono font-bold text-3xl mb-2" style="color:#1A1612;">$99</div>
-        <div class="font-bold text-sm mb-1">Pro</div>
-        <div class="text-sm" style="color:#633806;">All features + priority placement + custom tags.</div>
-      </div>
-    </div>
-    <a href="#signup" class="cta-btn" style="background:#1A1612;">
-      Claim your restaurant page free →
-    </a>
-  </div>
-</section>
-
-<!-- EARLY ACCESS SIGNUP -->
-<section class="py-24 px-8 relative overflow-hidden" id="signup">
-  <div class="blob" style="width:400px;height:400px;background:#E8472A;opacity:.07;top:-100px;left:-100px;"></div>
-  <div class="blob" style="width:300px;height:300px;background:#3AB08F;opacity:.07;bottom:-60px;right:-60px;animation-delay:-5s;"></div>
-
-  <div class="max-w-2xl mx-auto text-center relative z-10">
-    <div class="section-label mb-4">Early access</div>
-    <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tight mb-4">
-      Be first in<br><em class="font-serif" style="color:#E8472A;">your city.</em>
-    </h2>
-    <p class="text-lg mb-10" style="color:#6B655D;">
-      We're launching market by market. Join the waitlist and we'll let you know the moment Appertivo goes live near you.
-    </p>
-
-    <form id="signup-form" class="flex flex-col sm:flex-row gap-3 justify-center mb-6" onsubmit="handleSignup(event)">
-      <input type="email" class="email-input" placeholder="your@email.com" id="email-field" required>
-      <button type="submit" class="cta-btn flex-shrink-0">
-        Join waitlist
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
+<!-- SIGNUP -->
+<section class="section" id="signup" style="border-top:1px solid var(--border)">
+  <div class="signup-wrap">
+    <p class="section-eyebrow" style="text-align:center">Early access</p>
+    <h2 class="section-title" style="text-align:center">Be first in<br><em>your city.</em></h2>
+    <p style="font-size:16px;color:var(--text2);margin-top:16px;line-height:1.65">We're launching market by market. Join the waitlist and we'll let you know the moment Appertivo goes live near you.</p>
+    <form class="signup-form" id="signup-form" onsubmit="handleSignup(event)">
+      <input type="email" class="signup-input" placeholder="your@email.com" required id="email-input">
+      <button type="submit" class="btn-primary" id="signup-btn" style="white-space:nowrap">Join waitlist <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:middle"><path d="M2.5 7h9m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </form>
-
-    <div id="signup-success" class="hidden text-center py-4 px-6 rounded-2xl mb-4" style="background:#E6F7F3;border:2px solid #3AB08F;">
-      <div class="font-bold text-base mb-1" style="color:#1D6B56;">🎉 You're on the list!</div>
-      <div class="text-sm" style="color:#1D6B56;">We'll email you when Appertivo launches in your area.</div>
-    </div>
-
-    <p class="text-sm" style="color:#9B958E;">
-      No spam. No marketing emails. Just a launch notification.
-      <br>Restaurants: <a href="#signup" style="color:#E8472A;text-decoration:none;font-weight:600;">claim your page free</a> when we launch.
-    </p>
+    <div class="signup-success" id="signup-success">🎉 You're on the list — we'll email you at launch.</div>
+    <p class="signup-note">No spam. No marketing. Just a launch notification. Restaurants: claim your page free at launch.</p>
   </div>
 </section>
 
 <!-- FOOTER -->
-<footer class="py-12 px-8 border-t" style="border-color:rgba(26,22,18,.08);">
-  <div class="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-    <div class="flex items-center gap-3">
-      <div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:#E8472A;">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5" fill="#FAF7F2"/><circle cx="8" cy="8" r="2" fill="#E8472A"/></svg>
-      </div>
-      <span class="font-syne font-bold tracking-tight" style="color:#1A1612;">Appertivo</span>
-    </div>
-    <p class="text-sm text-center" style="color:#9B958E;">
-      The live layer for local food. <span style="color:#E8472A;">What's good today?</span>
-    </p>
-    <div class="flex items-center gap-6 text-sm" style="color:#9B958E;">
-      <a href="#" style="color:inherit;text-decoration:none;" class="hover:text-tomato transition-colors">Privacy</a>
-      <a href="#" style="color:inherit;text-decoration:none;" class="hover:text-tomato transition-colors">Contact</a>
-    </div>
+<footer>
+  <a href="#" class="nav-logo" style="text-decoration:none">
+    <div class="nav-logo-dot"><svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="3.5" fill="white"/></svg></div>
+    <span class="nav-logo-name">Appertivo</span>
+  </a>
+  <p>The live layer for local food.</p>
+  <div class="footer-links">
+    <a href="#">Privacy</a>
+    <a href="#">Contact</a>
   </div>
 </footer>
 
 <script>
-// ── Hero entrance animation ──────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
+// ── hero entrance ──────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
   anime.timeline({ easing: 'easeOutExpo' })
-    .add({ targets: '#hero-label', opacity: [0,1], translateY: [12,0], duration: 600 })
-    .add({ targets: '#w1', opacity: [0,1], translateY: [40,0], duration: 700 }, '-=300')
-    .add({ targets: '#w2', opacity: [0,1], translateY: [40,0], duration: 700 }, '-=500')
-    .add({ targets: '#w3', opacity: [0,1], translateY: [40,0], duration: 700 }, '-=500')
-    .add({ targets: '#hero-sub', opacity: [0,1], translateY: [16,0], duration: 600 }, '-=300')
-    .add({ targets: '#hero-cta', opacity: [0,1], translateY: [12,0], duration: 500 }, '-=200')
-    .add({ targets: '#hero-social', opacity: [0,1], duration: 400 }, '-=100')
-    .add({ targets: '#ticker', opacity: [0,1], duration: 400 }, '-=200');
+    .add({ targets: '#h-eye',     opacity:[0,1], translateY:[10,0], duration:500 })
+    .add({ targets: '#h-title',   opacity:[0,1], translateY:[30,0], duration:700 }, '-=200')
+    .add({ targets: '#h-sub',     opacity:[0,1], translateY:[16,0], duration:500 }, '-=300')
+    .add({ targets: '#h-actions', opacity:[0,1], translateY:[12,0], duration:500 }, '-=200')
+    .add({ targets: '#h-social',  opacity:[0,1], duration:400 }, '-=100')
+    .add({ targets: '#ticker',    opacity:[0,1], duration:300 }, '-=100');
 
-  // Stagger the special cards on scroll
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        anime({
-          targets: '#cards-grid .special-card',
-          opacity: [0, 1],
-          translateY: [30, 0],
-          scale: [0.96, 1],
-          delay: anime.stagger(90),
-          duration: 600,
-          easing: 'easeOutBack',
-        });
-        observer.disconnect();
-      }
-    });
-  }, { threshold: 0.2 });
-  const grid = document.getElementById('cards-grid');
-  if (grid) observer.observe(grid);
+  // count-up
+  const el = document.getElementById('waitlist-count');
+  let n = 0; const target = 2400; const step = 40;
+  const t = setInterval(() => {
+    n = Math.min(n + step, target);
+    el.textContent = n.toLocaleString() + '+';
+    if (n >= target) clearInterval(t);
+  }, 16);
 
-  // Wiggle cards on mousemove (tilt)
-  document.querySelectorAll('.special-card').forEach(card => {
+  // feed cards stagger on scroll
+  const io = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      anime({
+        targets: '#feed-grid .sc',
+        opacity: [0, 1],
+        translateY: [24, 0],
+        scale: [0.97, 1],
+        delay: anime.stagger(70, { from: 'first' }),
+        duration: 550,
+        easing: 'easeOutBack(1.2)',
+      });
+      io.disconnect();
+    }
+  }, { threshold: 0.1 });
+  const fg = document.getElementById('feed-grid');
+  if (fg) io.observe(fg);
+
+  // how-cards stagger
+  const io2 = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      anime({ targets: '.how-card', opacity:[0,1], translateY:[20,0], delay: anime.stagger(80), duration:500, easing:'easeOutExpo' });
+      io2.disconnect();
+    }
+  }, { threshold: 0.15 });
+  const hw = document.querySelector('.how-grid');
+  if (hw) io2.observe(hw);
+
+  // 3d tilt on feed cards
+  document.querySelectorAll('.sc').forEach(card => {
     card.addEventListener('mousemove', e => {
       const r = card.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - 0.5;
-      const y = (e.clientY - r.top) / r.height - 0.5;
-      card.style.transform = `translateY(-6px) rotateY(${x * 12}deg) rotateX(${-y * 10}deg)`;
+      const x = ((e.clientX - r.left) / r.width - 0.5) * 10;
+      const y = ((e.clientY - r.top) / r.height - 0.5) * -8;
+      card.style.transform = `translateY(-5px) rotateX(${y}deg) rotateY(${x}deg)`;
+      card.style.transition = 'transform .1s';
     });
     card.addEventListener('mouseleave', () => {
+      card.style.transition = 'transform .4s cubic-bezier(.34,1.56,.64,1)';
       card.style.transform = '';
     });
   });
 
-  // Count-up for waitlist number
-  const heroSocial = document.getElementById('hero-social');
-  const socObserver = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) {
-      let count = 0;
-      const target = 2400;
-      const step = Math.ceil(target / 60);
-      const timer = setInterval(() => {
-        count = Math.min(count + step, target);
-        heroSocial.innerHTML = `Join <strong style="color:#1A1612;">${count.toLocaleString()}+</strong> locals already on the waitlist`;
-        if (count >= target) clearInterval(timer);
-      }, 24);
-      socObserver.disconnect();
-    }
-  }, { threshold: 1 });
-  socObserver.observe(heroSocial);
+  // nav scroll highlight
+  const sections = document.querySelectorAll('section[id], div[id]');
+  const navAs = document.querySelectorAll('.nav-links a');
+  window.addEventListener('scroll', () => {
+    let cur = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) cur = s.id; });
+    navAs.forEach(a => { a.style.color = a.getAttribute('href') === '#' + cur ? 'var(--text)' : ''; });
+  }, { passive: true });
 });
 
-// ── Signup form ──────────────────────────────────────────────────────
+// ── signup ──────────────────────────────────────
 function handleSignup(e) {
   e.preventDefault();
-  const btn = e.target.querySelector('button[type=submit]');
-  btn.textContent = '✓ Done!';
-  btn.style.background = '#3AB08F';
-
-  anime({ targets: btn, scale: [1, 1.1, 1], duration: 400, easing: 'easeOutBack' });
-
+  const btn = document.getElementById('signup-btn');
+  btn.innerHTML = '✓ Done!';
+  btn.style.background = 'var(--herb)';
+  anime({ targets: btn, scale:[1,1.08,1], duration:380, easing:'easeOutBack' });
   setTimeout(() => {
     document.getElementById('signup-form').style.display = 'none';
-    const success = document.getElementById('signup-success');
-    success.classList.remove('hidden');
-    anime({ targets: success, opacity: [0,1], translateY: [10,0], duration: 500, easing: 'easeOutExpo' });
+    const s = document.getElementById('signup-success');
+    s.style.display = 'block';
+    anime({ targets: s, opacity:[0,1], translateY:[8,0], duration:400, easing:'easeOutExpo' });
   }, 500);
 }
-
-// ── Nav active state on scroll ───────────────────────────────────────
-const sections = document.querySelectorAll('section[id]');
-const navLinks = document.querySelectorAll('nav a[href^="#"]');
-window.addEventListener('scroll', () => {
-  let cur = '';
-  sections.forEach(s => {
-    if (window.scrollY >= s.offsetTop - 120) cur = s.id;
-  });
-  navLinks.forEach(a => {
-    a.style.color = a.getAttribute('href') === `#${cur}` ? '#E8472A' : '';
-  });
-}, { passive: true });
 </script>
 </body>
 </html>
