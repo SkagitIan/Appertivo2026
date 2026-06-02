@@ -3,10 +3,10 @@
 ## Tomorrow: Tuesday, June 2, 2026
 
 ### Start Here
-- [ ] Create a clean Git commit for the current beta baseline before adding more features.
+- [x] Create a clean Git commit for the current beta baseline before adding more features.
 - [ ] Run the app from Factory Console at `http://127.0.0.1:5001` and walk through the diner, restaurant, and admin flows once.
 - [ ] Review the six sample specials on the homepage and decide whether the mix looks like the Skagit launch you want to sell.
-- [ ] Confirm the public deployment target and production environment variables.
+- [ ] Enter the production environment variables in Railway and verify the first deploy.
 
 ### Get Real Restaurants Into The Feed
 - [ ] Pick the first 10-20 Skagit Valley restaurants to contact.
@@ -33,7 +33,8 @@
 - [x] Add six labeled launch-preview specials and an idempotent `flask --app app seed-demo-specials` command.
 - [x] Add subscriber location storage and migrate the local database through `20260601_06`.
 - [x] Verify the map toggle, responsive homepage, and Seattle waitlist state in a browser.
-- [x] Fix SQLite test isolation and verify the full suite: `23 passed`.
+- [x] Prepare Railway deployment with Railpack, Gunicorn, migrations, a healthcheck, and a safe launch-data seed.
+- [x] Fix SQLite test isolation and verify the full suite: `25 passed`.
 
 ## Parking Lot
 - [ ] Add a database-backed `Market` model when the second launch region is real.
