@@ -150,7 +150,9 @@ def main():
         restaurants = {
             restaurant.place_id: restaurant
             for restaurant in Restaurant.query.filter(
-                Restaurant.place_id.isnot(None), Restaurant.place_id != ""
+                Restaurant.place_id.isnot(None),
+                Restaurant.place_id != "",
+                Restaurant.catalog_status == "included",
             )
         }
         matched = [row for row in rows if row["place_id"] in restaurants]
@@ -165,7 +167,10 @@ def main():
         for row in matched:
             for attempt in range(3):
                 try:
-                    restaurant = Restaurant.query.filter_by(place_id=row["place_id"]).one()
+                    restaurant = Restaurant.query.filter_by(
+                        place_id=row["place_id"],
+                        catalog_status="included",
+                    ).one()
                     apply_csv_row(
                         restaurant,
                         row,

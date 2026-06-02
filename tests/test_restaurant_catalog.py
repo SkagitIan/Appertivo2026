@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 os.environ["DATABASE_URL"] = "sqlite://"
 
-from app import app
+from app import app, hash_token
 from models import Restaurant, db
 from scripts.classify_restaurant_catalog import classify_restaurant
 
@@ -48,20 +48,40 @@ def test_classifier_uses_full_row_types_conservatively():
     assert classify_restaurant(restaurant(primary_type="bakery"))[0] == "review"
 
 
-def test_catalog_status_hides_public_venues_and_admin_can_override():
-    app.config.update(TESTING=True, SECRET_KEY="test-secret", ADMIN_PASSWORD="test-password")
+def test_catalog_status_hides_nonincluded_venues_from_normal_admin_workflows():
+    app.config.update(
+        TESTING=True,
+        SECRET_KEY="test-secret",
+        ADMIN_PASSWORD="test-password",
+        GOOGLE_PLACES_API_KEY="places-key",
+    )
     with app.app_context():
         db.drop_all()
         db.create_all()
         db.session.add_all(
             [
-                Restaurant(name="Included Cafe", slug="included-cafe", city="Anacortes"),
+                Restaurant(
+                    name="Included Cafe",
+                    slug="included-cafe",
+                    city="Anacortes",
+                    place_id="included-place",
+                ),
                 Restaurant(
                     name="Hidden Market",
                     slug="hidden-market",
                     city="Anacortes",
+                    place_id="hidden-place",
                     catalog_status="excluded",
                     catalog_reason="primary type is grocery store",
+                    submission_token_hash=hash_token("hidden-token"),
+                ),
+                Restaurant(
+                    name="Pending Bakery",
+                    slug="pending-bakery",
+                    city="Anacortes",
+                    place_id="pending-place",
+                    catalog_status="review",
+                    catalog_reason="primary type is bakery",
                 ),
             ]
         )
@@ -72,23 +92,50 @@ def test_catalog_status_hides_public_venues_and_admin_can_override():
         assert b"Hidden Market" not in client.get("/restaurants").data
         assert client.get("/restaurants/hidden-market").status_code == 404
         login(client)
-        assert b"Hidden Market" in client.get("/admin/restaurant-catalog?status=excluded").data
-        response = client.post(
+        restaurants_page = client.get("/admin/restaurants")
+        assert b"Included Cafe" in restaurants_page.data
+        assert b"Hidden Market" not in restaurants_page.data
+        assert b"Pending Bakery" not in restaurants_page.data
+        enrichment_page = client.get("/admin/restaurant-enrichment")
+        assert b"Included Cafe" in enrichment_page.data
+        assert b"Hidden Market" not in enrichment_page.data
+        assert b"Pending Bakery" not in enrichment_page.data
+        catalog_page = client.get("/admin/restaurant-catalog")
+        assert b"Pending Bakery" in catalog_page.data
+        assert b"Hidden Market" not in catalog_page.data
+        assert client.get("/admin/restaurants/2/edit").status_code == 404
+        assert client.get("/submit/hidden-token").status_code == 404
+        assert client.post(
             "/admin/restaurants/2/catalog/included",
+            data={"csrf_token": csrf(client)},
+        ).status_code == 404
+        response = client.post(
+            "/admin/restaurants/3/catalog/included",
             data={"csrf_token": csrf(client)},
             follow_redirects=True,
         )
         assert response.status_code == 200
-        assert b"Hidden Market marked included" in response.data
-        assert b"Hidden Market" in client.get("/restaurants").data
+        assert b"Pending Bakery marked included" in response.data
+        assert b"Pending Bakery" in client.get("/restaurants").data
+
+        with app.app_context():
+            db.session.add(
+                Restaurant(
+                    name="Pending Deli",
+                    slug="pending-deli",
+                    city="Anacortes",
+                    catalog_status="review",
+                )
+            )
+            db.session.commit()
         response = client.post(
             "/admin/restaurants/catalog/excluded",
-            data={"csrf_token": csrf(client), "restaurant_ids": ["2"]},
+            data={"csrf_token": csrf(client), "restaurant_ids": ["4"]},
             follow_redirects=True,
         )
         assert response.status_code == 200
         assert b"1 venues marked excluded" in response.data
-        assert b"Hidden Market" not in client.get("/restaurants").data
+        assert b"Pending Deli" not in client.get("/admin/restaurant-catalog").data
 
     with app.app_context():
         db.session.remove()

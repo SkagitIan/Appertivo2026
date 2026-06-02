@@ -248,7 +248,11 @@ def enrich_restaurant(restaurant, api_key, session=None):
 
 
 def selected_restaurants(limit, place_id):
-    query = Restaurant.query.filter(Restaurant.place_id.isnot(None), Restaurant.place_id != "")
+    query = Restaurant.query.filter(
+        Restaurant.place_id.isnot(None),
+        Restaurant.place_id != "",
+        Restaurant.catalog_status == "included",
+    )
     if place_id:
         query = query.filter_by(place_id=place_id)
     query = query.order_by(Restaurant.id)

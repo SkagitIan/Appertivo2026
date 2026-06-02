@@ -45,7 +45,6 @@ LOCAL_TZ = ZoneInfo("America/Los_Angeles")
 METRIC_TYPES = {"view", "directions", "call", "website", "share"}
 CHANNELS = ["facebook_page", "facebook_group", "instagram", "email", "other"]
 LEAD_STATUSES = {"new", "contacted", "converted", "closed"}
-CATALOG_STATUSES = {"included", "excluded", "review"}
 
 
 def normalize_database_url(database_url):
@@ -305,7 +304,7 @@ def save_photo_if_present(special):
 
 def special_from_form(special=None):
     special = special or Special()
-    special.restaurant_id = int(request.form["restaurant_id"])
+    special.restaurant_id = included_restaurant_id_from_form()
     special.title = request.form["title"].strip()
     special.description = request.form.get("description", "").strip()
     special.price = request.form.get("price", "").strip()
@@ -317,6 +316,42 @@ def special_from_form(special=None):
         special.published_at = utc_now()
     save_photo_if_present(special)
     return special
+
+
+def included_restaurants_query():
+    return Restaurant.query.filter_by(catalog_status="included")
+
+
+def included_restaurant_or_404(restaurant_id):
+    return included_restaurants_query().filter_by(id=restaurant_id).first_or_404()
+
+
+def included_restaurant_id_from_form():
+    try:
+        restaurant_id = int(request.form["restaurant_id"])
+    except (KeyError, ValueError):
+        abort(400, "Choose an included restaurant.")
+    if not included_restaurants_query().filter_by(id=restaurant_id).first():
+        abort(400, "Choose an included restaurant.")
+    return restaurant_id
+
+
+def included_special_or_404(special_id):
+    return (
+        Special.query.join(Restaurant)
+        .filter(Special.id == special_id, Restaurant.catalog_status == "included")
+        .first_or_404()
+    )
+
+
+def operational_outreach_messages_query():
+    return OutreachMessage.query.outerjoin(Restaurant).filter(
+        or_(OutreachMessage.restaurant_id.is_(None), Restaurant.catalog_status == "included")
+    )
+
+
+def operational_outreach_message_or_404(message_id):
+    return operational_outreach_messages_query().filter(OutreachMessage.id == message_id).first_or_404()
 
 
 def restaurant_from_form(restaurant=None):
@@ -500,7 +535,7 @@ def restaurant_detail(slug):
 
 @app.route("/submit/<token>", methods=["GET", "POST"])
 def submit_special(token):
-    restaurant = Restaurant.query.filter_by(submission_token_hash=hash_token(token)).first_or_404()
+    restaurant = included_restaurants_query().filter_by(submission_token_hash=hash_token(token)).first_or_404()
     if request.method == "POST":
         special = Special(
             restaurant_id=restaurant.id,
@@ -532,14 +567,30 @@ def uploaded_file(filename):
 
 @app.get("/specials/<public_id>")
 def special_detail(public_id):
-    special = Special.query.filter_by(public_id=public_id, status="published").first_or_404()
+    special = (
+        Special.query.join(Restaurant)
+        .filter(
+            Special.public_id == public_id,
+            Special.status == "published",
+            Restaurant.catalog_status == "included",
+        )
+        .first_or_404()
+    )
     record_metric(special, "view", request.args.get("channel"))
     return render_template("special.html", special=special)
 
 
 @app.get("/specials/<public_id>/action/<event_type>")
 def special_action(public_id, event_type):
-    special = Special.query.filter_by(public_id=public_id, status="published").first_or_404()
+    special = (
+        Special.query.join(Restaurant)
+        .filter(
+            Special.public_id == public_id,
+            Special.status == "published",
+            Restaurant.catalog_status == "included",
+        )
+        .first_or_404()
+    )
     destinations = {
         "directions": f"https://www.google.com/maps/search/?api=1&query={special.restaurant.latitude},{special.restaurant.longitude}",
         "call": f"tel:{special.restaurant.phone}",
@@ -578,13 +629,19 @@ def admin_dashboard():
     distributed = db.session.query(DistributionLog.special_id).distinct()
     counts = {
         "new leads": RestaurantLead.query.filter_by(status="new").count(),
-        "drafts awaiting review": Special.query.filter_by(status="draft").count(),
+        "drafts awaiting review": (
+            Special.query.join(Restaurant)
+            .filter(Special.status == "draft", Restaurant.catalog_status == "included")
+            .count()
+        ),
         "active specials": active_count,
         "undistributed specials": active_specials_query().filter(~Special.id.in_(distributed)).count(),
         "subscribers": Subscriber.query.count(),
         "views": SpecialMetric.query.filter_by(event_type="view").count(),
         "action clicks": SpecialMetric.query.filter(SpecialMetric.event_type != "view").count(),
-        "outreach follow-ups": OutreachMessage.query.filter_by(follow_up=True, archived=False).count(),
+        "outreach follow-ups": operational_outreach_messages_query()
+        .filter(OutreachMessage.follow_up.is_(True), OutreachMessage.archived.is_(False))
+        .count(),
         "catalog reviews": Restaurant.query.filter_by(catalog_status="review").count(),
     }
     return render_template("admin/dashboard.html", counts=counts)
@@ -613,8 +670,10 @@ def admin_email_tools():
 def admin_outreach():
     if request.method == "POST":
         restaurant_id = request.form.get("restaurant_id") or None
+        if restaurant_id:
+            restaurant_id = included_restaurant_id_from_form()
         message = OutreachMessage(
-            restaurant_id=int(restaurant_id) if restaurant_id else None,
+            restaurant_id=restaurant_id,
             sender_email=app.config["EMAIL_FROM_SALES"],
             recipient_email=request.form["recipient_email"].strip().lower(),
             subject=request.form.get("subject", "").strip()
@@ -625,15 +684,22 @@ def admin_outreach():
         db.session.add(message)
         db.session.commit()
         return redirect(url_for("admin_outreach_message", message_id=message.id))
-    messages = OutreachMessage.query.filter_by(archived=False).order_by(OutreachMessage.updated_at.desc()).all()
-    restaurants = Restaurant.query.order_by(Restaurant.name).all()
+    messages = (
+        operational_outreach_messages_query()
+        .filter(
+            OutreachMessage.archived.is_(False),
+        )
+        .order_by(OutreachMessage.updated_at.desc())
+        .all()
+    )
+    restaurants = included_restaurants_query().order_by(Restaurant.name).all()
     return render_template("admin/outreach.html", messages=messages, restaurants=restaurants)
 
 
 @app.route("/admin/outreach/<int:message_id>", methods=["GET", "POST"])
 @admin_required
 def admin_outreach_message(message_id):
-    message = OutreachMessage.query.get_or_404(message_id)
+    message = operational_outreach_message_or_404(message_id)
     if request.method == "POST" and message.direction == "outbound" and message.status in {"draft", "failed"}:
         message.recipient_email = request.form["recipient_email"].strip().lower()
         message.subject = request.form["subject"].strip()
@@ -650,8 +716,12 @@ def admin_outreach_message(message_id):
 def admin_outreach_generate(message_id):
     from email_system.openai_client import generate_outreach_draft
 
-    message = OutreachMessage.query.get_or_404(message_id)
-    if message.direction != "outbound" or not message.restaurant:
+    message = operational_outreach_message_or_404(message_id)
+    if (
+        message.direction != "outbound"
+        or not message.restaurant
+        or message.restaurant.catalog_status != "included"
+    ):
         abort(400, "Choose a restaurant before generating a draft.")
     result = generate_outreach_draft(message.restaurant, request.form.get("instruction", "").strip())
     if result["success"]:
@@ -668,7 +738,7 @@ def admin_outreach_generate(message_id):
 def admin_outreach_send(message_id):
     from email_system.outreach_service import send_outreach_message
 
-    message = OutreachMessage.query.get_or_404(message_id)
+    message = operational_outreach_message_or_404(message_id)
     if message.direction != "outbound" or message.status not in {"draft", "failed"}:
         abort(400)
     result = send_outreach_message(message)
@@ -679,7 +749,7 @@ def admin_outreach_send(message_id):
 @app.post("/admin/outreach/<int:message_id>/<action>")
 @admin_required
 def admin_outreach_action(message_id, action):
-    message = OutreachMessage.query.get_or_404(message_id)
+    message = operational_outreach_message_or_404(message_id)
     if action == "archive":
         message.archived = True
     elif action == "follow-up":
@@ -743,7 +813,7 @@ def admin_restaurants():
         flash("Restaurant added.")
         return redirect(url_for("admin_restaurants"))
     term = request.args.get("q", "").strip()
-    query = Restaurant.query
+    query = included_restaurants_query()
     if term:
         query = query.filter(restaurant_search_filter(term))
     return render_template("admin/restaurants.html", restaurants=query.order_by(Restaurant.name).all(), search_term=term)
@@ -752,25 +822,18 @@ def admin_restaurants():
 @app.get("/admin/restaurant-catalog")
 @admin_required
 def admin_restaurant_catalog():
-    status = request.args.get("status", "review")
-    query = Restaurant.query
-    if status in CATALOG_STATUSES:
-        query = query.filter_by(catalog_status=status)
-    else:
-        status = "all"
     return render_template(
         "admin/restaurant_catalog.html",
-        restaurants=query.order_by(Restaurant.city, Restaurant.name).all(),
-        status=status,
+        restaurants=Restaurant.query.filter_by(catalog_status="review").order_by(Restaurant.city, Restaurant.name).all(),
     )
 
 
 @app.post("/admin/restaurants/<int:restaurant_id>/catalog/<status>")
 @admin_required
 def admin_restaurant_catalog_action(restaurant_id, status):
-    if status not in CATALOG_STATUSES:
+    if status not in {"included", "excluded"}:
         abort(404)
-    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    restaurant = Restaurant.query.filter_by(id=restaurant_id, catalog_status="review").first_or_404()
     restaurant.catalog_status = status
     restaurant.catalog_reason = "manual admin review"
     restaurant.catalog_reviewed_at = utc_now()
@@ -782,7 +845,7 @@ def admin_restaurant_catalog_action(restaurant_id, status):
 @app.post("/admin/restaurants/catalog/<status>")
 @admin_required
 def admin_restaurant_catalog_bulk_action(status):
-    if status not in CATALOG_STATUSES:
+    if status not in {"included", "excluded"}:
         abort(404)
     submitted_ids = request.form.getlist("restaurant_ids")
     if not submitted_ids:
@@ -791,7 +854,12 @@ def admin_restaurant_catalog_bulk_action(status):
         restaurant_ids = [int(restaurant_id) for restaurant_id in submitted_ids]
     except ValueError:
         abort(400, "One or more selected restaurant IDs are invalid.")
-    restaurants = Restaurant.query.filter(Restaurant.id.in_(restaurant_ids)).all()
+    restaurants = Restaurant.query.filter(
+        Restaurant.id.in_(restaurant_ids),
+        Restaurant.catalog_status == "review",
+    ).all()
+    if len(restaurants) != len(set(restaurant_ids)):
+        abort(400, "One or more selected venues are not pending review.")
     for restaurant in restaurants:
         restaurant.catalog_status = status
         restaurant.catalog_reason = "manual admin review"
@@ -809,7 +877,7 @@ def admin_restaurant_enrichment():
             Restaurant.place_id.isnot(None),
             Restaurant.place_id != "",
             Restaurant.google_place_refreshed_at.is_(None),
-            Restaurant.catalog_status != "excluded",
+            Restaurant.catalog_status == "included",
         )
         .order_by(Restaurant.city, Restaurant.name)
         .all()
@@ -843,7 +911,7 @@ def admin_enhance_restaurant(restaurant_id):
     api_key = validate_restaurant_enrichment_request()
     if not api_key:
         return redirect(url_for("admin_restaurant_enrichment"))
-    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    restaurant = included_restaurant_or_404(restaurant_id)
     if not restaurant.place_id:
         abort(400, "This restaurant does not have a Google place ID.")
 
@@ -877,7 +945,7 @@ def admin_enhance_restaurants():
             Restaurant.place_id.isnot(None),
             Restaurant.place_id != "",
             Restaurant.google_place_refreshed_at.is_(None),
-            Restaurant.catalog_status != "excluded",
+            Restaurant.catalog_status == "included",
         )
         .order_by(Restaurant.id)
         .all()
@@ -905,7 +973,7 @@ def admin_enhance_restaurants():
 @app.route("/admin/restaurants/<int:restaurant_id>/edit", methods=["GET", "POST"])
 @admin_required
 def admin_edit_restaurant(restaurant_id):
-    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    restaurant = included_restaurant_or_404(restaurant_id)
     if request.method == "POST":
         restaurant_from_form(restaurant)
         db.session.commit()
@@ -917,7 +985,7 @@ def admin_edit_restaurant(restaurant_id):
 @app.post("/admin/restaurants/<int:restaurant_id>/token")
 @admin_required
 def admin_restaurant_token(restaurant_id):
-    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    restaurant = included_restaurant_or_404(restaurant_id)
     token = secrets.token_urlsafe(24)
     restaurant.submission_token_hash = hash_token(token)
     db.session.commit()
@@ -928,7 +996,7 @@ def admin_restaurant_token(restaurant_id):
 @app.post("/admin/restaurants/<int:restaurant_id>/delete")
 @admin_required
 def admin_delete_restaurant(restaurant_id):
-    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    restaurant = included_restaurant_or_404(restaurant_id)
     db.session.delete(restaurant)
     db.session.commit()
     flash("Restaurant deleted.")
@@ -939,7 +1007,7 @@ def admin_delete_restaurant(restaurant_id):
 @admin_required
 def admin_specials():
     status = request.args.get("status", "")
-    query = Special.query.join(Restaurant)
+    query = Special.query.join(Restaurant).filter(Restaurant.catalog_status == "included")
     if status in {"draft", "published", "expired"}:
         query = query.filter(Special.status == status)
     return render_template("admin/specials.html", specials=query.order_by(Special.created_at.desc()).all(), status=status)
@@ -956,13 +1024,13 @@ def admin_new_special():
             flash(str(error))
             return redirect(url_for("admin_new_special"))
         return redirect(url_for("admin_specials"))
-    return render_template("admin/special_form.html", restaurants=Restaurant.query.order_by(Restaurant.name), special=Special(status="published", source="manual"))
+    return render_template("admin/special_form.html", restaurants=included_restaurants_query().order_by(Restaurant.name), special=Special(status="published", source="manual"))
 
 
 @app.route("/admin/specials/<int:special_id>/edit", methods=["GET", "POST"])
 @admin_required
 def admin_edit_special(special_id):
-    special = Special.query.get_or_404(special_id)
+    special = included_special_or_404(special_id)
     if request.method == "POST":
         try:
             special_from_form(special)
@@ -970,13 +1038,13 @@ def admin_edit_special(special_id):
         except UploadError as error:
             flash(str(error))
         return redirect(url_for("admin_edit_special", special_id=special.id))
-    return render_template("admin/special_form.html", restaurants=Restaurant.query.order_by(Restaurant.name), special=special)
+    return render_template("admin/special_form.html", restaurants=included_restaurants_query().order_by(Restaurant.name), special=special)
 
 
 @app.post("/admin/specials/<int:special_id>/<action>")
 @admin_required
 def admin_special_action(special_id, action):
-    special = Special.query.get_or_404(special_id)
+    special = included_special_or_404(special_id)
     if action == "approve":
         special.status = "published"
         special.published_at = special.published_at or utc_now()
@@ -994,7 +1062,7 @@ def admin_special_action(special_id, action):
 @app.route("/admin/specials/<int:special_id>/distribution", methods=["GET", "POST"])
 @admin_required
 def admin_distribution(special_id):
-    special = Special.query.get_or_404(special_id)
+    special = included_special_or_404(special_id)
     if request.method == "POST":
         channel = request.form["channel"]
         if channel not in CHANNELS:
@@ -1012,14 +1080,14 @@ def admin_distribution(special_id):
 @app.route("/admin/intake", methods=["GET", "POST"])
 @admin_required
 def admin_intake():
-    restaurants = Restaurant.query.order_by(Restaurant.name).all()
+    restaurants = included_restaurants_query().order_by(Restaurant.name).all()
     draft = None
     if request.method == "POST":
         raw_text = request.form["raw_text"].strip()
         parsed = parse_special_text(raw_text)
         if request.form.get("save") == "1":
             special = Special(
-                restaurant_id=int(request.form["restaurant_id"]),
+                restaurant_id=included_restaurant_id_from_form(),
                 title=request.form["title"].strip(),
                 description=request.form.get("description", "").strip(),
                 price=request.form.get("price", "").strip(),
@@ -1032,7 +1100,7 @@ def admin_intake():
             db.session.add(special)
             db.session.commit()
             return redirect(url_for("admin_specials", status="draft"))
-        draft = {"raw_text": raw_text, "restaurant_id": int(request.form["restaurant_id"]), **parsed}
+        draft = {"raw_text": raw_text, "restaurant_id": included_restaurant_id_from_form(), **parsed}
     return render_template("admin/intake.html", restaurants=restaurants, draft=draft)
 
 

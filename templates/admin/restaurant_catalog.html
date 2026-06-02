@@ -5,20 +5,15 @@
   <div>
     <p class="eyebrow">Admin</p>
     <h1 class="display-md mt-2">Catalog review</h1>
-    <p class="mt-2 max-w-3xl text-sm text-stone-600">Excluded venues are hidden from public restaurant pages without being deleted. Review mixed-use venues and override classifications here.</p>
+    <p class="mt-2 max-w-3xl text-sm text-stone-600">Review mixed-use venues once. Included venues move into the restaurant admin. Excluded venues are treated as deleted and cannot be reopened here.</p>
   </div>
   <a href="{{ url_for('admin_restaurants') }}" class="button-secondary">Restaurants</a>
-</div>
-<div class="mb-4 flex flex-wrap gap-2">
-  {% for value in ["review", "included", "excluded", "all"] %}
-    <a href="{{ url_for('admin_restaurant_catalog', status=value) }}" class="{{ 'button-primary' if status == value else 'button-secondary' }}">{{ value|title }}</a>
-  {% endfor %}
 </div>
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="mb-3 flex flex-wrap items-center gap-2">
     <span class="text-sm font-semibold text-stone-600">Selected venues:</span>
-    {% for value in ["included", "excluded", "review"] %}
+    {% for value in ["included", "excluded"] %}
       <button formaction="{{ url_for('admin_restaurant_catalog_bulk_action', status=value) }}" class="button-secondary">{{ value|title }}</button>
     {% endfor %}
   </div>
@@ -38,10 +33,8 @@
             <td class="p-3 text-xs text-stone-600">{{ restaurant.catalog_reason }}</td>
             <td class="p-3">
               <div class="flex justify-end gap-2">
-                {% for value in ["included", "excluded", "review"] %}
-                  {% if restaurant.catalog_status != value %}
+                {% for value in ["included", "excluded"] %}
                     <button formaction="{{ url_for('admin_restaurant_catalog_action', restaurant_id=restaurant.id, status=value) }}" class="rounded-md border border-stone-300 px-2 py-1 text-xs font-semibold text-stone-700">{{ value|title }}</button>
-                  {% endif %}
                 {% endfor %}
               </div>
             </td>
