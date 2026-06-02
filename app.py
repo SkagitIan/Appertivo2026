@@ -45,6 +45,7 @@ LOCAL_TZ = ZoneInfo("America/Los_Angeles")
 METRIC_TYPES = {"view", "directions", "call", "website", "share"}
 CHANNELS = ["facebook_page", "facebook_group", "instagram", "email", "other"]
 LEAD_STATUSES = {"new", "contacted", "converted", "closed"}
+CATALOG_STATUSES = {"included", "excluded", "review"}
 
 
 def normalize_database_url(database_url):
@@ -217,6 +218,7 @@ def active_specials_query():
     now = utc_now()
     return Special.query.join(Restaurant).filter(
         Special.status == "published",
+        Restaurant.catalog_status == "included",
         or_(Special.starts_at.is_(None), Special.starts_at <= now),
         or_(Special.expires_at.is_(None), Special.expires_at >= now),
     )
@@ -441,13 +443,19 @@ def get_started():
 def restaurants():
     city = request.args.get("city", "").strip()
     search_term = request.args.get("q", "").strip()
-    query = Restaurant.query
+    query = Restaurant.query.filter_by(catalog_status="included")
     if city:
         query = query.filter(Restaurant.city.ilike(city))
     if search_term:
         query = query.filter(restaurant_search_filter(search_term))
     items = query.order_by(Restaurant.name).all()
-    cities = [row[0] for row in db.session.query(Restaurant.city).distinct().order_by(Restaurant.city)]
+    cities = [
+        row[0]
+        for row in db.session.query(Restaurant.city)
+        .filter_by(catalog_status="included")
+        .distinct()
+        .order_by(Restaurant.city)
+    ]
     return render_template(
         "restaurants.html",
         restaurants=items,
@@ -463,13 +471,18 @@ def search_suggestions():
     term = request.args.get("q", "").strip()
     if len(term) < 2:
         return jsonify([])
-    items = Restaurant.query.filter(restaurant_search_filter(term)).order_by(Restaurant.name).limit(8)
+    items = (
+        Restaurant.query.filter_by(catalog_status="included")
+        .filter(restaurant_search_filter(term))
+        .order_by(Restaurant.name)
+        .limit(8)
+    )
     return jsonify([{"name": item.name, "location": item.city, "url": url_for("restaurant_detail", slug=item.slug)} for item in items])
 
 
 @app.route("/restaurants/<slug>", methods=["GET", "POST"])
 def restaurant_detail(slug):
-    restaurant = Restaurant.query.filter_by(slug=slug).first_or_404()
+    restaurant = Restaurant.query.filter_by(slug=slug, catalog_status="included").first_or_404()
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         if email:
@@ -572,6 +585,7 @@ def admin_dashboard():
         "views": SpecialMetric.query.filter_by(event_type="view").count(),
         "action clicks": SpecialMetric.query.filter(SpecialMetric.event_type != "view").count(),
         "outreach follow-ups": OutreachMessage.query.filter_by(follow_up=True, archived=False).count(),
+        "catalog reviews": Restaurant.query.filter_by(catalog_status="review").count(),
     }
     return render_template("admin/dashboard.html", counts=counts)
 
@@ -735,6 +749,58 @@ def admin_restaurants():
     return render_template("admin/restaurants.html", restaurants=query.order_by(Restaurant.name).all(), search_term=term)
 
 
+@app.get("/admin/restaurant-catalog")
+@admin_required
+def admin_restaurant_catalog():
+    status = request.args.get("status", "review")
+    query = Restaurant.query
+    if status in CATALOG_STATUSES:
+        query = query.filter_by(catalog_status=status)
+    else:
+        status = "all"
+    return render_template(
+        "admin/restaurant_catalog.html",
+        restaurants=query.order_by(Restaurant.city, Restaurant.name).all(),
+        status=status,
+    )
+
+
+@app.post("/admin/restaurants/<int:restaurant_id>/catalog/<status>")
+@admin_required
+def admin_restaurant_catalog_action(restaurant_id, status):
+    if status not in CATALOG_STATUSES:
+        abort(404)
+    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    restaurant.catalog_status = status
+    restaurant.catalog_reason = "manual admin review"
+    restaurant.catalog_reviewed_at = utc_now()
+    db.session.commit()
+    flash(f"{restaurant.name} marked {status}.")
+    return redirect(request.referrer or url_for("admin_restaurant_catalog"))
+
+
+@app.post("/admin/restaurants/catalog/<status>")
+@admin_required
+def admin_restaurant_catalog_bulk_action(status):
+    if status not in CATALOG_STATUSES:
+        abort(404)
+    submitted_ids = request.form.getlist("restaurant_ids")
+    if not submitted_ids:
+        abort(400, "Select at least one venue.")
+    try:
+        restaurant_ids = [int(restaurant_id) for restaurant_id in submitted_ids]
+    except ValueError:
+        abort(400, "One or more selected restaurant IDs are invalid.")
+    restaurants = Restaurant.query.filter(Restaurant.id.in_(restaurant_ids)).all()
+    for restaurant in restaurants:
+        restaurant.catalog_status = status
+        restaurant.catalog_reason = "manual admin review"
+        restaurant.catalog_reviewed_at = utc_now()
+    db.session.commit()
+    flash(f"{len(restaurants)} venues marked {status}.")
+    return redirect(request.referrer or url_for("admin_restaurant_catalog"))
+
+
 @app.get("/admin/restaurant-enrichment")
 @admin_required
 def admin_restaurant_enrichment():
@@ -743,6 +809,7 @@ def admin_restaurant_enrichment():
             Restaurant.place_id.isnot(None),
             Restaurant.place_id != "",
             Restaurant.google_place_refreshed_at.is_(None),
+            Restaurant.catalog_status != "excluded",
         )
         .order_by(Restaurant.city, Restaurant.name)
         .all()
@@ -810,6 +877,7 @@ def admin_enhance_restaurants():
             Restaurant.place_id.isnot(None),
             Restaurant.place_id != "",
             Restaurant.google_place_refreshed_at.is_(None),
+            Restaurant.catalog_status != "excluded",
         )
         .order_by(Restaurant.id)
         .all()
