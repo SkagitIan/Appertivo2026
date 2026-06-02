@@ -9,7 +9,7 @@ import pytest
 # Flask-SQLAlchemy binds its engine while importing the app.
 os.environ["DATABASE_URL"] = "sqlite://"
 
-from app import app, hash_token
+from app import app, hash_token, normalize_database_url
 from demo_data import seed_demo_specials
 from models import DistributionLog, Restaurant, RestaurantLead, Special, SpecialMetric, Subscriber, db
 from storage import R2Storage, UploadError, validate_image
@@ -50,6 +50,16 @@ def csrf(client):
     client.get("/")
     with client.session_transaction() as flask_session:
         return flask_session["csrf_token"]
+
+
+def test_database_url_uses_installed_psycopg_driver():
+    assert normalize_database_url("postgresql://user:pass@example.com/app") == (
+        "postgresql+psycopg://user:pass@example.com/app"
+    )
+    assert normalize_database_url("postgres://user:pass@example.com/app") == (
+        "postgresql+psycopg://user:pass@example.com/app"
+    )
+    assert normalize_database_url("sqlite:///appertivo.db") == "sqlite:///appertivo.db"
 
 
 def login(client):

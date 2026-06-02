@@ -46,11 +46,21 @@ METRIC_TYPES = {"view", "directions", "call", "website", "share"}
 CHANNELS = ["facebook_page", "facebook_group", "instagram", "email", "other"]
 LEAD_STATUSES = {"new", "contacted", "converted", "closed"}
 
+
+def normalize_database_url(database_url):
+    """Use the installed Psycopg 3 driver for provider-style PostgreSQL URLs."""
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    if database_url.startswith("postgresql://"):
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return database_url
+
+
 app = Flask(__name__)
 app.config.update(
     SECRET_KEY=os.environ.get("SECRET_KEY", "dev-change-me"),
     ADMIN_PASSWORD=os.environ.get("ADMIN_PASSWORD", "admin"),
-    SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL", "sqlite:///appertivo.db"),
+    SQLALCHEMY_DATABASE_URI=normalize_database_url(os.environ.get("DATABASE_URL", "sqlite:///appertivo.db")),
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     MAX_CONTENT_LENGTH=int(os.environ.get("MAX_UPLOAD_BYTES", 5 * 1024 * 1024)),
     UPLOAD_ROOT=os.environ.get("UPLOAD_ROOT", str(Path(app.instance_path) / "uploads")),
