@@ -67,7 +67,7 @@ def test_csv_enrichment_preserves_existing_contact_values_when_source_is_blank()
     }
     restaurant = SimpleNamespace(phone="keep-phone", international_phone="keep-intl", site="keep-site")
 
-    apply_csv_row(restaurant, row, lambda: "now")
+    apply_csv_row(restaurant, row, lambda: "now", include_heavy_content=True)
 
     assert restaurant.phone == "keep-phone"
     assert restaurant.international_phone == "keep-intl"

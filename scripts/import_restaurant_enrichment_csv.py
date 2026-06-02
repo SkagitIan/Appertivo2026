@@ -77,7 +77,7 @@ def set_if_present(restaurant, field, value):
         setattr(restaurant, field, value)
 
 
-def apply_csv_row(restaurant, row, utc_now):
+def apply_csv_row(restaurant, row, utc_now, include_heavy_content=False):
     set_if_present(restaurant, "name", row["name"])
     set_if_present(restaurant, "full_address", row["address"])
     for key, value in address_parts(row["address"]).items():
@@ -102,9 +102,10 @@ def apply_csv_row(restaurant, row, utc_now):
     restaurant.hours_text = row["hours_text"]
     restaurant.editorial_summary = row["editorial_summary"]
     restaurant.top_review = row["top_review"]
-    restaurant.google_review_texts = optional_json(row["all_reviews_json"])
     restaurant.google_photo_count = optional_int(row["photo_count"])
-    restaurant.google_first_photo_ref = row["first_photo_ref"]
+    if include_heavy_content:
+        restaurant.google_review_texts = optional_json(row["all_reviews_json"])
+        restaurant.google_first_photo_ref = row["first_photo_ref"]
     restaurant.payment_options = optional_json(row["payment_options_json"])
     restaurant.parking_options = optional_json(row["parking_options_json"])
     restaurant.accessibility_options = optional_json(row["accessibility_json"])
@@ -123,6 +124,11 @@ def parse_args():
         "--confirm-storage-terms",
         action="store_true",
         help="Confirm your Google Maps agreement permits storage of this Places content.",
+    )
+    parser.add_argument(
+        "--include-heavy-content",
+        action="store_true",
+        help="Also store bulk review text and full photo references.",
     )
     parser.add_argument("--database-url", help="Override DATABASE_URL.")
     return parser.parse_args()
@@ -160,7 +166,12 @@ def main():
             for attempt in range(3):
                 try:
                     restaurant = Restaurant.query.filter_by(place_id=row["place_id"]).one()
-                    apply_csv_row(restaurant, row, utc_now)
+                    apply_csv_row(
+                        restaurant,
+                        row,
+                        utc_now,
+                        include_heavy_content=args.include_heavy_content,
+                    )
                     db.session.commit()
                     updated += 1
                     break
