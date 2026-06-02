@@ -116,6 +116,9 @@ class Restaurant(db.Model):
     google_reviews = db.relationship(
         "RestaurantGoogleReview", back_populates="restaurant", cascade="all, delete-orphan"
     )
+    outreach_campaigns = db.relationship(
+        "OutreachCampaign", back_populates="restaurant", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         db.Index("ix_restaurant_city_name", "city", "name"),
@@ -289,8 +292,48 @@ class RestaurantLead(db.Model):
     )
 
 
+class OutreachCampaign(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey("restaurant.id"), nullable=False, index=True)
+    recipient_email = db.Column(db.String(160), nullable=False, index=True)
+    contact_name = db.Column(db.String(160), default="")
+    status = db.Column(db.String(30), nullable=False, default="drafting", index=True)
+    current_step = db.Column(db.Integer, nullable=False, default=0, index=True)
+    last_sent_at = db.Column(db.DateTime, nullable=True)
+    next_follow_up_at = db.Column(db.DateTime, nullable=True, index=True)
+    paused = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    archived = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    personalized_observation = db.Column(db.Text, default="")
+    example_special = db.Column(db.Text, default="")
+    personalized_reason = db.Column(db.Text, default="")
+    notes = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    restaurant = db.relationship("Restaurant", back_populates="outreach_campaigns")
+    messages = db.relationship(
+        "OutreachMessage",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        order_by="OutreachMessage.created_at",
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint("restaurant_id", "recipient_email", name="uq_outreach_campaign_restaurant_email"),
+    )
+
+
+class OutreachSuppression(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(160), nullable=False, unique=True, index=True)
+    reason = db.Column(db.String(80), nullable=False, default="opt_out")
+    source = db.Column(db.String(80), nullable=False, default="admin")
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+
 class OutreachMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    campaign_id = db.Column(db.Integer, db.ForeignKey("outreach_campaign.id"), nullable=True, index=True)
     restaurant_id = db.Column(db.Integer, db.ForeignKey("restaurant.id"), nullable=True, index=True)
     direction = db.Column(db.String(20), nullable=False, default="outbound", index=True)
     status = db.Column(db.String(20), nullable=False, default="draft", index=True)
@@ -299,6 +342,10 @@ class OutreachMessage(db.Model):
     subject = db.Column(db.String(240), nullable=False, default="")
     body_text = db.Column(db.Text, nullable=False, default="")
     tags = db.Column(db.String(300), nullable=False, default="")
+    sequence_step = db.Column(db.Integer, nullable=True, index=True)
+    template_key = db.Column(db.String(40), nullable=True, index=True)
+    reviewed = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    due_at = db.Column(db.DateTime, nullable=True, index=True)
     follow_up = db.Column(db.Boolean, nullable=False, default=False, index=True)
     archived = db.Column(db.Boolean, nullable=False, default=False, index=True)
     provider = db.Column(db.String(40), nullable=True)
@@ -312,3 +359,4 @@ class OutreachMessage(db.Model):
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     restaurant = db.relationship("Restaurant")
+    campaign = db.relationship("OutreachCampaign", back_populates="messages")

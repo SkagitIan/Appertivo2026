@@ -10,8 +10,8 @@ os.environ["DATABASE_URL"] = "sqlite://"
 from app import app
 from email_system import loops_client, resend_client
 from email_system.openai_client import generate_outreach_draft
-from email_system.outreach_service import receive_resend_email, send_outreach_message
-from models import OutreachMessage, Restaurant, db
+from email_system.outreach_service import create_campaign_for_restaurant, receive_resend_email, send_outreach_message, suppress_email
+from models import OutreachCampaign, OutreachMessage, OutreachSuppression, RawSpecialSubmission, Restaurant, db
 
 
 @pytest.fixture()
@@ -85,18 +85,18 @@ def test_reviewed_send_updates_message_and_calls_loops(outreach_app, monkeypatch
     monkeypatch.setattr(loops_client, "create_or_update_contact", lambda *args, **kwargs: loops_calls.append(("contact", args)))
     monkeypatch.setattr(loops_client, "send_event", lambda *args, **kwargs: loops_calls.append(("event", args)))
     with app.app_context():
-        message = OutreachMessage(
-            restaurant_id=1,
-            sender_email="ian@appertivo.com",
-            recipient_email="owner@example.com",
-            subject="Hello",
-            body_text="A reviewed body.",
-        )
-        db.session.add(message)
+        campaign = create_campaign_for_restaurant(Restaurant.query.one())
+        message = campaign.messages[0]
+        message.subject = "Hello"
+        message.body_text = "A reviewed body."
+        message.reviewed = True
         db.session.commit()
         result = send_outreach_message(message)
         assert message.status == "sent"
         assert message.provider_message_id == "email-1"
+        assert campaign.status == "active"
+        assert campaign.current_step == 1
+        assert campaign.next_follow_up_at is not None
     assert result["success"] is True
     assert [call[0] for call in loops_calls] == ["contact", "event"]
 
@@ -121,14 +121,63 @@ def test_inbound_resend_reply_is_stored(outreach_app, monkeypatch):
         }
     )
     with app.app_context():
+        campaign = create_campaign_for_restaurant(Restaurant.query.one())
         receive_resend_email(payload, {"id": "1", "timestamp": "1", "signature": "v1,test"})
-        message = OutreachMessage.query.one()
+        message = OutreachMessage.query.filter_by(direction="inbound").one()
         assert message.direction == "inbound"
         assert message.restaurant_id == 1
+        assert message.campaign_id == campaign.id
         assert message.body_text == "Thanks, tell me more."
+        assert campaign.status == "replied"
+        assert campaign.paused is True
 
 
-def test_admin_outreach_create_generate_and_email_tool_guard(outreach_app, monkeypatch):
+def test_opt_out_blocks_outreach_send(outreach_app, monkeypatch):
+    monkeypatch.setattr(
+        resend_client,
+        "send_email",
+        lambda **kwargs: {"success": True, "provider": "resend", "message_id": "email-1", "error": None},
+    )
+    with app.app_context():
+        campaign = create_campaign_for_restaurant(Restaurant.query.one())
+        message = campaign.messages[0]
+        suppress_email("owner@example.com", source="test")
+        db.session.commit()
+        result = send_outreach_message(message)
+        assert result["success"] is False
+        assert message.status == "blocked"
+        assert OutreachSuppression.query.filter_by(email="owner@example.com").one()
+
+
+def test_inbound_special_email_routes_to_special_pipeline(outreach_app, monkeypatch):
+    monkeypatch.setattr("email_system.outreach_service.resend.Webhooks.verify", lambda options: None)
+    monkeypatch.setattr(
+        "email_system.outreach_service.resend.Emails.Receiving.get",
+        lambda email_id: {"text": "Friday fish tacos $12 today."},
+    )
+    payload = json.dumps(
+        {
+            "type": "email.received",
+            "data": {
+                "email_id": "special-1",
+                "from": "owner@example.com",
+                "to": ["specials@appertivo.com"],
+                "subject": "Special",
+                "created_at": "2026-06-01T12:00:00.000Z",
+                "message_id": "<special@example.com>",
+            },
+        }
+    )
+    with app.app_context():
+        campaign = create_campaign_for_restaurant(Restaurant.query.one())
+        receive_resend_email(payload, {"id": "1", "timestamp": "1", "signature": "v1,test"})
+        submission = RawSpecialSubmission.query.one()
+        assert submission.restaurant_id == 1
+        assert submission.draft is not None
+        assert campaign.status == "special_received"
+
+
+def test_admin_outreach_enroll_generate_send_and_email_tool_guard(outreach_app, monkeypatch):
     with app.test_client() as client:
         login(client)
         response = client.post(
@@ -136,20 +185,42 @@ def test_admin_outreach_create_generate_and_email_tool_guard(outreach_app, monke
             data={
                 "csrf_token": csrf(client),
                 "restaurant_id": "1",
-                "recipient_email": "owner@example.com",
-                "subject": "Hello",
-                "body_text": "Initial",
             },
         )
         assert response.status_code == 302
+        response = client.get("/admin/outreach")
+        assert b"Outreach inbox" in response.data
+        response = client.get("/admin/outreach/1")
+        assert b"Personalization" in response.data
         monkeypatch.setattr(
             "email_system.openai_client.generate_outreach_draft",
-            lambda restaurant, instruction: {"success": True, "text": "Generated", "error": None},
+            lambda restaurant, instruction, sequence_step=None, personalization=None: {
+                "success": True,
+                "text": "Generated",
+                "error": None,
+            },
         )
         response = client.post("/admin/outreach/1/generate", data={"csrf_token": csrf(client)})
+        assert response.status_code == 302
+        with app.app_context():
+            campaign = OutreachCampaign.query.one()
+            draft = OutreachMessage.query.filter_by(campaign_id=campaign.id, body_text="Generated").one()
+        response = client.post(
+            "/admin/outreach/1",
+            data={
+                "csrf_token": csrf(client),
+                "draft_id": str(draft.id),
+                "recipient_email": "owner@example.com",
+                "subject": "Hello",
+                "body_text": "Reviewed",
+                "tags": "test",
+                "reviewed": "on",
+            },
+        )
         assert response.status_code == 302
         app.config["EMAIL_TEST_ENABLED"] = False
         response = client.post("/admin/email-tools", data={"csrf_token": csrf(client)}, follow_redirects=True)
         assert b"Email test sending is disabled" in response.data
     with app.app_context():
-        assert OutreachMessage.query.one().body_text == "Generated"
+        assert OutreachCampaign.query.one().status == "drafting"
+        assert OutreachMessage.query.filter_by(body_text="Reviewed", reviewed=True).one()

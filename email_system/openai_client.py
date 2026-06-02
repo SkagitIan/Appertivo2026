@@ -17,7 +17,7 @@ def _output_text(data):
     ).strip()
 
 
-def generate_outreach_draft(restaurant, instruction=None):
+def generate_outreach_draft(restaurant, instruction=None, sequence_step=None, personalization=None):
     api_key = current_app.config.get("OPENAI_API_KEY")
     if not api_key:
         return {"success": False, "text": None, "error": "OPENAI_API_KEY is not configured."}
@@ -30,11 +30,15 @@ def generate_outreach_draft(restaurant, instruction=None):
         "website": restaurant.website,
         "phone": restaurant.phone,
     }
+    personalization = personalization or {}
     prompt = (
         "Write a concise founder outreach email for this local restaurant. "
         "Ask them to send today's specials to Appertivo. Keep it warm, direct, and under 140 words. "
-        "Do not invent facts. Return only the email body, without a subject line.\n\n"
+        "Do not invent facts. Return only the email body, without a subject line. "
+        "Use Ian's local restaurant-founder voice and keep it low-pressure.\n\n"
         f"Restaurant context: {context}\n"
+        f"Sequence step: {sequence_step or 'unspecified'}\n"
+        f"Personalization fields: {personalization}\n"
         f"Additional instruction: {instruction or 'None'}"
     )
     try:

@@ -1,23 +1,86 @@
 {% extends "base.html" %}
 {% block title %}Outreach inbox | Appertivo admin{% endblock %}
 {% block content %}
-<div class="mb-6"><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Outreach inbox</h1><p class="mt-2 text-sm text-stone-600">Review founder outreach and inbound replies. Loops receives contact and lifecycle events after successful sends.</p></div>
-<section class="admin-card mb-6 p-5">
-  <h2 class="text-2xl">New outreach draft</h2>
-  <form method="post" class="mt-4 grid gap-3 md:grid-cols-2">
-    <label class="text-sm font-bold">Restaurant<select name="restaurant_id" class="mt-1 w-full rounded-md border px-3 py-2"><option value="">Choose later</option>{% for restaurant in restaurants %}<option value="{{ restaurant.id }}">{{ restaurant.name }}{% if restaurant.contact_email %} - {{ restaurant.contact_email }}{% endif %}</option>{% endfor %}</select></label>
-    <label class="text-sm font-bold">Recipient email<input type="email" required name="recipient_email" class="mt-1 w-full rounded-md border px-3 py-2"></label>
-    <label class="text-sm font-bold md:col-span-2">Subject<input name="subject" value="Get your restaurant special in front of local diners" class="mt-1 w-full rounded-md border px-3 py-2"></label>
-    <label class="text-sm font-bold md:col-span-2">Notes or initial body<textarea name="body_text" rows="4" class="mt-1 w-full rounded-md border px-3 py-2"></textarea></label>
-    <label class="text-sm font-bold">Tags<input name="tags" placeholder="new-lead, mount-vernon" class="mt-1 w-full rounded-md border px-3 py-2"></label>
-    <div class="self-end"><button class="button-primary">Create draft</button></div>
-  </form>
-</section>
-<div class="grid gap-3">
-  {% for message in messages %}
-    <a href="{{ url_for('admin_outreach_message', message_id=message.id) }}" class="admin-card block p-4">
-      <div class="flex flex-wrap items-center justify-between gap-2"><div><span class="status-badge status-{{ message.status }}">{{ message.direction }} · {{ message.status }}</span>{% if message.follow_up %}<span class="ml-2 text-xs font-bold text-orange-700">FOLLOW UP</span>{% endif %}<h2 class="mt-2 text-xl">{{ message.subject or "(no subject)" }}</h2><p class="mt-1 text-sm text-stone-600">{{ message.sender_email }} → {{ message.recipient_email }}{% if message.restaurant %} · {{ message.restaurant.name }}{% endif %}</p></div><p class="text-xs text-stone-500">{{ message.updated_at.strftime("%Y-%m-%d %H:%M") }}</p></div>
-    </a>
-  {% else %}<p class="admin-card p-6 text-stone-600">No outreach messages yet.</p>{% endfor %}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <p class="eyebrow">Admin</p>
+    <h1 class="display-md mt-2">Outreach inbox</h1>
+    <p class="mt-2 max-w-3xl text-sm text-stone-600">Founder-led restaurant outreach. Draft locally, review every message, send through Resend, and stop follow-ups when restaurants reply or opt out.</p>
+  </div>
+  <p class="rounded-md border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-600">Manual sends only</p>
 </div>
+
+<nav class="mb-5 flex flex-wrap gap-2">
+  {% for key, label in [("due", "Due"), ("drafts", "Drafts"), ("replies", "Replies"), ("active", "Active"), ("converted", "Converted"), ("opted-out", "Opted out"), ("archived", "Archived")] %}
+    <a href="{{ url_for('admin_outreach', view=key) }}" class="{{ 'button-primary' if view == key else 'button-quiet' }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<section class="admin-card mb-6 p-5">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 class="text-2xl">Eligible restaurants</h2>
+      <p class="mt-1 text-sm text-stone-600">Included restaurants with a contact email and no active outreach campaign.</p>
+    </div>
+    <span class="text-sm font-bold text-stone-500">{{ eligible_restaurants|length }} ready</span>
+  </div>
+  {% if eligible_restaurants %}
+    <div class="mt-4 overflow-hidden rounded-lg border border-stone-200">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-stone-100 text-stone-600">
+          <tr><th class="p-3">Restaurant</th><th class="p-3">City</th><th class="p-3">Email</th><th class="p-3">Missing context</th><th class="p-3"></th></tr>
+        </thead>
+        <tbody class="divide-y divide-stone-200">
+          {% for restaurant in eligible_restaurants[:12] %}
+            <tr>
+              <td class="p-3 font-semibold">{{ restaurant.name }}</td>
+              <td class="p-3">{{ restaurant.city }}</td>
+              <td class="p-3 text-xs">{{ restaurant.contact_email }}</td>
+              <td class="p-3 text-xs text-stone-600">
+                {% set missing = [] %}
+                {% if not restaurant.website %}{% set _ = missing.append("website") %}{% endif %}
+                {% if not restaurant.category %}{% set _ = missing.append("category") %}{% endif %}
+                {% if not restaurant.phone %}{% set _ = missing.append("phone") %}{% endif %}
+                {{ missing|join(", ") if missing else "Ready" }}
+              </td>
+              <td class="p-3 text-right">
+                <form method="post">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="restaurant_id" value="{{ restaurant.id }}">
+                  <button class="button-secondary">Enroll</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="mt-4 text-sm text-stone-600">No eligible restaurants in this queue.</p>
+  {% endif %}
+</section>
+
+<section class="grid gap-3">
+  {% for campaign in campaigns %}
+    {% set latest = campaign.messages[-1] if campaign.messages else None %}
+    <a href="{{ url_for('admin_outreach_campaign', campaign_id=campaign.id) }}" class="admin-card block p-4">
+      <div class="grid gap-3 md:grid-cols-[1.4fr_.8fr_.8fr_.8fr] md:items-center">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="status-badge status-{{ campaign.status }}">{{ campaign.status.replace("_", " ") }}</span>
+            {% if campaign.paused %}<span class="text-xs font-bold text-orange-700">PAUSED</span>{% endif %}
+          </div>
+          <h2 class="mt-2 text-xl">{{ campaign.restaurant.name }}</h2>
+          <p class="mt-1 text-sm text-stone-600">{{ campaign.restaurant.city }} · {{ campaign.recipient_email }}</p>
+          {% if latest %}<p class="mt-2 line-clamp-2 text-xs text-stone-500">{{ latest.subject }}{% if latest.body_text %}: {{ latest.body_text[:140] }}{% endif %}</p>{% endif %}
+        </div>
+        <p class="text-sm"><strong>Step</strong><br>{{ campaign.current_step }}/4</p>
+        <p class="text-sm"><strong>Last contact</strong><br>{{ campaign.last_sent_at.strftime("%Y-%m-%d") if campaign.last_sent_at else "Not sent" }}</p>
+        <p class="text-sm"><strong>Next due</strong><br>{{ campaign.next_follow_up_at.strftime("%Y-%m-%d") if campaign.next_follow_up_at else "Now" }}</p>
+      </div>
+    </a>
+  {% else %}
+    <p class="admin-card p-6 text-stone-600">No outreach campaigns in this view.</p>
+  {% endfor %}
+</section>
 {% endblock %}
