@@ -8,6 +8,7 @@ import csv
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 
@@ -44,7 +45,7 @@ def optional_json(value):
 
 
 def optional_int(value):
-    return int(value) if value else None
+    return int(float(value)) if value else None
 
 
 def optional_float(value):
@@ -154,10 +155,22 @@ def main():
         if not args.execute:
             print("Preview only: no database changes committed.")
             return
+        updated = 0
         for row in matched:
-            apply_csv_row(restaurants[row["place_id"]], row, utc_now)
-        db.session.commit()
-        print(f"Updated existing restaurants: {len(matched)}")
+            for attempt in range(3):
+                try:
+                    restaurant = Restaurant.query.filter_by(place_id=row["place_id"]).one()
+                    apply_csv_row(restaurant, row, utc_now)
+                    db.session.commit()
+                    updated += 1
+                    break
+                except Exception:
+                    db.session.rollback()
+                    db.engine.dispose()
+                    if attempt == 2:
+                        raise
+                    time.sleep(attempt + 1)
+        print(f"Updated existing restaurants: {updated}")
 
 
 if __name__ == "__main__":

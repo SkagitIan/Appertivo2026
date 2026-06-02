@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from scripts.import_restaurant_enrichment_csv import apply_csv_row
+from scripts.import_restaurant_enrichment_csv import apply_csv_row, optional_int
+
+
+def test_optional_int_accepts_decimal_csv_counts():
+    assert optional_int("310.0") == 310
 
 
 def test_csv_enrichment_preserves_existing_contact_values_when_source_is_blank():
@@ -14,7 +18,7 @@ def test_csv_enrichment_preserves_existing_contact_values_when_source_is_blank()
         "website": "",
         "google_maps_url": "https://maps.example/place",
         "rating": "4.7",
-        "review_count": "42",
+        "review_count": "42.0",
         "business_status": "OPERATIONAL",
         "primary_type": "restaurant",
         "primary_type_label": "Restaurant",
