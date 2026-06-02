@@ -18,6 +18,7 @@ It answers one question:
 - Restaurant add and edit screens.
 - Special add, edit, approve, expire, and delete screens.
 - Placeholder AI intake workflow at `/admin/intake`.
+- Unified special intake pipeline for public forms, admin entry, and simulated email or SMS webhooks.
 - Private restaurant submission links generated from restaurant admin pages.
 - Draft review and trusted direct-publishing workflows.
 - Per-special distribution kits with tracked links and aggregate metrics.
@@ -140,6 +141,28 @@ New databases:
 ```bat
 flask --app app db upgrade
 ```
+
+After pulling the special intake pipeline, run:
+
+```bat
+py -m flask --app app db upgrade
+```
+
+## Special Intake Walkthrough
+
+1. Open `/submit-special`, choose a restaurant, enter special text, and submit it.
+2. Log in at `/admin`, then open `/admin/special-submissions` to confirm the raw submission exists.
+3. Open `/admin/special-drafts`, preview the generated draft, and approve it.
+4. Publish the approved draft from the preview or draft queue.
+5. Open `/admin/specials` to confirm the published special exists.
+
+Development-only webhook simulation is disabled by default. Set `SPECIAL_WEBHOOK_TEST_ENABLED=1`,
+then POST JSON containing `raw_text` and optional `restaurant_id`, `sender_email`, `sender_phone`,
+and `image_url` to `/webhooks/email-special` or `/webhooks/sms-special`.
+
+TODO: verify real provider signatures before enabling production webhook intake, route verified
+Resend inbound special emails into the pipeline, add an SMS provider, and optionally add reviewed
+AI image generation.
 
 Existing seeded databases created before migrations were added:
 

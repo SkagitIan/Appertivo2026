@@ -30,13 +30,22 @@ from models import (
     OutreachMessage,
     Restaurant,
     RestaurantLead,
+    RawSpecialSubmission,
     Special,
+    SpecialDraft,
     SpecialMetric,
     Subscriber,
     db,
     utc_now,
 )
 from services import parse_special_text, slugify
+from special_pipeline import (
+    approve_draft,
+    create_raw_submission,
+    generate_draft_from_submission,
+    publish_draft,
+    reject_draft,
+)
 from storage import UploadError, save_special_photo
 
 
@@ -83,6 +92,7 @@ app.config.update(
     OPENAI_API_KEY=os.environ.get("OPENAI_API_KEY"),
     OPENAI_OUTREACH_MODEL=os.environ.get("OPENAI_OUTREACH_MODEL", "gpt-5.4-mini"),
     GOOGLE_PLACES_API_KEY=os.environ.get("GOOGLE_PLACES_API_KEY"),
+    SPECIAL_WEBHOOK_TEST_ENABLED=os.environ.get("SPECIAL_WEBHOOK_TEST_ENABLED") == "1",
 )
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -194,7 +204,12 @@ def admin_required(view):
 
 @app.before_request
 def protect_mutations():
-    if request.method == "POST" and request.endpoint not in {"admin_login", "resend_webhook"}:
+    if request.method == "POST" and request.endpoint not in {
+        "admin_login",
+        "resend_webhook",
+        "email_special_webhook",
+        "sms_special_webhook",
+    }:
         require_csrf()
 
 
@@ -300,6 +315,40 @@ def save_photo_if_present(special):
     upload = request.files.get("photo")
     if upload and upload.filename:
         special.photo_object_key, special.photo_url = save_special_photo(app, upload)
+
+
+def save_submitted_photo():
+    upload = request.files.get("photo")
+    if upload and upload.filename:
+        return save_special_photo(app, upload)
+    return None, None
+
+
+def structured_draft_from_form(source_channel, restaurant_id):
+    image_path, image_url = save_submitted_photo()
+    title = request.form["title"].strip()
+    description = request.form.get("description", "").strip()
+    price = request.form.get("price", "").strip()
+    raw_text = request.form.get("raw_text", "").strip() or "\n".join(
+        value for value in [title, description, price] if value
+    )
+    submission = create_raw_submission(
+        source_channel=source_channel,
+        restaurant_id=restaurant_id,
+        raw_text=raw_text,
+        raw_image_url=image_url,
+        raw_image_path=image_path,
+    )
+    draft = generate_draft_from_submission(submission.id)
+    draft.title = title
+    draft.description = description
+    draft.price_text = price or None
+    draft.starts_at = parse_local_datetime(request.form["special_date"], request.form.get("start_time") or None)
+    draft.expires_at = parse_local_datetime(
+        request.form["special_date"], request.form.get("end_time") or None, time(23, 59)
+    )
+    db.session.commit()
+    return draft
 
 
 def special_from_form(special=None):
@@ -537,27 +586,82 @@ def restaurant_detail(slug):
 def submit_special(token):
     restaurant = included_restaurants_query().filter_by(submission_token_hash=hash_token(token)).first_or_404()
     if request.method == "POST":
-        special = Special(
-            restaurant_id=restaurant.id,
-            title=request.form["title"].strip(),
-            description=request.form.get("description", "").strip(),
-            price=request.form.get("price", "").strip(),
-            source="restaurant",
-            status="published" if restaurant.direct_publish_enabled else "draft",
-            submitted_at=utc_now(),
-        )
-        set_special_schedule(special)
-        if special.status == "published":
-            special.published_at = utc_now()
         try:
-            save_photo_if_present(special)
+            draft = structured_draft_from_form("public_form", restaurant.id)
         except UploadError as error:
             flash(str(error))
             return render_template("submit.html", restaurant=restaurant), 400
-        db.session.add(special)
-        db.session.commit()
+        special = None
+        if restaurant.direct_publish_enabled:
+            approve_draft(draft.approval_token)
+            special = publish_draft(draft.id)
         return render_template("submit_success.html", restaurant=restaurant, special=special)
     return render_template("submit.html", restaurant=restaurant)
+
+
+@app.route("/submit-special", methods=["GET", "POST"])
+def public_submit_special():
+    restaurants = included_restaurants_query().order_by(Restaurant.name).all()
+    if request.method == "POST":
+        restaurant_id = included_restaurant_id_from_form()
+        raw_text = request.form.get("raw_text", "").strip()
+        if not raw_text:
+            abort(400, "Special details are required.")
+        try:
+            image_path, image_url = save_submitted_photo()
+        except UploadError as error:
+            flash(str(error))
+            return render_template("public_submit_special.html", restaurants=restaurants), 400
+        submission = create_raw_submission(
+            source_channel="public_form",
+            restaurant_id=restaurant_id,
+            raw_text=raw_text,
+            raw_image_url=image_url,
+            raw_image_path=image_path,
+            sender_email=request.form.get("sender_email", "").strip() or None,
+            sender_phone=request.form.get("sender_phone", "").strip() or None,
+        )
+        generate_draft_from_submission(submission.id)
+        return render_template("submit_success.html", restaurant=submission.restaurant, special=None)
+    return render_template("public_submit_special.html", restaurants=restaurants)
+
+
+def special_webhook_response(source_channel):
+    if not (app.config["TESTING"] or app.config["SPECIAL_WEBHOOK_TEST_ENABLED"]):
+        abort(404)
+    payload = request.get_json(silent=True) or {}
+    raw_text = (payload.get("raw_text") or "").strip()
+    if not raw_text:
+        abort(400, "raw_text is required.")
+    restaurant_id = payload.get("restaurant_id")
+    if restaurant_id is not None and not included_restaurants_query().filter_by(id=restaurant_id).first():
+        abort(400, "restaurant_id must reference an included restaurant.")
+    submission = create_raw_submission(
+        source_channel=source_channel,
+        restaurant_id=restaurant_id,
+        raw_text=raw_text,
+        raw_image_url=payload.get("image_url"),
+        sender_email=payload.get("sender_email"),
+        sender_phone=payload.get("sender_phone"),
+    )
+    draft = generate_draft_from_submission(submission.id)
+    return jsonify(
+        {
+            "raw_submission_id": submission.id,
+            "draft_id": draft.id,
+            "preview_url": url_for("special_preview", approval_token=draft.approval_token, _external=True),
+        }
+    ), 201
+
+
+@app.post("/webhooks/email-special")
+def email_special_webhook():
+    return special_webhook_response("email")
+
+
+@app.post("/webhooks/sms-special")
+def sms_special_webhook():
+    return special_webhook_response("sms")
 
 
 @app.get("/uploads/<path:filename>")
@@ -1013,17 +1117,85 @@ def admin_specials():
     return render_template("admin/specials.html", specials=query.order_by(Special.created_at.desc()).all(), status=status)
 
 
+@app.get("/admin/special-submissions")
+@admin_required
+def admin_special_submissions():
+    submissions = RawSpecialSubmission.query.order_by(RawSpecialSubmission.created_at.desc()).all()
+    return render_template("admin/special_submissions.html", submissions=submissions)
+
+
+@app.get("/admin/special-drafts")
+@admin_required
+def admin_special_drafts():
+    drafts = SpecialDraft.query.order_by(SpecialDraft.created_at.desc()).all()
+    restaurants = included_restaurants_query().order_by(Restaurant.name).all()
+    return render_template("admin/special_drafts.html", drafts=drafts, restaurants=restaurants)
+
+
+@app.post("/admin/special-drafts/<int:draft_id>/assign")
+@admin_required
+def admin_assign_special_draft(draft_id):
+    draft = SpecialDraft.query.get_or_404(draft_id)
+    draft.restaurant_id = included_restaurant_id_from_form()
+    draft.raw_submission.restaurant_id = draft.restaurant_id
+    db.session.commit()
+    flash("Restaurant assigned.")
+    return redirect(request.referrer or url_for("admin_special_drafts"))
+
+
+@app.post("/admin/special-drafts/<int:draft_id>/publish")
+@admin_required
+def admin_publish_special_draft(draft_id):
+    try:
+        special = publish_draft(draft_id)
+    except ValueError as error:
+        abort(400, str(error))
+    flash("Special published.")
+    return redirect(url_for("admin_edit_special", special_id=special.id))
+
+
+@app.get("/specials/preview/<approval_token>")
+@admin_required
+def special_preview(approval_token):
+    draft = SpecialDraft.query.filter_by(approval_token=approval_token).first_or_404()
+    return render_template("special_preview.html", draft=draft)
+
+
+@app.post("/specials/preview/<approval_token>/approve")
+@admin_required
+def approve_special_preview(approval_token):
+    try:
+        approve_draft(approval_token)
+    except ValueError as error:
+        abort(400, str(error))
+    flash("Draft approved.")
+    return redirect(url_for("special_preview", approval_token=approval_token))
+
+
+@app.post("/specials/preview/<approval_token>/reject")
+@admin_required
+def reject_special_preview(approval_token):
+    try:
+        reject_draft(approval_token)
+    except ValueError as error:
+        abort(400, str(error))
+    flash("Draft rejected.")
+    return redirect(url_for("special_preview", approval_token=approval_token))
+
+
 @app.route("/admin/specials/new", methods=["GET", "POST"])
 @admin_required
 def admin_new_special():
     if request.method == "POST":
         try:
-            db.session.add(special_from_form())
-            db.session.commit()
+            draft = structured_draft_from_form("admin", included_restaurant_id_from_form())
+            if request.form.get("status", "draft") == "published":
+                approve_draft(draft.approval_token)
+                publish_draft(draft.id)
         except UploadError as error:
             flash(str(error))
             return redirect(url_for("admin_new_special"))
-        return redirect(url_for("admin_specials"))
+        return redirect(url_for("admin_special_drafts"))
     return render_template("admin/special_form.html", restaurants=included_restaurants_query().order_by(Restaurant.name), special=Special(status="published", source="manual"))
 
 
@@ -1086,20 +1258,18 @@ def admin_intake():
         raw_text = request.form["raw_text"].strip()
         parsed = parse_special_text(raw_text)
         if request.form.get("save") == "1":
-            special = Special(
+            submission = create_raw_submission(
+                source_channel="admin",
                 restaurant_id=included_restaurant_id_from_form(),
-                title=request.form["title"].strip(),
-                description=request.form.get("description", "").strip(),
-                price=request.form.get("price", "").strip(),
                 raw_text=raw_text,
-                status="draft",
-                source="intake",
-                submitted_at=utc_now(),
             )
+            special = generate_draft_from_submission(submission.id)
+            special.title = request.form["title"].strip()
+            special.description = request.form.get("description", "").strip()
+            special.price_text = request.form.get("price", "").strip() or None
             special.expires_at = parse_local_datetime(request.form["special_date"], default_time=time(23, 59))
-            db.session.add(special)
             db.session.commit()
-            return redirect(url_for("admin_specials", status="draft"))
+            return redirect(url_for("admin_special_drafts"))
         draft = {"raw_text": raw_text, "restaurant_id": included_restaurant_id_from_form(), **parsed}
     return render_template("admin/intake.html", restaurants=restaurants, draft=draft)
 

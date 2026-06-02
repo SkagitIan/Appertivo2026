@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Submit a special | Appertivo{% endblock %}
+{% block content %}
+<section class="page-width section-space"><div class="mx-auto max-w-xl">
+  <p class="eyebrow">Restaurant submission</p><h1 class="display-md mt-2">Send today's special</h1>
+  <p class="mt-3 text-stone-600">Choose the restaurant and send the details. We'll review the draft before it goes live.</p>
+  <form method="post" enctype="multipart/form-data" class="card mt-6 grid gap-4 p-5">
+    <label class="text-sm font-bold">Restaurant<select required name="restaurant_id" class="mt-1 w-full rounded-lg border px-3 py-2"><option value="">Choose a restaurant</option>{% for restaurant in restaurants %}<option value="{{ restaurant.id }}">{{ restaurant.name }}</option>{% endfor %}</select></label>
+    <label class="text-sm font-bold">Special details<textarea required name="raw_text" rows="5" placeholder="Tonight: fish tacos $14.99" class="mt-1 w-full rounded-lg border px-3 py-2"></textarea></label>
+    <label class="text-sm font-bold">Email <span class="font-normal text-stone-500">(optional)</span><input type="email" name="sender_email" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+    <label class="text-sm font-bold">Phone <span class="font-normal text-stone-500">(optional)</span><input name="sender_phone" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+    <label class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span><input type="file" accept="image/jpeg,image/png,image/webp" name="photo" class="mt-1 block w-full text-sm"></label>
+    <button class="button-primary">Send special</button>
+  </form>
+</div></section>
+{% endblock %}

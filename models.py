@@ -107,6 +107,12 @@ class Restaurant(db.Model):
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
     specials = db.relationship("Special", back_populates="restaurant", cascade="all, delete-orphan")
+    raw_special_submissions = db.relationship(
+        "RawSpecialSubmission", back_populates="restaurant", cascade="all, delete-orphan"
+    )
+    special_drafts = db.relationship(
+        "SpecialDraft", back_populates="restaurant", cascade="all, delete-orphan"
+    )
     google_reviews = db.relationship(
         "RestaurantGoogleReview", back_populates="restaurant", cascade="all, delete-orphan"
     )
@@ -152,12 +158,64 @@ class RestaurantGoogleReview(db.Model):
     restaurant = db.relationship("Restaurant", back_populates="google_reviews")
 
 
+class RawSpecialSubmission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey("restaurant.id"), nullable=True, index=True)
+    source_channel = db.Column(db.String(20), nullable=False, index=True)
+    raw_text = db.Column(db.Text, nullable=False)
+    raw_image_url = db.Column(db.Text, nullable=True)
+    raw_image_path = db.Column(db.String(500), nullable=True)
+    sender_email = db.Column(db.String(160), nullable=True)
+    sender_phone = db.Column(db.String(40), nullable=True)
+    source_url = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="received", index=True)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    restaurant = db.relationship("Restaurant", back_populates="raw_special_submissions")
+    draft = db.relationship(
+        "SpecialDraft", back_populates="raw_submission", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class SpecialDraft(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    raw_submission_id = db.Column(
+        db.Integer, db.ForeignKey("raw_special_submission.id"), nullable=False, unique=True
+    )
+    restaurant_id = db.Column(db.Integer, db.ForeignKey("restaurant.id"), nullable=True, index=True)
+    title = db.Column(db.String(160), nullable=False)
+    description = db.Column(db.Text, nullable=False, default="")
+    price_text = db.Column(db.String(40), nullable=True)
+    availability_text = db.Column(db.String(120), nullable=True)
+    cta_text = db.Column(db.String(120), nullable=True)
+    image_url = db.Column(db.Text, nullable=True)
+    image_path = db.Column(db.String(500), nullable=True)
+    ai_generated_image = db.Column(db.Boolean, nullable=False, default=False)
+    image_disclaimer = db.Column(db.String(300), nullable=True)
+    starts_at = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="draft", index=True)
+    approval_token = db.Column(
+        db.String(64), nullable=False, default=lambda: uuid4().hex, unique=True, index=True
+    )
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    raw_submission = db.relationship("RawSpecialSubmission", back_populates="draft")
+    restaurant = db.relationship("Restaurant", back_populates="special_drafts")
+    published_special = db.relationship("Special", back_populates="draft", uselist=False)
+
+
 class Special(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    draft_id = db.Column(db.Integer, db.ForeignKey("special_draft.id"), nullable=True, unique=True)
     restaurant_id = db.Column(db.Integer, db.ForeignKey("restaurant.id"), nullable=False)
     title = db.Column(db.String(160), nullable=False)
     description = db.Column(db.Text, default="")
     price = db.Column(db.String(40), default="")
+    availability_text = db.Column(db.String(120), nullable=True)
+    cta_text = db.Column(db.String(120), nullable=True)
     starts_at = db.Column(db.DateTime, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)
     status = db.Column(db.String(20), default="draft", nullable=False)
@@ -177,6 +235,7 @@ class Special(db.Model):
     )
 
     restaurant = db.relationship("Restaurant", back_populates="specials")
+    draft = db.relationship("SpecialDraft", back_populates="published_special")
     distribution_logs = db.relationship(
         "DistributionLog", back_populates="special", cascade="all, delete-orphan"
     )

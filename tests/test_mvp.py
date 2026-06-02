@@ -11,7 +11,18 @@ os.environ["DATABASE_URL"] = "sqlite://"
 
 from app import app, hash_token, normalize_database_url
 from demo_data import seed_demo_specials
-from models import DistributionLog, Restaurant, RestaurantLead, Special, SpecialMetric, Subscriber, db
+from models import (
+    DistributionLog,
+    RawSpecialSubmission,
+    Restaurant,
+    RestaurantLead,
+    Special,
+    SpecialDraft,
+    SpecialMetric,
+    Subscriber,
+    db,
+)
+from special_pipeline import create_or_prepare_image, polish_special_text
 from storage import R2Storage, UploadError, validate_image
 
 
@@ -107,9 +118,10 @@ def test_private_token_rotation_and_reviewed_submission(client):
     response = submit(client, token)
     assert response.status_code == 200
     with app.app_context():
-        special = Special.query.one()
-        assert special.status == "draft"
-        assert special.expires_at == datetime(2026, 6, 6, 6, 59)
+        draft = SpecialDraft.query.one()
+        assert draft.status == "awaiting_approval"
+        assert draft.expires_at == datetime(2026, 6, 6, 6, 59)
+        assert Special.query.count() == 0
         assert Restaurant.query.one().submission_token_hash == hash_token(token)
 
     rotated_token = generate_token(client)
@@ -141,9 +153,9 @@ def test_local_photo_upload_and_validation(client):
     )
     assert response.status_code == 200
     with app.app_context():
-        special = Special.query.one()
-        assert special.photo_url.startswith("/uploads/specials/")
-        assert (app.config["UPLOAD_ROOT"] + "/" + special.photo_object_key)
+        draft = SpecialDraft.query.one()
+        assert draft.image_url.startswith("/uploads/specials/")
+        assert (app.config["UPLOAD_ROOT"] + "/" + draft.image_path)
     with pytest.raises(UploadError):
         validate_image(SimpleNamespace(filename="plate.gif", mimetype="image/gif"))
 
@@ -284,3 +296,132 @@ def test_r2_storage_uses_s3_compatible_client(monkeypatch):
     assert key == "specials/id.webp"
     assert url == "https://images.example/specials/id.webp"
     assert uploads[0][1:] == ("photos", "specials/id.webp", {"ContentType": "image/webp"})
+
+
+def test_special_pipeline_parser_and_missing_image():
+    parsed = polish_special_text("Fish tacos tonight. Two plates for $14.99")
+    assert parsed == {
+        "title": "Fish tacos tonight",
+        "description": "Fish tacos tonight. Two plates for $14.99",
+        "price_text": "$14.99",
+        "availability_text": "tonight",
+        "cta_text": "View Special",
+    }
+    assert create_or_prepare_image(SimpleNamespace(raw_image_url=None, raw_image_path=None)) == {
+        "image_url": None,
+        "image_path": None,
+        "ai_generated_image": False,
+        "image_disclaimer": None,
+    }
+
+
+def test_public_submission_preview_approval_and_publish(client):
+    response = client.post(
+        "/submit-special",
+        data={
+            "csrf_token": csrf(client),
+            "restaurant_id": "1",
+            "raw_text": "Happy hour oysters today $12",
+            "sender_email": "owner@example.com",
+        },
+    )
+    assert response.status_code == 200
+    assert b"Special received" in response.data
+    with app.app_context():
+        submission = RawSpecialSubmission.query.one()
+        draft = SpecialDraft.query.one()
+        token = draft.approval_token
+        assert submission.status == "awaiting_approval"
+        assert draft.status == "awaiting_approval"
+        assert Special.query.count() == 0
+
+    assert client.get(f"/specials/preview/{token}").status_code == 302
+    login(client)
+    assert b"Happy hour oysters" in client.get(f"/specials/preview/{token}").data
+    assert client.post(
+        f"/specials/preview/{token}/approve", data={"csrf_token": csrf(client)}
+    ).status_code == 302
+    with app.app_context():
+        assert SpecialDraft.query.one().status == "approved"
+    response = client.post("/admin/special-drafts/1/publish", data={"csrf_token": csrf(client)})
+    assert response.status_code == 302
+    with app.app_context():
+        special = Special.query.one()
+        assert special.draft_id == SpecialDraft.query.one().id
+        assert special.status == "published"
+        assert RawSpecialSubmission.query.one().status == "published"
+    assert client.post("/admin/special-drafts/1/publish", data={"csrf_token": csrf(client)}).status_code == 302
+    with app.app_context():
+        assert Special.query.count() == 1
+
+
+def test_preview_rejection_updates_submission(client):
+    client.post(
+        "/submit-special",
+        data={"csrf_token": csrf(client), "restaurant_id": "1", "raw_text": "Weekend brunch $18"},
+    )
+    with app.app_context():
+        token = SpecialDraft.query.one().approval_token
+    login(client)
+    assert client.post(
+        f"/specials/preview/{token}/reject", data={"csrf_token": csrf(client)}
+    ).status_code == 302
+    with app.app_context():
+        assert SpecialDraft.query.one().status == "rejected"
+        assert RawSpecialSubmission.query.one().status == "rejected"
+
+
+def test_simulated_webhooks_and_unassigned_assignment(client):
+    email = client.post(
+        "/webhooks/email-special",
+        json={"raw_text": "Soup tonight $9", "sender_email": "cook@example.com"},
+    )
+    sms = client.post(
+        "/webhooks/sms-special",
+        json={"restaurant_id": 1, "raw_text": "Lunch today $11", "sender_phone": "360-555-0101"},
+    )
+    assert email.status_code == sms.status_code == 201
+    assert "/specials/preview/" in email.json["preview_url"]
+    with app.app_context():
+        draft = db.session.get(SpecialDraft, email.json["draft_id"])
+        assert draft.restaurant_id is None
+    login(client)
+    assert client.post(
+        f"/admin/special-drafts/{email.json['draft_id']}/assign",
+        data={"csrf_token": csrf(client), "restaurant_id": "1"},
+    ).status_code == 302
+    with app.app_context():
+        draft = db.session.get(SpecialDraft, email.json["draft_id"])
+        assert draft.restaurant_id == 1
+        assert draft.raw_submission.restaurant_id == 1
+
+
+def test_simulated_webhooks_are_disabled_outside_testing(client):
+    app.config["TESTING"] = False
+    app.config["SPECIAL_WEBHOOK_TEST_ENABLED"] = False
+    try:
+        assert client.post("/webhooks/email-special", json={"raw_text": "Soup $9"}).status_code == 404
+    finally:
+        app.config["TESTING"] = True
+
+
+def test_admin_structured_special_creation_publishes_through_pipeline(client):
+    login(client)
+    response = client.post(
+        "/admin/specials/new",
+        data={
+            "csrf_token": csrf(client),
+            "restaurant_id": "1",
+            "title": "Chef dinner",
+            "description": "Three courses.",
+            "price": "$35",
+            "special_date": "2099-06-05",
+            "status": "published",
+            "source": "manual",
+        },
+    )
+    assert response.status_code == 302
+    with app.app_context():
+        assert RawSpecialSubmission.query.one().source_channel == "admin"
+        assert SpecialDraft.query.one().status == "published"
+        assert Special.query.one().title == "Chef dinner"
