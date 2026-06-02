@@ -195,6 +195,15 @@ def test_admin_enrichment_queue_bulk_enhances_selected_restaurants(monkeypatch):
                 "confirm_storage_terms": "on",
             },
         ).status_code == 400
+        assert client.post(
+            "/admin/restaurants/enhance",
+            data={
+                "csrf_token": csrf(client),
+                "restaurant_ids": ["invalid"],
+                "confirm_api_cost": "on",
+                "confirm_storage_terms": "on",
+            },
+        ).status_code == 400
         response = client.post(
             "/admin/restaurants/enhance",
             data={

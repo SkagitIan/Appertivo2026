@@ -797,9 +797,13 @@ def admin_enhance_restaurants():
     api_key = validate_restaurant_enrichment_request()
     if not api_key:
         return redirect(url_for("admin_restaurant_enrichment"))
-    restaurant_ids = request.form.getlist("restaurant_ids")
-    if not restaurant_ids:
+    submitted_ids = request.form.getlist("restaurant_ids")
+    if not submitted_ids:
         abort(400, "Select at least one restaurant to enhance.")
+    try:
+        restaurant_ids = [int(restaurant_id) for restaurant_id in submitted_ids]
+    except ValueError:
+        abort(400, "One or more selected restaurant IDs are invalid.")
     restaurants = (
         Restaurant.query.filter(
             Restaurant.id.in_(restaurant_ids),
