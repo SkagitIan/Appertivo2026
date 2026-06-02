@@ -156,3 +156,60 @@ def test_admin_enrichment_queue_enhances_one_confirmed_restaurant(monkeypatch):
     with app.app_context():
         db.session.remove()
         db.drop_all()
+
+
+def test_admin_enrichment_queue_bulk_enhances_selected_restaurants(monkeypatch):
+    app.config.update(
+        TESTING=True,
+        SECRET_KEY="test-secret",
+        ADMIN_PASSWORD="test-password",
+        GOOGLE_PLACES_API_KEY="places-key",
+    )
+    calls = []
+
+    def fake_enrich(restaurant, api_key):
+        calls.append((restaurant.id, api_key))
+        restaurant.google_place_refreshed_at = datetime(2026, 6, 2)
+
+    monkeypatch.setattr("scripts.enrich_restaurants_google.enrich_restaurant", fake_enrich)
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+        db.session.add_all(
+            [
+                Restaurant(name="First Kitchen", slug="first-kitchen", city="Anacortes", place_id="place-1"),
+                Restaurant(name="Second Kitchen", slug="second-kitchen", city="Burlington", place_id="place-2"),
+            ]
+        )
+        db.session.commit()
+
+    with app.test_client() as client:
+        login(client)
+        page = client.get("/admin/restaurant-enrichment")
+        assert b"Select all restaurants" in page.data
+        assert client.post(
+            "/admin/restaurants/enhance",
+            data={
+                "csrf_token": csrf(client),
+                "confirm_api_cost": "on",
+                "confirm_storage_terms": "on",
+            },
+        ).status_code == 400
+        response = client.post(
+            "/admin/restaurants/enhance",
+            data={
+                "csrf_token": csrf(client),
+                "restaurant_ids": ["1", "2"],
+                "confirm_api_cost": "on",
+                "confirm_storage_terms": "on",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert b"Enhanced 2 restaurants" in response.data
+        assert b"Every restaurant with a place ID has been enhanced" in response.data
+    assert calls == [(1, "places-key"), (2, "places-key")]
+
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
