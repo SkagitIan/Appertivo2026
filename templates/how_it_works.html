@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}How Appertivo works | Appertivo{% endblock %}
+{% block content %}
+<section class="page-width section-space text-center"><p class="eyebrow">How it works</p><h1 class="display-lg mx-auto mt-3 max-w-4xl">From today's special to tonight's crowd.</h1><p class="mx-auto mt-5 max-w-2xl text-lg text-stone-600">Appertivo gives local restaurants an easy way to show diners what's worth ordering right now.</p></section>
+<section class="page-width pb-16">{% include "partials/steps.html" %}</section>
+<section class="bg-[#f8ead8]"><div class="page-width section-space grid gap-6 md:grid-cols-2"><div><p class="eyebrow">For restaurants</p><h2 class="display-md mt-3">No new tool to babysit.</h2><p class="mt-4 text-stone-600">Send a photo and the details. We handle the presentation so you can stay focused on service.</p><a href="{{ url_for('get_started') }}" class="button-primary mt-6">Get started</a></div><div><p class="eyebrow">For diners</p><h2 class="display-md mt-3">Find the good stuff while it's good.</h2><p class="mt-4 text-stone-600">Browse fresh local posts and follow restaurants you want to hear from again.</p><a href="{{ url_for('home') }}#specials" class="button-secondary mt-6">Browse specials</a></div></div></section>
+{% endblock %}

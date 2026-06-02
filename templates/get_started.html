@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Get your restaurant started | Appertivo{% endblock %}
+{% block content %}
+<section class="page-width section-space">
+  <div class="mx-auto max-w-3xl">
+    {% if submitted %}
+      <div class="card p-8 text-center"><p class="eyebrow">You're on the list</p><h1 class="display-md mt-3">Let's get your specials in front of more locals.</h1><p class="mt-4 text-stone-600">Thanks for reaching out. We'll follow up soon and keep setup simple.</p><a href="{{ url_for('home') }}" class="button-primary mt-6">See today's specials</a></div>
+    {% else %}
+      <div class="text-center"><p class="eyebrow">For restaurants</p><h1 class="display-md mt-3">Get your daily special in front of a bigger crowd.</h1><p class="mx-auto mt-4 max-w-xl text-stone-600">Tell us where to reach you. We'll follow up with the simplest way to start sending specials.</p></div>
+      <form method="post" class="card mt-8 grid gap-4 p-6 md:grid-cols-2">
+        <label class="text-sm font-bold">Restaurant name<input required name="restaurant_name" value="{{ form.restaurant_name if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+        <label class="text-sm font-bold">Your name<input required name="contact_name" value="{{ form.contact_name if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+        <label class="text-sm font-bold">Email<input required type="email" name="email" value="{{ form.email if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+        <label class="text-sm font-bold">Phone<input required name="phone" value="{{ form.phone if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+        <label class="text-sm font-bold md:col-span-2">City<input required name="city" value="{{ form.city if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+        <label class="text-sm font-bold md:col-span-2">Anything we should know? <span class="font-normal text-stone-500">(optional)</span><textarea name="note" rows="4" class="mt-1 w-full rounded-lg border px-3 py-2">{{ form.note if form else '' }}</textarea></label>
+        <button class="button-primary md:col-span-2">Start the conversation</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

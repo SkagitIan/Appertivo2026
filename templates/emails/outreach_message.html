@@ -1,0 +1,6 @@
+{% extends "emails/base.html" %}
+{% block content %}
+{% for paragraph in message.body_text.splitlines() %}
+  {% if paragraph %}<p>{{ paragraph }}</p>{% endif %}
+{% endfor %}
+{% endblock %}

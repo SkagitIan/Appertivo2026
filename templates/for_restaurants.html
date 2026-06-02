@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Promote your restaurant specials | Appertivo{% endblock %}
+{% block content %}
+<section class="page-width section-space grid items-center gap-8 lg:grid-cols-[1.1fr_.9fr]"><div><p class="eyebrow">For restaurants</p><h1 class="display-lg mt-3">You cook. <span class="text-[#ed4b0b]">We promote.</span></h1><p class="mt-5 max-w-2xl text-lg text-stone-600">Your daily special deserves a bigger crowd. Text us a photo and a sentence. We'll turn it into a polished local post diners can act on.</p><a href="{{ url_for('get_started') }}" class="button-primary mt-7">Get your restaurant started</a></div><aside class="plum-panel p-7"><h2 class="text-3xl">Made for a busy kitchen.</h2><div class="mt-5 grid gap-3 text-sm text-orange-100"><p>&#10003; No complicated dashboard to learn.</p><p>&#10003; No polished marketing copy required.</p><p>&#10003; Fresh specials expire when the day is done.</p></div></aside></section>
+<section class="bg-[#f8ead8]"><div class="page-width section-space"><p class="eyebrow text-center">The easy path</p><h2 class="display-md mt-2 text-center">Send it. We'll handle the rest.</h2><div class="mt-8">{% include "partials/steps.html" %}</div></div></section>
+<section class="page-width section-space">
+  <div class="grid items-center gap-8 lg:grid-cols-[.9fr_1.1fr]">
+    <div><p class="eyebrow">Built-in distribution</p><h2 class="display-md mt-3">One special. More ways to reach diners.</h2><p class="mt-4 max-w-xl text-stone-600">We do more than publish a listing. Your special can reach local diners through the Appertivo feed, social channels, email lists, and timely notifications.</p></div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <article class="card p-5"><span class="icon-bubble">&#9788;</span><h3 class="mt-4 text-2xl">Appertivo feed</h3><p class="mt-2 text-sm text-stone-600">Show up where local diners are already looking for tonight's plan.</p></article>
+      <article class="card p-5"><span class="icon-bubble orange">&#9993;</span><h3 class="mt-4 text-2xl">Email lists</h3><p class="mt-2 text-sm text-stone-600">Reach diners who asked to hear when fresh specials land.</p></article>
+      <article class="card p-5"><span class="icon-bubble lilac">#</span><h3 class="mt-4 text-2xl">Social channels</h3><p class="mt-2 text-sm text-stone-600">Give specials a polished presence across the channels people follow.</p></article>
+      <article class="card p-5"><span class="icon-bubble">&#9673;</span><h3 class="mt-4 text-2xl">Notifications</h3><p class="mt-2 text-sm text-stone-600">Send timely alerts when the right special is worth acting on now.</p></article>
+    </div>
+  </div>
+</section>
+{% endblock %}

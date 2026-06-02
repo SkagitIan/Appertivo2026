@@ -1,0 +1,5 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<p>Welcome to Appertivo{% if restaurant_name %}, {{ restaurant_name }}{% endif %}.</p>
+<p>Send us your special. We make it look good and get it in front of local diners.</p>
+{% endblock %}

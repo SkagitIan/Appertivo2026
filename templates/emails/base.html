@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;background:#f7f4ef;color:#2b2520;font-family:Arial,sans-serif;">
+    <div style="max-width:620px;margin:0 auto;padding:32px 20px;">
+      <div style="background:#ffffff;border:1px solid #e6ded3;border-radius:8px;padding:28px;">
+        <p style="margin:0 0 22px;font-size:22px;font-weight:bold;">Appertivo</p>
+        {% block content %}{% endblock %}
+      </div>
+      <div style="padding:18px 4px;color:#70675f;font-size:12px;line-height:1.5;">
+        <p style="margin:0 0 6px;">Appertivo</p>
+        <p style="margin:0 0 6px;">Send us your special. We make it look good and get it in front of local diners.</p>
+        {% if unsubscribe_url %}
+          <p style="margin:0;"><a href="{{ unsubscribe_url }}" style="color:#70675f;">Unsubscribe</a></p>
+        {% elif show_unsubscribe_placeholder %}
+          <p style="margin:0;">Unsubscribe: [unsubscribe link]</p>
+        {% endif %}
+      </div>
+    </div>
+  </body>
+</html>

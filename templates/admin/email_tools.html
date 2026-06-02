@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Email tools | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Email tools</h1><p class="mt-2 text-sm text-stone-600">Preview every system template and send a development review batch.</p></div>
+  <form method="post"><button class="button-primary">Send all templates to {{ recipient }}</button></form>
+</div>
+<p class="mb-5 text-sm text-stone-600">Sending is gated by <code>EMAIL_TEST_ENABLED=1</code>. Templates remain source-controlled files under <code>templates/emails</code>.</p>
+<div class="grid gap-5 lg:grid-cols-2">
+  {% for name, preview in previews.items() %}
+    <article class="admin-card overflow-hidden">
+      <div class="border-b px-4 py-3"><h2 class="text-xl">{{ name|replace("_", " ")|title }}</h2></div>
+      <iframe title="{{ name }} preview" srcdoc="{{ preview|e }}" class="h-[420px] w-full bg-white"></iframe>
+    </article>
+  {% endfor %}
+</div>
+{% endblock %}

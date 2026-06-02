@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Outreach inbox | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-6"><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Outreach inbox</h1><p class="mt-2 text-sm text-stone-600">Review founder outreach and inbound replies. Loops receives contact and lifecycle events after successful sends.</p></div>
+<section class="admin-card mb-6 p-5">
+  <h2 class="text-2xl">New outreach draft</h2>
+  <form method="post" class="mt-4 grid gap-3 md:grid-cols-2">
+    <label class="text-sm font-bold">Restaurant<select name="restaurant_id" class="mt-1 w-full rounded-md border px-3 py-2"><option value="">Choose later</option>{% for restaurant in restaurants %}<option value="{{ restaurant.id }}">{{ restaurant.name }}{% if restaurant.contact_email %} - {{ restaurant.contact_email }}{% endif %}</option>{% endfor %}</select></label>
+    <label class="text-sm font-bold">Recipient email<input type="email" required name="recipient_email" class="mt-1 w-full rounded-md border px-3 py-2"></label>
+    <label class="text-sm font-bold md:col-span-2">Subject<input name="subject" value="Get your restaurant special in front of local diners" class="mt-1 w-full rounded-md border px-3 py-2"></label>
+    <label class="text-sm font-bold md:col-span-2">Notes or initial body<textarea name="body_text" rows="4" class="mt-1 w-full rounded-md border px-3 py-2"></textarea></label>
+    <label class="text-sm font-bold">Tags<input name="tags" placeholder="new-lead, mount-vernon" class="mt-1 w-full rounded-md border px-3 py-2"></label>
+    <div class="self-end"><button class="button-primary">Create draft</button></div>
+  </form>
+</section>
+<div class="grid gap-3">
+  {% for message in messages %}
+    <a href="{{ url_for('admin_outreach_message', message_id=message.id) }}" class="admin-card block p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2"><div><span class="status-badge status-{{ message.status }}">{{ message.direction }} · {{ message.status }}</span>{% if message.follow_up %}<span class="ml-2 text-xs font-bold text-orange-700">FOLLOW UP</span>{% endif %}<h2 class="mt-2 text-xl">{{ message.subject or "(no subject)" }}</h2><p class="mt-1 text-sm text-stone-600">{{ message.sender_email }} → {{ message.recipient_email }}{% if message.restaurant %} · {{ message.restaurant.name }}{% endif %}</p></div><p class="text-xs text-stone-500">{{ message.updated_at.strftime("%Y-%m-%d %H:%M") }}</p></div>
+    </a>
+  {% else %}<p class="admin-card p-6 text-stone-600">No outreach messages yet.</p>{% endfor %}
+</div>
+{% endblock %}

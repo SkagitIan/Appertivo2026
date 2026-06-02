@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Outreach message | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p class="eyebrow">Outreach inbox</p><h1 class="display-md mt-2">{{ message.subject or "(no subject)" }}</h1></div><a href="{{ url_for('admin_outreach') }}" class="button-quiet">Back to inbox</a></div>
+<section class="admin-card p-5">
+  <p class="text-sm text-stone-600"><strong>{{ message.direction|title }} · {{ message.status|title }}</strong>{% if message.restaurant %} · {{ message.restaurant.name }}{% endif %}</p>
+  {% if message.direction == "outbound" and message.status in ["draft", "failed"] %}
+    <form method="post" class="mt-4 grid gap-3">
+      <label class="text-sm font-bold">Recipient<input type="email" required name="recipient_email" value="{{ message.recipient_email }}" class="mt-1 w-full rounded-md border px-3 py-2"></label>
+      <label class="text-sm font-bold">Subject<input required name="subject" value="{{ message.subject }}" class="mt-1 w-full rounded-md border px-3 py-2"></label>
+      <label class="text-sm font-bold">Body<textarea required name="body_text" rows="12" class="mt-1 w-full rounded-md border px-3 py-2">{{ message.body_text }}</textarea></label>
+      <label class="text-sm font-bold">Tags<input name="tags" value="{{ message.tags }}" class="mt-1 w-full rounded-md border px-3 py-2"></label>
+      <button class="button-secondary justify-self-start">Save draft</button>
+    </form>
+    {% if message.restaurant %}
+      <form method="post" action="{{ url_for('admin_outreach_generate', message_id=message.id) }}" class="mt-5 grid gap-2">
+        <label class="text-sm font-bold">AI drafting note <input name="instruction" placeholder="Mention that we are launching in their city" class="mt-1 w-full rounded-md border px-3 py-2"></label>
+        <button class="button-plum justify-self-start">Generate draft with OpenAI</button>
+      </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('admin_outreach_send', message_id=message.id) }}" class="mt-5" onsubmit="return confirm('Send this reviewed outreach email?');"><button class="button-primary">Send reviewed email</button></form>
+  {% else %}
+    <p class="mt-4 whitespace-pre-wrap text-sm leading-6">{{ message.body_text }}</p>
+  {% endif %}
+  {% if message.error %}<p class="mt-4 text-sm text-red-700">{{ message.error }}</p>{% endif %}
+  <div class="mt-6 flex flex-wrap gap-2">
+    <form method="post" action="{{ url_for('admin_outreach_action', message_id=message.id, action='follow-up') }}"><button class="button-quiet">{{ "Clear follow-up" if message.follow_up else "Tag for follow-up" }}</button></form>
+    <form method="post" action="{{ url_for('admin_outreach_action', message_id=message.id, action='archive') }}"><button class="button-quiet">Archive</button></form>
+  </div>
+</section>
+{% endblock %}

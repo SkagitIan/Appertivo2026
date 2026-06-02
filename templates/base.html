@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ title or "Appertivo" }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Find today's specials and independent restaurants near you with Appertivo.{% endblock %}">
+  <link rel="icon" href="data:,">
+  {% block head %}{% endblock %}
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='brand.css') }}">
+</head>
+<body class="min-h-screen">
+  <header class="site-header">
+    <div class="page-width flex min-h-[76px] items-center justify-between gap-5">
+      <a href="{{ url_for('home') }}" aria-label="Appertivo home"><span class="brand">Appertivo</span><span class="brand-tag">Today's special, local spotlight.</span></a>
+      <nav class="desktop-nav flex items-center gap-7">
+        <a href="{{ url_for('how_it_works') }}" class="nav-link">How It Works</a>
+        <a href="{{ url_for('for_restaurants') }}" class="nav-link">For Restaurants</a>
+        <a href="{{ url_for('for_diners') }}" class="nav-link">For Diners</a>
+        <a href="{{ url_for('get_started') }}" class="button-primary">Get Started</a>
+      </nav>
+      <a href="{{ url_for('get_started') }}" class="button-primary md:hidden">Get Started</a>
+    </div>
+    {% if session.admin_authenticated %}
+      <nav class="admin-nav">
+        <div class="page-width flex flex-wrap gap-5 py-2">
+          <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+          <a href="{{ url_for('admin_leads') }}">Leads</a>
+          <a href="{{ url_for('admin_restaurants') }}">Restaurants</a>
+          <a href="{{ url_for('admin_specials') }}">Specials</a>
+          <a href="{{ url_for('admin_intake') }}">Paste intake</a>
+          <a href="{{ url_for('admin_outreach') }}">Outreach</a>
+          <a href="{{ url_for('admin_email_tools') }}">Email tools</a>
+        </div>
+      </nav>
+    {% endif %}
+  </header>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="page-width pt-4">
+        {% for message in messages %}<div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  <main class="{% if request.path.startswith('/admin') %}admin-main mx-auto px-4 py-8{% else %}public-main{% endif %}">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer mt-16">
+    <div class="page-width grid gap-8 py-10 md:grid-cols-[1.3fr_.7fr_.7fr]">
+      <div><h2 class="text-3xl">Appertivo</h2><p class="mt-2 max-w-sm text-sm text-orange-100">Today's special, local spotlight. Discover what nearby restaurants are serving right now.</p></div>
+      <div><h3 class="footer-heading">Explore</h3><div class="mt-3 grid gap-2 text-sm"><a href="{{ url_for('home') }}">Today's specials</a><a href="{{ url_for('restaurants') }}">Restaurants</a><a href="{{ url_for('how_it_works') }}">How it works</a><a href="{{ url_for('get_started') }}">Get started</a>{% if session.admin_authenticated %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}</div></div>
+      <div><h3 class="footer-heading">Follow Appertivo</h3><div class="mt-3 grid gap-2 text-sm"><a href="https://www.facebook.com/appertivo" rel="noopener" target="_blank">Facebook</a><a href="https://x.com/appertivo" rel="noopener" target="_blank">Twitter</a><a href="https://www.instagram.com/appertivo" rel="noopener" target="_blank">Instagram</a></div></div>
+    </div>
+    <div class="border-t border-white/15">
+      <div class="page-width flex flex-wrap items-center justify-between gap-2 py-4 text-xs text-orange-100">
+        <p>&copy; 2026 Appertivo. All rights reserved.</p>
+        <p>Serving Skagit Valley's local food community.</p>
+      </div>
+    </div>
+  </footer>
+  <script>
+    document.querySelectorAll('form[method="post"]').forEach(form => {
+      if (!form.querySelector('input[name="csrf_token"]')) {
+        const token = document.createElement('input');
+        token.type = 'hidden'; token.name = 'csrf_token'; token.value = {{ csrf_token()|tojson }};
+        form.appendChild(token);
+      }
+    });
+  </script>
+</body>
+</html>

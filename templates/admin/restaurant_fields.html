@@ -1,0 +1,60 @@
+<form method="post" class="grid gap-4 md:grid-cols-2">
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Name</label>
+    <input name="name" required value="{{ restaurant.name if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Slug</label>
+    <input name="slug" value="{{ restaurant.slug if restaurant else '' }}" placeholder="auto from name" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">City</label>
+    <input name="city" required value="{{ restaurant.city if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Phone</label>
+    <input name="phone" value="{{ restaurant.phone if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Contact email</label>
+    <input type="email" name="contact_email" value="{{ restaurant.contact_email if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Address</label>
+    <input name="address" value="{{ restaurant.address if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">State</label>
+    <input name="us_state" value="{{ restaurant.us_state if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Postal code</label>
+    <input name="postal_code" value="{{ restaurant.postal_code if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Website</label>
+    <input name="website" value="{{ restaurant.website if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Category</label>
+    <input name="category" value="{{ restaurant.category if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Subtypes</label>
+    <input name="subtypes" value="{{ restaurant.subtypes if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <label class="flex items-center gap-2 text-sm font-semibold text-stone-700">
+    <input name="claimed" type="checkbox" {% if restaurant and restaurant.claimed %}checked{% endif %}> Claimed
+  </label>
+  <label class="flex items-center gap-2 text-sm font-semibold text-stone-700">
+    <input name="direct_publish_enabled" type="checkbox" {% if restaurant and restaurant.direct_publish_enabled %}checked{% endif %}> Trusted direct publishing
+  </label>
+  <div class="md:col-span-2">
+    <button class="rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">Save restaurant</button>
+    {% if modal %}
+      <button type="button" onclick="document.getElementById('add-restaurant-modal').classList.add('hidden')" class="ml-3 text-sm font-semibold text-stone-600">Cancel</button>
+    {% else %}
+      <a href="{{ url_for('admin_restaurants') }}" class="ml-3 text-sm font-semibold text-stone-600">Cancel</a>
+    {% endif %}
+  </div>
+</form>

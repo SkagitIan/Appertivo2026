@@ -1,0 +1,12 @@
+Appertivo
+
+{% block content %}{% endblock %}
+
+--
+Appertivo
+Send us your special. We make it look good and get it in front of local diners.
+{% if unsubscribe_url %}
+Unsubscribe: {{ unsubscribe_url }}
+{% elif show_unsubscribe_placeholder %}
+Unsubscribe: [unsubscribe link]
+{% endif %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-6 flex items-center justify-between gap-4">
+  <div>
+    <p class="text-sm font-semibold uppercase tracking-wide text-rose-700">Admin</p>
+    <h1 class="text-3xl font-black tracking-tight">Restaurants</h1>
+  </div>
+  <div class="flex items-center gap-3">
+    <button type="button" onclick="document.getElementById('add-restaurant-modal').classList.remove('hidden')" class="rounded-md bg-rose-700 px-4 py-2 text-sm font-semibold text-white">Add restaurant</button>
+    <a href="{{ url_for('admin_dashboard') }}" class="text-sm font-semibold text-stone-600">Dashboard</a>
+  </div>
+</div>
+
+<form method="get" class="mb-4 flex flex-wrap gap-2">
+  <input name="q" value="{{ search_term }}" placeholder="Search restaurants or cities" class="min-w-[260px] flex-1 rounded-md border border-stone-300 px-3 py-2 text-sm">
+  <button class="rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">Search</button>
+  {% if search_term %}<a href="{{ url_for('admin_restaurants') }}" class="px-2 py-2 text-sm font-semibold text-stone-600">Clear</a>{% endif %}
+</form>
+
+<div class="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+  <div class="border-b border-stone-200 bg-stone-50 px-3 py-2 text-sm font-semibold text-stone-600">{{ restaurants|length }} restaurants</div>
+  <table class="w-full text-left text-sm">
+    <thead class="bg-stone-100 text-stone-600">
+      <tr><th class="p-3">Name</th><th class="p-3">City</th><th class="p-3">Claimed</th><th class="p-3"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-stone-200">
+      {% for restaurant in restaurants %}
+        <tr>
+          <td class="p-3 font-semibold">{{ restaurant.name }}</td>
+          <td class="p-3">{{ restaurant.city }}</td>
+          <td class="p-3">{{ "Yes" if restaurant.claimed else "No" }}</td>
+          <td class="p-3">
+            <div class="flex items-center justify-end gap-3">
+              <a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}" class="font-semibold text-stone-600">View</a>
+              <a href="{{ url_for('admin_edit_restaurant', restaurant_id=restaurant.id) }}" class="font-semibold text-rose-700">Edit</a>
+              <form method="post" action="{{ url_for('admin_delete_restaurant', restaurant_id=restaurant.id) }}" onsubmit="return confirm('Delete this restaurant and its specials?');">
+                <button class="font-semibold text-red-700">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="p-6 text-center text-stone-600">No restaurants found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="add-restaurant-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-stone-950/60 p-4">
+  <div class="mx-auto my-8 max-w-3xl rounded-lg bg-white p-5 shadow-xl">
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <h2 class="text-xl font-black">Add restaurant</h2>
+      <button type="button" onclick="document.getElementById('add-restaurant-modal').classList.add('hidden')" class="text-sm font-semibold text-stone-600">Close</button>
+    </div>
+    {% with modal=true %}
+      {% include "admin/restaurant_fields.html" %}
+    {% endwith %}
+  </div>
+</div>
+{% endblock %}

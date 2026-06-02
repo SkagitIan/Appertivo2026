@@ -1,0 +1,62 @@
+<form method="post" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Restaurant</label>
+    <select name="restaurant_id" required class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      {% for restaurant in restaurants %}
+        <option value="{{ restaurant.id }}" {% if special.restaurant_id == restaurant.id %}selected{% endif %}>{{ restaurant.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Price</label>
+    <input name="price" value="{{ special.price or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Title</label>
+    <input name="title" required value="{{ special.title or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Description</label>
+    <textarea name="description" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ special.description or '' }}</textarea>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Special date</label>
+    <input required name="special_date" type="date" value="{{ special_date_value(special) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Start time</label>
+    <input name="start_time" type="time" value="{{ special_time_value(special.starts_at) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">End time</label>
+    <input name="end_time" type="time" value="{{ special_time_value(special.expires_at) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Status</label>
+    <select name="status" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      {% for option in ["draft", "published", "expired"] %}
+        <option value="{{ option }}" {% if special.status == option %}selected{% endif %}>{{ option|title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Source</label>
+    <select name="source" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      {% for option in ["manual", "email", "ai", "social"] %}
+        <option value="{{ option }}" {% if special.source == option %}selected{% endif %}>{{ option|title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Photo</label>
+    <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 w-full">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Raw text</label>
+    <textarea name="raw_text" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ special.raw_text or '' }}</textarea>
+  </div>
+  <div class="md:col-span-2">
+    <button class="rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">Save special</button>
+    <a href="{{ url_for('admin_specials') }}" class="ml-3 text-sm font-semibold text-stone-600">Cancel</a>
+  </div>
+</form>

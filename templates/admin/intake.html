@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="mb-6">
+  <p class="text-sm font-semibold uppercase tracking-wide text-rose-700">Admin</p>
+  <h1 class="text-3xl font-black tracking-tight">Paste intake</h1>
+  <p class="mt-2 text-stone-600">Paste restaurant text, review the parsed draft, then save it for approval.</p>
+</div>
+<section class="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+  <form method="post" class="grid gap-4">
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Restaurant</label>
+      <select name="restaurant_id" required class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+        {% for restaurant in restaurants %}
+          <option value="{{ restaurant.id }}" {% if draft and draft.restaurant_id == restaurant.id %}selected{% endif %}>{{ restaurant.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Raw restaurant text</label>
+      <textarea name="raw_text" required rows="4" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ draft.raw_text if draft else '' }}</textarea>
+    </div>
+    {% if draft %}
+      <input type="hidden" name="save" value="1">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-semibold text-stone-700">Title</label>
+          <input name="title" required value="{{ draft.title }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-stone-700">Price</label>
+          <input name="price" value="{{ draft.price }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-stone-700">Description</label>
+          <textarea name="description" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ draft.description }}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-stone-700">Special date</label>
+          <input required type="date" name="special_date" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+        </div>
+      </div>
+      <button class="w-fit rounded-md bg-rose-700 px-4 py-2 text-sm font-semibold text-white">Save draft special</button>
+    {% else %}
+      <button class="w-fit rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">Parse text</button>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

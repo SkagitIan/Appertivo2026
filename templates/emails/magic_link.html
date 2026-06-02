@@ -1,0 +1,6 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<p>Use this link to sign in to Appertivo:</p>
+<p><a href="{{ magic_link_url }}" style="color:#a2462e;font-weight:bold;">Sign in to Appertivo</a></p>
+<p>If you did not request this link, you can ignore this email.</p>
+{% endblock %}

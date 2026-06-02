@@ -1,0 +1,6 @@
+{% extends "emails/base.txt" %}
+{% block content %}
+Welcome{% if user_name %}, {{ user_name }}{% endif %}.
+
+Your Appertivo account is ready. We help local diners find what is good today.
+{% endblock %}

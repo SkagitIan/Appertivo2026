@@ -1,0 +1,10 @@
+{% extends "emails/base.txt" %}
+{% block content %}
+Hi{% if contact_name %} {{ contact_name }}{% endif %},
+
+{% if custom_message %}{{ custom_message }}{% else %}We would like to help{% if restaurant_name %} {{ restaurant_name }}{% endif %} share today's specials with local diners.{% endif %}
+
+Send us your special. We make it look good and get it in front of local diners.
+
+Reply to this email and we will help you get started.
+{% endblock %}

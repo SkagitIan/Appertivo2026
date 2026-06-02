@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Find today's local restaurant specials | Appertivo{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="page-width grid items-center gap-10 lg:grid-cols-[1.12fr_.88fr]">
+    <div>
+      <p class="eyebrow">Today's specials &middot; nearby restaurants</p>
+      <h1 class="display-xl mt-4">Find what's <span class="text-[#ed4b0b]">good nearby</span> today.</h1>
+      <p class="mt-6 max-w-2xl text-lg text-stone-600">Discover restaurant specials, fresh drops, and limited menus close to home. Appertivo is launching first in Skagit Valley.</p>
+      <form method="get" class="location-search mt-7">
+        <label for="location" class="sr-only">Search location</label>
+        <input id="location" name="location" value="{{ location }}" placeholder="City or region" autocomplete="address-level2">
+        <button class="button-primary">Find specials</button>
+      </form>
+      <div class="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-stone-500"><span>Try:</span><a href="{{ url_for('home', location='Skagit Valley, WA') }}" class="text-[#176f70]">Skagit Valley, WA</a><span>or</span><a href="{{ url_for('home', location='Anacortes') }}" class="text-[#176f70]">Anacortes</a></div>
+    </div>
+    <aside class="hero-panel">
+      <p class="text-sm font-bold uppercase tracking-[.15em] text-orange-200">Fresh from nearby kitchens</p>
+      <h2 class="mt-4 max-w-sm text-4xl leading-none">What's good today?</h2>
+      <p class="mt-4 max-w-md text-orange-100">Search your location, scan today's feed, and make tonight easy.</p>
+      <div class="relative z-10 mt-10 grid max-w-sm gap-3">
+        <div class="rounded-xl bg-white/95 p-4 text-sm font-bold text-[#3d1730]">Local specials, all in one place.</div>
+        <div class="rounded-xl bg-white/95 p-4 text-sm font-bold text-[#3d1730]">Launching first in Skagit Valley.</div>
+      </div>
+    </aside>
+  </div>
+</section>
+{% if market %}
+<section id="specials" class="page-width pb-12">
+  <div class="launch-note mb-6">
+    <div><p class="eyebrow">Skagit Valley launch preview</p><p class="mt-1 text-sm text-stone-600">We're building the first local feed now. Sample posts below show what diners will see as restaurants come aboard.</p></div>
+    <a href="#early-list" class="text-sm font-black text-[#176f70]">Join the early list &rarr;</a>
+  </div>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div><p class="eyebrow">{{ market.name }} &middot; preview feed</p><h2 class="display-md mt-2">Today's specials</h2></div>
+    <div class="flex flex-wrap items-center gap-2">
+      <form method="get"><input type="hidden" name="location" value="{{ location }}"><select name="city" onchange="this.form.submit()" class="rounded-full border px-4 py-3 text-sm font-bold"><option value="">All Skagit cities</option>{% for option in cities %}<option {% if option == city %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></form>
+      {% if specials %}<button type="button" id="map-view-toggle" class="button-secondary" aria-pressed="false"><span aria-hidden="true">&#8982;</span> <span>Map view</span></button>{% endif %}
+    </div>
+  </div>
+  <div id="specials-list-view">
+    <div class="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      {% for special in specials[:3] %}{% include "partials/special_card.html" %}{% else %}
+        <div class="soft-panel p-8 text-center md:col-span-2 lg:col-span-3"><h3 class="text-2xl">The Skagit feed is taking shape.</h3><p class="mt-2 text-stone-600">Join the early list and we'll tell you when local specials start landing.</p></div>
+      {% endfor %}
+    </div>
+    <form id="early-list" method="post" class="plum-panel mt-6 p-7">
+      <div class="grid items-end gap-4 md:grid-cols-[1fr_auto]">
+        <div><p class="eyebrow text-orange-200">Early access</p><h2 class="mt-2 text-3xl">Get {{ market.name }} specials alerts</h2><p class="mt-2 text-sm text-orange-100">Join the local launch list. We'll tell you when fresh specials land.</p><input type="hidden" name="city" value="{{ city }}"><input type="hidden" name="location" value="{{ location }}"></div>
+        <div class="flex flex-wrap gap-2"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg px-4 py-3 text-stone-900"><button class="button-primary">Join early list</button></div>
+      </div>
+    </form>
+    {% if specials|length > 3 %}
+      <div class="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        {% for special in specials[3:] %}{% include "partials/special_card.html" %}{% endfor %}
+      </div>
+    {% endif %}
+  </div>
+  <div id="specials-map-view" class="mt-6 hidden">
+    <div class="map-layout">
+      <div id="specials-map" class="specials-map" aria-label="Map of today's specials"></div>
+      <div class="map-results">
+        {% for special in specials %}
+          <article class="map-result-card">
+            {% if special.source == "demo" %}<p class="preview-badge">Sample special</p>{% endif %}
+            <p class="eyebrow mt-2">{{ special.restaurant.name }} &middot; {{ special.restaurant.city }}</p>
+            <div class="mt-2 flex items-start justify-between gap-3"><h3 class="text-xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
+            <p class="mt-2 line-clamp-2 text-sm text-stone-600">{{ special.description }}</p>
+            <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="mt-3 inline-block text-sm font-black text-[#176f70]">View special &rarr;</a>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% else %}
+<section id="specials" class="page-width pb-12">
+  <div class="soft-panel mx-auto max-w-3xl p-8 text-center md:p-12">
+    <p class="eyebrow">New market waitlist</p>
+    <h2 class="display-md mt-3">We're not in {{ location }} yet.</h2>
+    <p class="mx-auto mt-4 max-w-xl text-stone-600">Appertivo is launching in Skagit Valley first. Join the waitlist and we'll let you know when local specials reach your area.</p>
+    <form method="post" class="mx-auto mt-6 flex max-w-lg flex-wrap gap-2"><input type="hidden" name="location" value="{{ location }}"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg border px-4 py-3"><button class="button-primary">Join waitlist</button></form>
+    <a href="{{ url_for('home', location='Skagit Valley, WA') }}" class="mt-5 inline-block text-sm font-black text-[#176f70]">Explore the Skagit Valley preview &rarr;</a>
+  </div>
+</section>
+{% endif %}
+<section class="bg-[#f8ead8]">
+  <div class="page-width section-space">
+    <div class="mb-7 text-center"><p class="eyebrow">Simple by design</p><h2 class="display-md mt-2">How it works</h2></div>
+    {% include "partials/steps.html" %}
+  </div>
+</section>
+<section class="page-width section-space">
+  <div class="grid overflow-hidden rounded-3xl border border-[#eadacb] lg:grid-cols-[.9fr_1.1fr]">
+    <div class="bg-[#176f70] p-8 text-white"><p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p><h2 class="mt-4 text-5xl leading-none text-white">You cook.<br><span class="text-orange-200">We promote.</span></h2></div>
+    <div class="bg-white p-8"><p class="max-w-xl text-lg text-stone-600">Text us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p><div class="mt-6 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div></div>
+  </div>
+</section>
+{% if market and specials %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  const toggle = document.getElementById("map-view-toggle");
+  const listView = document.getElementById("specials-list-view");
+  const mapView = document.getElementById("specials-map-view");
+  const mapSpecials = {{ map_specials|tojson }};
+  let map;
+
+  toggle.addEventListener("click", () => {
+    const showingMap = mapView.classList.toggle("hidden");
+    listView.classList.toggle("hidden", !showingMap);
+    toggle.setAttribute("aria-pressed", String(!showingMap));
+    toggle.querySelector("span:last-child").textContent = showingMap ? "Map view" : "List view";
+
+    if (!showingMap && !map) {
+      map = L.map("specials-map").setView({{ map_center|tojson }}, {{ map_zoom }});
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+      const markers = mapSpecials.map(special => {
+        const marker = L.marker([special.latitude, special.longitude]).addTo(map);
+        const popup = document.createElement("div");
+        const restaurant = document.createElement("strong");
+        restaurant.textContent = special.restaurant;
+        popup.append(restaurant, document.createElement("br"), document.createTextNode(special.title));
+        if (special.price) popup.append(document.createElement("br"), document.createTextNode(special.price));
+        const link = document.createElement("a");
+        link.href = special.url;
+        link.textContent = "View special";
+        popup.append(document.createElement("br"), link);
+        marker.bindPopup(popup);
+        return marker;
+      });
+      if (markers.length) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.18), { maxZoom: 14 });
+    }
+    if (!showingMap) setTimeout(() => map.invalidateSize(), 0);
+  });
+</script>
+{% endif %}
+{% endblock %}

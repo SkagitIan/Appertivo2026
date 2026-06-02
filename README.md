@@ -1,162 +1,167 @@
-## Executive Summary
+# Appertivo2026
 
-**Today’s Specials** is a local food discovery feed where restaurants post what they are serving today, and customers check one place to see what is worth eating right now.
+Appertivo is a small Flask MVP for a local "today's specials" wall.
 
-It is not Yelp.
-It is not DoorDash.
-It is not another restaurant marketing dashboard.
+It answers one question:
 
-It answers one simple question:
+**What's good today?**
 
-**What’s good today?**
+## What Is Included
 
-## The Problem
+- Public specials feed with city filtering.
+- Location-led discovery with Skagit Valley as the first launch market.
+- Public restaurant pages.
+- Public how-it-works, restaurant, diner, and get-started marketing pages.
+- Public restaurant lead capture with an admin review queue.
+- Email subscriber capture for the upcoming diner digest.
+- Admin dashboard at `/admin`.
+- Restaurant add and edit screens.
+- Special add, edit, approve, expire, and delete screens.
+- Placeholder AI intake workflow at `/admin/intake`.
+- Private restaurant submission links generated from restaurant admin pages.
+- Draft review and trusted direct-publishing workflows.
+- Per-special distribution kits with tracked links and aggregate metrics.
+- Optional photo uploads using local storage or Cloudflare R2.
+- SQLite database by default.
+- CSV seed import for independent Skagit Valley restaurants.
 
-Local restaurants constantly post specials across scattered channels: Facebook, Instagram, websites, email lists, chalkboards, and word of mouth.
+## What Is Not Included Yet
 
-Customers rarely see them at the right time.
+- User accounts.
+- Payments.
+- Automated diner digest and alert delivery.
+- Automated restaurant-special email parsing.
+- Social scraping.
+- Restaurant dashboards.
+- Complex permissions.
+- Background jobs.
 
-Restaurants already do the work of creating specials, but distribution is fragmented. A great prime rib night, taco special, happy hour, soup, or brunch feature can disappear into the noise before nearby customers ever see it.
+## Install
 
-The problem is not content creation.
+From this folder:
 
-The problem is **local food intent is disconnected from today’s restaurant supply.**
+```bat
+python -m venv .venv
+.venv\Scripts\activate
+python -m pip install -r requirements.txt
+```
 
-## The Solution
+## Seed Data
 
-Today’s Specials creates a simple, live local feed of restaurant specials.
+```bat
+python seed.py
+flask --app app db stamp head
+```
 
-Restaurants can post specials directly, email them in, or text them in. AI turns messy input into clean, structured posts with prices, time windows, tags, photos, expiration, and alerts.
+This resets the configured database, imports `skagit_restaurants_master.csv`, excludes
+known chain locations, and adds clearly labeled launch-preview specials. The stamp records
+that the freshly created schema is current. SQLite is used by default.
 
-Customers can browse, follow restaurants, follow food categories, save specials, and receive alerts for the kinds of food they care about.
+To add or refresh only the launch-preview specials without resetting the database:
 
-The core product is simple:
+```bat
+flask --app app seed-demo-specials
+```
 
-> **Restaurants send specials. Customers discover specials. The feed becomes the daily habit.**
+To use PostgreSQL instead, set `DATABASE_URL` before running the seed or app:
 
-## Product Concept
+```bat
+set DATABASE_URL=postgresql+psycopg://user:password@localhost/appertivo
+```
 
-For restaurants:
+## Run
 
-> “Don’t learn another app. Email or text your special, and we’ll publish it to the local specials feed.”
+```bat
+python app.py
+```
 
-For customers:
+Open:
 
-> “See today’s local restaurant specials in one place.”
+```text
+http://127.0.0.1:5000
+```
 
-Each special becomes a feed post with:
+Admin:
 
-Restaurant name
-Photo
-Special title
-Price
-Time window
-Location
-Tags
-Follow/save/share actions
-Expiration logic
+```text
+http://127.0.0.1:5000/admin
+```
 
-## Why Now
+The local admin password defaults to `admin`. Set `ADMIN_PASSWORD` and `SECRET_KEY` in production.
 
-AI has made the hard part cheaper: turning messy restaurant communication into structured, useful, searchable content.
+## Deploy To Railway
 
-A restaurant can send:
+The repo includes [`railway.toml`](railway.toml) for Railway's Railpack builder:
 
-> “Halibut tacos tonight $18 starts at 4.”
+- Runs `flask --app app db upgrade` before each deploy.
+- Seeds the Skagit restaurant directory only when the database is empty.
+- Refreshes the labeled launch-preview specials without deleting production data.
+- Starts Gunicorn on Railway's injected `PORT`.
+- Verifies startup through `GET /health`.
 
-The system turns it into a polished feed post, tags it as seafood/dinner/tacos, sets a time window, and alerts the right followers.
+In Railway:
 
-AI is not the product.
+1. Create a project from the GitHub repository.
+2. Add a PostgreSQL service.
+3. Set the app service variable `DATABASE_URL=${{Postgres.DATABASE_URL}}`.
+4. Set `SECRET_KEY`, `ADMIN_PASSWORD`, and `APP_BASE_URL`.
+5. Add the email, OpenAI, and R2 variables from `.env.example` when those integrations are ready.
+6. Generate a public domain from the app service Networking settings.
 
-AI is the intake engine.
+Do not run `python seed.py` against production. That local-development command resets the
+configured database. Railway uses the safe `flask --app app seed-launch-data` command.
 
-## The Moat
+## Photo Storage
 
-The moat is not AI writing.
+Development uploads are stored under `instance/uploads`.
 
-The moat is the **local specials graph**:
+For production, create an R2 bucket with a public custom domain and set:
 
-Restaurants
-Daily specials
-Customer follows
-Food preferences
-Neighborhoods
-Timing patterns
-Click/save behavior
-Price/category demand
+```text
+R2_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+R2_BUCKET=<bucket>
+R2_ACCESS_KEY_ID=<key>
+R2_SECRET_ACCESS_KEY=<secret>
+R2_PUBLIC_BASE_URL=https://images.example.com
+```
 
-Over time, the platform learns what people want, when they want it, and which restaurants can activate that demand.
+R2 exposes an S3-compatible API. A custom domain is preferred for production public assets.
 
-Google has listings.
-Yelp has reviews.
-DoorDash has ordering.
+## Tests
 
-**Today’s Specials owns the live layer: what is available today.**
+```bat
+python -m pytest
+```
 
-## Go-To-Market Wedge
+## Database Migrations
 
-Start with one local market.
+New databases:
 
-Seed the feed manually and through restaurant intake. Do not depend on scraping.
+```bat
+flask --app app db upgrade
+```
 
-Initial acquisition strategy:
+Existing seeded databases created before migrations were added:
 
-1. Build public restaurant pages.
-2. Let restaurants claim their page.
-3. Allow email/text special submission.
-4. Promote the consumer feed locally.
-5. Use followers and alerts to create restaurant pull.
+```bat
+flask --app app db stamp 20260601_00
+flask --app app db upgrade
+```
 
-The pitch to restaurants is familiar:
+## Factory Console
 
-> “Your restaurant already has a page. Claim it so you control your specials.”
+Factory Console is configured to run this app on port `5001`:
 
-But the value is sharper than Yelp or Google:
+```text
+http://127.0.0.1:5001
+```
 
-> “This is where locals check what’s good today.”
+The console project entry points to:
 
-## MVP
+```text
+github: SkagitIan/Appertivo2026
+```
 
-Build only the essential loop:
+## Notes
 
-Customer-facing feed
-Restaurant profile pages
-Special submission by email/manual form
-AI parsing into draft specials
-Admin approval queue
-Follow/email alert system
-Claimed restaurant accounts later
-
-No complex dashboard.
-No social media automation.
-No scraping dependency.
-No heavy integrations on day one.
-
-## Business Model
-
-Possible revenue paths:
-
-Restaurant subscription for claimed pages and direct posting
-Featured placement for daily specials
-Email/SMS alert promotion
-Local sponsorships
-Premium analytics for restaurants
-Per-market licensing if the model works
-
-The first paid version should be simple:
-
-> **$29–$99/month for restaurants to claim their page, post directly, and reach local followers.**
-
-## Strategic Position
-
-This is a network product disguised as a simple food feed.
-
-The short-term product is daily specials.
-
-The long-term asset is local demand.
-
-The winning version becomes the place people check before deciding where to eat.
-
-## One-Line Pitch
-
-**Today’s Specials is the local feed for what restaurants are serving right now.**
+The app creates the SQLite tables automatically on startup. The database file is stored in Flask's `instance/` folder as `appertivo.db`.

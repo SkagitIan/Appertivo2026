@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Skagit restaurants | Appertivo{% endblock %}
+{% block content %}
+<section class="page-width section-space">
+  <p class="eyebrow">Local food &middot; real community</p><h1 class="display-md mt-3">Skagit Valley restaurants</h1><p class="mt-3 text-stone-600">Browse {{ restaurants|length }} independent places and find out what's good today.</p>
+  <form method="get" class="card mt-6 flex flex-wrap gap-2 p-4"><input name="q" value="{{ search_term }}" placeholder="Search restaurant, city, or cuisine" class="min-w-[240px] flex-1 rounded-lg border px-3 py-2"><select name="city" class="rounded-lg border px-3 py-2"><option value="">All cities</option>{% for option in cities %}<option {% if option == city %}selected{% endif %}>{{ option }}</option>{% endfor %}</select><button class="button-plum">Search</button></form>
+  <div class="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">{% for restaurant in restaurants %}<article class="card p-5"><p class="eyebrow">{{ restaurant.city }}</p><h2 class="mt-2 text-2xl"><a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}">{{ restaurant.name }}</a></h2>{% if restaurant.address %}<p class="mt-2 text-sm text-stone-600">{{ restaurant.address }}</p>{% endif %}<a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}" class="mt-4 inline-block text-sm font-black text-[#176f70]">View restaurant &rarr;</a></article>{% endfor %}</div>
+</section>
+{% endblock %}
