@@ -3,7 +3,7 @@
 {% block content %}
 <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
   <div><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Dashboard</h1></div>
-  <div class="flex flex-wrap gap-2"><a href="{{ url_for('admin_leads') }}" class="button-primary">Leads</a><a href="{{ url_for('admin_restaurants') }}" class="button-plum">Restaurants</a><a href="{{ url_for('admin_specials') }}" class="button-plum">Specials</a><a href="{{ url_for('admin_outreach') }}" class="button-secondary">Outreach inbox</a><a href="{{ url_for('admin_email_tools') }}" class="button-secondary">Email tools</a><form method="post" action="{{ url_for('admin_logout') }}"><button class="button-quiet">Log out</button></form></div>
+  <div class="flex flex-wrap gap-2"><a href="{{ url_for('admin_leads') }}" class="button-primary">Leads</a><a href="{{ url_for('admin_restaurants') }}" class="button-plum">Restaurants</a><a href="{{ url_for('admin_restaurant_enrichment') }}" class="button-plum">Enhance restaurants</a><a href="{{ url_for('admin_specials') }}" class="button-plum">Specials</a><a href="{{ url_for('admin_outreach') }}" class="button-secondary">Outreach inbox</a><a href="{{ url_for('admin_email_tools') }}" class="button-secondary">Email tools</a><form method="post" action="{{ url_for('admin_logout') }}"><button class="button-quiet">Log out</button></form></div>
 </div>
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{% for label, value in counts.items() %}<div class="admin-card p-5"><p class="eyebrow text-stone-500">{{ label }}</p><p class="mt-2 text-4xl font-black text-[#3d1730]">{{ value }}</p></div>{% endfor %}</div>
 {% endblock %}

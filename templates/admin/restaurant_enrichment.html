@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Enhance restaurants | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+  <div>
+    <p class="eyebrow">Admin</p>
+    <h1 class="display-md mt-2">Enhance restaurants</h1>
+    <p class="mt-2 max-w-3xl text-sm text-stone-600">Each action sends one billable Google Places Details request using the website tier and lower. Enhanced restaurants leave this queue.</p>
+  </div>
+  <a href="{{ url_for('admin_restaurants') }}" class="button-secondary">Restaurants</a>
+</div>
+
+<div class="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+  <div class="border-b border-stone-200 bg-stone-50 px-3 py-2 text-sm font-semibold text-stone-600">{{ restaurants|length }} restaurants awaiting enhancement</div>
+  <table class="w-full text-left text-sm">
+    <thead class="bg-stone-100 text-stone-600">
+      <tr><th class="p-3">Name</th><th class="p-3">City</th><th class="p-3">Place ID</th><th class="p-3"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-stone-200">
+      {% for restaurant in restaurants %}
+        <tr>
+          <td class="p-3 font-semibold">{{ restaurant.name }}</td>
+          <td class="p-3">{{ restaurant.city }}</td>
+          <td class="p-3 font-mono text-xs text-stone-600">{{ restaurant.place_id }}</td>
+          <td class="p-3">
+            <form method="post" action="{{ url_for('admin_enhance_restaurant', restaurant_id=restaurant.id) }}" class="grid justify-items-end gap-2">
+              <label class="flex items-center gap-2 text-xs text-stone-600"><input type="checkbox" name="confirm_api_cost" required> Confirm one billable request</label>
+              <label class="flex items-center gap-2 text-xs text-stone-600"><input type="checkbox" name="confirm_storage_terms" required> Storage terms permit this use</label>
+              <button class="rounded-md bg-rose-700 px-3 py-2 text-xs font-semibold text-white">Enhance restaurant</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="p-6 text-center text-stone-600">Every restaurant with a place ID has been enhanced.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

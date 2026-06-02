@@ -82,6 +82,7 @@ app.config.update(
     RESEND_WEBHOOK_SECRET=os.environ.get("RESEND_WEBHOOK_SECRET"),
     OPENAI_API_KEY=os.environ.get("OPENAI_API_KEY"),
     OPENAI_OUTREACH_MODEL=os.environ.get("OPENAI_OUTREACH_MODEL", "gpt-5.4-mini"),
+    GOOGLE_PLACES_API_KEY=os.environ.get("GOOGLE_PLACES_API_KEY"),
 )
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -732,6 +733,51 @@ def admin_restaurants():
     if term:
         query = query.filter(restaurant_search_filter(term))
     return render_template("admin/restaurants.html", restaurants=query.order_by(Restaurant.name).all(), search_term=term)
+
+
+@app.get("/admin/restaurant-enrichment")
+@admin_required
+def admin_restaurant_enrichment():
+    restaurants = (
+        Restaurant.query.filter(
+            Restaurant.place_id.isnot(None),
+            Restaurant.place_id != "",
+            Restaurant.google_place_refreshed_at.is_(None),
+        )
+        .order_by(Restaurant.city, Restaurant.name)
+        .all()
+    )
+    return render_template("admin/restaurant_enrichment.html", restaurants=restaurants)
+
+
+@app.post("/admin/restaurants/<int:restaurant_id>/enhance")
+@admin_required
+def admin_enhance_restaurant(restaurant_id):
+    if request.form.get("confirm_api_cost") != "on":
+        abort(400, "Confirm the Places API cost before enhancing a restaurant.")
+    if request.form.get("confirm_storage_terms") != "on":
+        abort(400, "Confirm your Google Maps storage terms before enhancing a restaurant.")
+    api_key = app.config["GOOGLE_PLACES_API_KEY"]
+    if not api_key:
+        flash("Set GOOGLE_PLACES_API_KEY before using restaurant enrichment.")
+        return redirect(url_for("admin_restaurant_enrichment"))
+    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    if not restaurant.place_id:
+        abort(400, "This restaurant does not have a Google place ID.")
+
+    from scripts.enrich_restaurants_google import enrich_restaurant, load_application
+
+    load_application()
+    try:
+        enrich_restaurant(restaurant, api_key)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Google Places enrichment failed for restaurant %s", restaurant.id)
+        flash(f"Could not enhance {restaurant.name}. Check the application logs.")
+    else:
+        flash(f"Enhanced {restaurant.name}.")
+    return redirect(url_for("admin_restaurant_enrichment"))
 
 
 @app.route("/admin/restaurants/<int:restaurant_id>/edit", methods=["GET", "POST"])
