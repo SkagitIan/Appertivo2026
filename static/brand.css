@@ -84,6 +84,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .admin-nav { background: var(--plum); color: white; }
 .admin-nav a { color: white; font-size: .85rem; font-weight: 700; }
 .admin-nav a:hover { color: #ffb18c; }
+.admin-nav-button { background: var(--orange); border-radius: .5rem; color: white !important; margin-block: -.2rem; padding: .2rem .55rem; }
+.admin-nav-button:hover { background: var(--orange-dark); color: white !important; }
 .admin-card { background: var(--paper); border: 1px solid var(--line); border-radius: .85rem; box-shadow: 0 5px 16px rgba(77, 44, 29, .06); }
 .admin-main .bg-white { background: var(--paper) !important; }
 .admin-main .bg-stone-50, .admin-main .bg-stone-100 { background: var(--cream-deep) !important; }
@@ -97,6 +99,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .status-contacted, .status-published { background: var(--teal-soft); color: var(--teal); }
 .status-converted { background: #def1d2; color: #397026; }
 .status-closed, .status-expired { background: #ece7e3; color: #746a68; }
+.icon-button { align-items: center; border: 1px solid var(--line); border-radius: .5rem; color: var(--ink); display: inline-flex; font-size: .95rem; font-weight: 800; height: 2rem; justify-content: center; line-height: 1; width: 2rem; }
+.icon-button:hover { background: var(--teal-soft); border-color: var(--teal); color: var(--teal); }
+.icon-button.danger { color: #b42318; }
+.icon-button.danger:hover { background: #fee4e2; border-color: #fda29b; color: #912018; }
 .site-footer { background: var(--plum); color: #f8e9de; }
 .site-footer h2 { color: white; }
 .site-footer a:hover { color: #ffb18c; }

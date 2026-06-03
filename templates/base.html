@@ -28,14 +28,11 @@
           <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
           <a href="{{ url_for('admin_leads') }}">Leads</a>
           <a href="{{ url_for('admin_restaurants') }}">Restaurants</a>
-          <a href="{{ url_for('admin_restaurant_catalog') }}">Catalog review</a>
-          <a href="{{ url_for('admin_restaurant_enrichment') }}">Enhance restaurants</a>
           <a href="{{ url_for('admin_specials') }}">Specials</a>
           <a href="{{ url_for('admin_special_submissions') }}">Submissions</a>
           <a href="{{ url_for('admin_special_drafts') }}">Drafts</a>
-          <a href="{{ url_for('admin_intake') }}">Paste intake</a>
-          <a href="{{ url_for('admin_outreach') }}">Outreach</a>
-          <a href="{{ url_for('admin_email_tools') }}">Email tools</a>
+          <a href="{{ url_for('admin_tools') }}">Tools</a>
+          <a href="{{ url_for('admin_intake') }}" class="admin-nav-button">+ Special</a>
         </div>
       </nav>
     {% endif %}

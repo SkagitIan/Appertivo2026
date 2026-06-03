@@ -768,6 +768,49 @@ def admin_dashboard():
     return render_template("admin/dashboard.html", counts=counts)
 
 
+@app.get("/admin/tools")
+@admin_required
+def admin_tools():
+    tools = [
+        {
+            "title": "Catalog review",
+            "description": "Review venues that need an include or exclude decision.",
+            "url": url_for("admin_restaurant_catalog"),
+            "count": Restaurant.query.filter_by(catalog_status="review").count(),
+        },
+        {
+            "title": "Enhance restaurants",
+            "description": "Pull Google Places details for included restaurants that still need enrichment.",
+            "url": url_for("admin_restaurant_enrichment"),
+            "count": Restaurant.query.filter(
+                Restaurant.place_id.isnot(None),
+                Restaurant.place_id != "",
+                Restaurant.google_place_refreshed_at.is_(None),
+                Restaurant.catalog_status == "included",
+            ).count(),
+        },
+        {
+            "title": "Outreach",
+            "description": "Create, review, and manage restaurant outreach campaigns.",
+            "url": url_for("admin_outreach"),
+            "count": operational_outreach_campaigns_query()
+            .filter(
+                OutreachCampaign.archived.is_(False),
+                OutreachCampaign.paused.is_(False),
+                OutreachCampaign.status.in_(["drafting", "active"]),
+            )
+            .count(),
+        },
+        {
+            "title": "Email tools",
+            "description": "Preview transactional templates and send gated test emails.",
+            "url": url_for("admin_email_tools"),
+            "count": None,
+        },
+    ]
+    return render_template("admin/tools.html", tools=tools)
+
+
 @app.route("/admin/email-tools", methods=["GET", "POST"])
 @admin_required
 def admin_email_tools():
@@ -1176,6 +1219,34 @@ def admin_enhance_restaurants():
         flash(f"Enhanced {enhanced} restaurants.")
     if failed:
         flash(f"Could not enhance {len(failed)} restaurants: {', '.join(failed)}.")
+    return redirect(url_for("admin_restaurant_enrichment"))
+
+
+@app.post("/admin/restaurants/enrichment/exclude")
+@admin_required
+def admin_exclude_restaurants_from_enrichment():
+    submitted_ids = request.form.getlist("restaurant_ids")
+    if not submitted_ids:
+        abort(400, "Select at least one restaurant to exclude.")
+    try:
+        restaurant_ids = [int(restaurant_id) for restaurant_id in submitted_ids]
+    except ValueError:
+        abort(400, "One or more selected restaurant IDs are invalid.")
+    restaurants = Restaurant.query.filter(
+        Restaurant.id.in_(restaurant_ids),
+        Restaurant.place_id.isnot(None),
+        Restaurant.place_id != "",
+        Restaurant.google_place_refreshed_at.is_(None),
+        Restaurant.catalog_status == "included",
+    ).all()
+    if len(restaurants) != len(set(restaurant_ids)):
+        abort(400, "One or more selected restaurants cannot be excluded from this queue.")
+    for restaurant in restaurants:
+        restaurant.catalog_status = "excluded"
+        restaurant.catalog_reason = "excluded from enrichment queue"
+        restaurant.catalog_reviewed_at = utc_now()
+    db.session.commit()
+    flash(f"{len(restaurants)} restaurants excluded from the active catalog.")
     return redirect(url_for("admin_restaurant_enrichment"))
 
 

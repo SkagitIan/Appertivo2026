@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Tools | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+  <div>
+    <p class="eyebrow">Admin</p>
+    <h1 class="display-md mt-2">Tools</h1>
+  </div>
+  <a href="{{ url_for('admin_dashboard') }}" class="button-secondary">Dashboard</a>
+</div>
+
+<div class="grid gap-4 md:grid-cols-2">
+  {% for tool in tools %}
+    <a href="{{ tool.url }}" class="admin-card block p-5 hover:-translate-y-0.5 hover:border-[#176f70]">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-2xl">{{ tool.title }}</h2>
+          <p class="mt-2 text-sm text-stone-600">{{ tool.description }}</p>
+        </div>
+        {% if tool.count is not none %}
+          <span class="status-badge status-contacted">{{ tool.count }}</span>
+        {% endif %}
+      </div>
+    </a>
+  {% endfor %}
+</div>
+{% endblock %}

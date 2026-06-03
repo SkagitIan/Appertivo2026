@@ -21,20 +21,38 @@
   <div class="border-b border-stone-200 bg-stone-50 px-3 py-2 text-sm font-semibold text-stone-600">{{ restaurants|length }} restaurants</div>
   <table class="w-full text-left text-sm">
     <thead class="bg-stone-100 text-stone-600">
-      <tr><th class="p-3">Name</th><th class="p-3">City</th><th class="p-3">Claimed</th><th class="p-3"></th></tr>
+      <tr><th class="p-3">Restaurant</th><th class="hidden p-3 sm:table-cell">City</th><th class="p-3">Email</th><th class="p-3"></th></tr>
     </thead>
     <tbody class="divide-y divide-stone-200">
       {% for restaurant in restaurants %}
         <tr>
-          <td class="p-3 font-semibold">{{ restaurant.name }}</td>
-          <td class="p-3">{{ restaurant.city }}</td>
-          <td class="p-3">{{ "Yes" if restaurant.claimed else "No" }}</td>
           <td class="p-3">
-            <div class="flex items-center justify-end gap-3">
-              <a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}" class="font-semibold text-stone-600">View</a>
-              <a href="{{ url_for('admin_edit_restaurant', restaurant_id=restaurant.id) }}" class="font-semibold text-rose-700">Edit</a>
+            <div class="flex min-w-0 items-start gap-2">
+              {% if restaurant.google_place_refreshed_at %}
+                <span class="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-700" title="Enhanced" aria-label="Enhanced">&#10003;</span>
+              {% else %}
+                <span class="mt-0.5 h-5 w-5 flex-none" aria-hidden="true"></span>
+              {% endif %}
+              <div class="min-w-0">
+                <div class="truncate font-semibold">{{ restaurant.name }}</div>
+                <div class="mt-1 text-xs text-stone-500 sm:hidden">{{ restaurant.city }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="hidden p-3 sm:table-cell">{{ restaurant.city }}</td>
+          <td class="p-3">
+            {% if restaurant.contact_email %}
+              <span class="status-badge status-contacted">Email</span>
+            {% else %}
+              <span class="status-badge status-closed">No email</span>
+            {% endif %}
+          </td>
+          <td class="p-3">
+            <div class="flex items-center justify-end gap-1.5">
+              <a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}" class="icon-button" title="View public page" aria-label="View public page for {{ restaurant.name }}">&#128065;</a>
+              <a href="{{ url_for('admin_edit_restaurant', restaurant_id=restaurant.id) }}" class="icon-button" title="Edit" aria-label="Edit {{ restaurant.name }}">&#9998;</a>
               <form method="post" action="{{ url_for('admin_delete_restaurant', restaurant_id=restaurant.id) }}" onsubmit="return confirm('Delete this restaurant and its specials?');">
-                <button class="font-semibold text-red-700">Delete</button>
+                <button class="icon-button danger" title="Delete" aria-label="Delete {{ restaurant.name }}">&#128465;</button>
               </form>
             </div>
           </td>
