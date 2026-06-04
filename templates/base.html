@@ -6,9 +6,11 @@
   <title>{% block title %}{{ title or "Appertivo" }}{% endblock %}</title>
   <meta name="description" content="{% block description %}Find today's specials and independent restaurants near you with Appertivo.{% endblock %}">
   <link rel="icon" href="data:,">
-  {% block head %}{% endblock %}
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='brand.css') }}">
+  {% block head %}{% endblock %}
 </head>
 <body class="min-h-screen">
   <header class="site-header">
