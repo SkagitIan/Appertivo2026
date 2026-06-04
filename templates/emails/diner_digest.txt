@@ -1,0 +1,19 @@
+{% extends "emails/base.txt" %}
+{% block content %}
+What's good today in Skagit Valley
+
+A short list of local specials available right now.
+
+{% if specials %}
+{% for special in specials %}
+{{ special.restaurant_name }} · {{ special.city }}
+{{ special.title }}
+{% if special.description %}{{ special.description }}
+{% endif %}{% if special.price or special.availability_text %}{{ special.price }}{% if special.price and special.availability_text %} · {% endif %}{{ special.availability_text }}
+{% endif %}View this special: {{ special.url }}
+
+{% endfor %}
+{% else %}
+No active specials are ready for today's digest yet.
+{% endif %}
+{% endblock %}

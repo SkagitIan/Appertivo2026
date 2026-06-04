@@ -425,3 +425,74 @@ def test_admin_structured_special_creation_publishes_through_pipeline(client):
         assert RawSpecialSubmission.query.one().source_channel == "admin"
         assert SpecialDraft.query.one().status == "published"
         assert Special.query.one().title == "Chef dinner"
+
+
+def test_admin_diner_digest_preview_send_and_unsubscribe(client, monkeypatch):
+    login(client)
+    sent = []
+
+    def fake_send_email(**kwargs):
+        sent.append(kwargs)
+        return {"success": True, "provider": "resend", "message_id": f"email-{len(sent)}", "error": None}
+
+    monkeypatch.setattr("email_system.resend_client.send_email", fake_send_email)
+    with app.app_context():
+        special = Special(
+            restaurant_id=1,
+            title="Halibut Sandwich",
+            description="Fresh catch with fries.",
+            price="$18",
+            status="published",
+            expires_at=datetime(2099, 1, 1),
+            published_at=datetime(2026, 6, 4),
+        )
+        db.session.add_all(
+            [
+                special,
+                Subscriber(email="skagit@example.com", city="Mount Vernon", location="Skagit Valley, WA"),
+                Subscriber(email="seattle@example.com", city="Seattle", location="Seattle, WA"),
+                Subscriber(
+                    email="old@example.com",
+                    city="Mount Vernon",
+                    location="Skagit Valley, WA",
+                    is_subscribed=False,
+                ),
+            ]
+        )
+        db.session.commit()
+
+    preview = client.get("/admin/diner-digest")
+    assert preview.status_code == 200
+    assert b"good today in Skagit Valley" in preview.data
+    assert b"recipient" in preview.data.lower()
+    assert b"Halibut Sandwich" in preview.data
+    assert b"channel=email_digest" in preview.data
+    assert b"Unsubscribe" in preview.data
+
+    test_response = client.post(
+        "/admin/diner-digest", data={"csrf_token": csrf(client), "action": "test"}, follow_redirects=True
+    )
+    assert test_response.status_code == 200
+    assert sent[-1]["to"] == app.config["EMAIL_TEST_RECIPIENT"]
+    assert "Unsubscribe" in sent[-1]["text"]
+
+    production_response = client.post(
+        "/admin/diner-digest", data={"csrf_token": csrf(client), "action": "production"}, follow_redirects=True
+    )
+    assert production_response.status_code == 200
+    production_sends = [email for email in sent if email["to"] == "skagit@example.com"]
+    assert len(production_sends) == 1
+    assert all(email["to"] != "seattle@example.com" for email in sent)
+    assert all(email["to"] != "old@example.com" for email in sent)
+    assert "channel=email_digest" in production_sends[0]["text"]
+    assert production_sends[0]["tags"] == [{"name": "channel", "value": "email_digest"}]
+    with app.app_context():
+        assert DistributionLog.query.filter_by(channel="email_digest").count() == 1
+
+    unsubscribe_link = production_sends[0]["text"].split("Unsubscribe: ")[1].strip().splitlines()[0]
+    unsubscribe_response = client.get(unsubscribe_link.replace(app.config["APP_BASE_URL"], ""))
+    assert unsubscribe_response.status_code == 200
+    with app.app_context():
+        subscriber = Subscriber.query.filter_by(email="skagit@example.com").one()
+        assert subscriber.is_subscribed is False
+        assert subscriber.unsubscribed_at is not None

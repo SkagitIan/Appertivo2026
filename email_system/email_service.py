@@ -11,6 +11,7 @@ SUBJECTS = {
     "special_received": "We received your special",
     "restaurant_welcome": "Welcome to Appertivo",
     "sales_outreach": "Get your restaurant special in front of local diners",
+    "diner_digest": "What's good today in Skagit Valley",
 }
 
 
@@ -25,6 +26,18 @@ def render_email_template(template_name, context=None):
     }
 
 
+def send_rendered_email(to, subject, html, text, from_email=None, reply_to=None, tags=None):
+    return resend_client.send_email(
+        to=to,
+        subject=subject,
+        html=html,
+        text=text,
+        from_email=from_email or current_app.config["EMAIL_FROM_NOREPLY"],
+        reply_to=reply_to,
+        tags=tags,
+    )
+
+
 def send_transactional_email(
     to,
     subject,
@@ -35,12 +48,12 @@ def send_transactional_email(
     tags=None,
 ):
     rendered = render_email_template(template_name, context)
-    return resend_client.send_email(
+    return send_rendered_email(
         to=to,
         subject=subject,
         html=rendered["html"],
         text=rendered["text"],
-        from_email=from_email or current_app.config["EMAIL_FROM_NOREPLY"],
+        from_email=from_email,
         reply_to=reply_to,
         tags=tags,
     )
@@ -127,6 +140,17 @@ def send_test_email(to, template_name):
             "Restaurant Owner",
             "We would like to help share your specials with local diners.",
         ),
+        "diner_digest": lambda: send_transactional_email(
+            to,
+            SUBJECTS["diner_digest"],
+            "diner_digest",
+            {
+                "specials": [],
+                "unsubscribe_url": f"{base_url}/unsubscribe?email=test@example.com&token=test",
+            },
+            from_email=current_app.config["EMAIL_FROM_SPECIALS"],
+            reply_to=current_app.config["EMAIL_REPLY_TO_SPECIALS"],
+        ),
     }
     return senders[template_name]()
 
@@ -148,6 +172,8 @@ def render_test_email(template_name):
             "special_title": "Friday Fish Tacos",
             "contact_name": "Restaurant Owner",
             "custom_message": "We would like to help share your specials with local diners.",
-            "show_unsubscribe_placeholder": template_name == "sales_outreach",
+            "show_unsubscribe_placeholder": template_name in {"sales_outreach", "diner_digest"},
+            "specials": [],
+            "preview_note": "Digest preview",
         },
     )
