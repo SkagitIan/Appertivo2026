@@ -164,4 +164,4 @@ def test_send_all_test_emails_sends_each_template(monkeypatch):
     with app.app_context():
         results = send_all_test_emails("ian.larsen.1976@gmail.com")
     assert list(results) == list(SUBJECTS)
-    assert len(sent) == 7
+    assert len(sent) == 8

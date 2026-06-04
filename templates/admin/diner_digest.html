@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Diner digest | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <p class="eyebrow">Admin</p>
+    <h1 class="display-md mt-2">Diner digest</h1>
+    <p class="mt-2 text-sm text-stone-600">Manual send for today's active Skagit specials. No background jobs yet.</p>
+  </div>
+  <a href="{{ url_for('admin_tools') }}" class="button-secondary">Tools</a>
+</div>
+
+<div class="grid gap-4 md:grid-cols-4">
+  <div class="admin-card p-4 md:col-span-2"><p class="text-xs uppercase tracking-wide text-stone-500">Subject</p><p class="mt-1 text-lg font-semibold">{{ digest.subject }}</p></div>
+  <div class="admin-card p-4"><p class="text-xs uppercase tracking-wide text-stone-500">Recipients</p><p class="mt-1 text-3xl">{{ digest.recipient_count }}</p><p class="text-sm text-stone-600">opted-in Skagit diners</p></div>
+  <div class="admin-card p-4"><p class="text-xs uppercase tracking-wide text-stone-500">Specials</p><p class="mt-1 text-3xl">{{ digest.specials|length }}</p><p class="text-sm text-stone-600">active and included</p></div>
+</div>
+
+<div class="my-5 flex flex-wrap gap-3">
+  <form method="post"><input type="hidden" name="action" value="test"><button class="button-secondary">Send test to {{ test_recipient }}</button></form>
+  <form method="post" onsubmit="return confirm('Send this digest to all opted-in Skagit subscribers?');"><input type="hidden" name="action" value="production"><button class="button-primary">Send production digest</button></form>
+</div>
+
+<div class="grid gap-5 lg:grid-cols-2">
+  <article class="admin-card overflow-hidden">
+    <div class="border-b px-4 py-3"><h2 class="text-xl">HTML body</h2></div>
+    <iframe title="Digest HTML preview" srcdoc="{{ digest.html|e }}" class="h-[620px] w-full bg-white"></iframe>
+  </article>
+  <article class="admin-card p-4">
+    <h2 class="text-xl">Text body</h2>
+    <pre class="mt-3 whitespace-pre-wrap rounded bg-stone-100 p-4 text-sm">{{ digest.text }}</pre>
+  </article>
+</div>
+
+<section class="admin-card mt-5 p-4">
+  <h2 class="text-xl">Included specials</h2>
+  {% if digest.specials %}
+    <div class="mt-3 grid gap-3">
+      {% for special in digest.specials %}
+        <div class="rounded border border-stone-200 p-3">
+          <p class="font-semibold">{{ special.title }}</p>
+          <p class="text-sm text-stone-600">{{ special.restaurant.name }} · {{ special.restaurant.city }}{% if special.price %} · {{ special.price }}{% endif %}</p>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="mt-2 text-sm text-stone-600">No active Skagit specials are ready to send.</p>
+  {% endif %}
+</section>
+{% endblock %}

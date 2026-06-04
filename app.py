@@ -142,6 +142,7 @@ def seed_launch_data_command():
             "special_received",
             "restaurant_welcome",
             "sales_outreach",
+            "diner_digest",
         ]
     ),
 )
@@ -269,10 +270,101 @@ def subscribe(email, city=None, location=None, favorite_tag=None):
             subscriber.city = city
         if location:
             subscriber.location = location
+        subscriber.is_subscribed = True
+        subscriber.unsubscribed_at = None
     if favorite_tag:
         tags = {tag.strip() for tag in (subscriber.favorite_tags or "").split(",") if tag.strip()}
         tags.add(favorite_tag)
         subscriber.favorite_tags = ",".join(sorted(tags))
+    db.session.commit()
+
+
+def unsubscribe_signature(email):
+    return hmac.new(
+        app.config["SECRET_KEY"].encode("utf-8"),
+        email.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def unsubscribe_url_for_email(email):
+    normalized_email = email.strip().lower()
+    token = unsubscribe_signature(normalized_email)
+    return url_for("unsubscribe", email=normalized_email, token=token, _external=True)
+
+
+def valid_unsubscribe_token(email, token):
+    return hmac.compare_digest(unsubscribe_signature(email), token or "")
+
+
+def skagit_specials_query():
+    return active_specials_query().filter(Restaurant.city.in_(SKAGIT_VALLEY["cities"]))
+
+
+def skagit_subscribers_query():
+    location_filters = [Subscriber.location.ilike("%Skagit%")]
+    location_filters.extend(Subscriber.location.ilike(f"%{city}%") for city in SKAGIT_VALLEY["cities"])
+    return Subscriber.query.filter(
+        Subscriber.is_subscribed.is_(True),
+        or_(Subscriber.city.in_(SKAGIT_VALLEY["cities"]), *location_filters),
+    )
+
+
+def digest_subject():
+    return "What's good today in Skagit Valley"
+
+
+def digest_special_rows(specials):
+    rows = []
+    for special in specials:
+        rows.append(
+            {
+                "title": special.title,
+                "description": special.description,
+                "price": special.price,
+                "availability_text": special.availability_text,
+                "restaurant_name": special.restaurant.name,
+                "city": special.restaurant.city,
+                "url": url_for("special_detail", public_id=special.public_id, channel="email_digest", _external=True),
+            }
+        )
+    return rows
+
+
+def build_diner_digest(unsubscribe_url=None):
+    specials = skagit_specials_query().order_by(Special.published_at.desc(), Special.created_at.desc()).all()
+    context = {
+        "specials": digest_special_rows(specials),
+        "unsubscribe_url": unsubscribe_url
+        or url_for("unsubscribe", email="preview@example.com", token="preview", _external=True),
+    }
+    return {
+        "subject": digest_subject(),
+        "html": render_template("emails/diner_digest.html", **context),
+        "text": render_template("emails/diner_digest.txt", **context),
+        "specials": specials,
+        "recipient_count": skagit_subscribers_query().count(),
+    }
+
+
+def send_diner_digest_to(email):
+    from email_system.email_service import send_rendered_email
+
+    digest = build_diner_digest(unsubscribe_url_for_email(email))
+    return send_rendered_email(
+        to=email,
+        subject=digest["subject"],
+        html=digest["html"],
+        text=digest["text"],
+        from_email=app.config["EMAIL_FROM_SPECIALS"],
+        reply_to=app.config["EMAIL_REPLY_TO_SPECIALS"],
+        tags=[{"name": "channel", "value": "email_digest"}],
+    )
+
+
+def record_digest_distribution(specials):
+    for special in specials:
+        db.session.add(DistributionLog(special_id=special.id, channel="email_digest", note="Manual diner digest"))
     db.session.commit()
 
 
@@ -516,6 +608,23 @@ def for_restaurants():
 @app.get("/for-diners")
 def for_diners():
     return render_template("for_diners.html")
+
+
+@app.get("/unsubscribe")
+def unsubscribe():
+    email = request.args.get("email", "").strip().lower()
+    token = request.args.get("token", "")
+    if not email or not valid_unsubscribe_token(email, token):
+        abort(404)
+    subscriber = Subscriber.query.filter_by(email=email).first()
+    if not subscriber:
+        subscriber = Subscriber(email=email, is_subscribed=False, unsubscribed_at=utc_now())
+        db.session.add(subscriber)
+    else:
+        subscriber.is_subscribed = False
+        subscriber.unsubscribed_at = utc_now()
+    db.session.commit()
+    return render_template("unsubscribe.html", email=email)
 
 
 @app.route("/get-started", methods=["GET", "POST"])
@@ -802,6 +911,12 @@ def admin_tools():
             .count(),
         },
         {
+            "title": "Diner digest",
+            "description": "Preview and manually send today's Skagit specials digest.",
+            "url": url_for("admin_diner_digest"),
+            "count": skagit_subscribers_query().count(),
+        },
+        {
             "title": "Email tools",
             "description": "Preview transactional templates and send gated test emails.",
             "url": url_for("admin_email_tools"),
@@ -809,6 +924,33 @@ def admin_tools():
         },
     ]
     return render_template("admin/tools.html", tools=tools)
+
+
+@app.route("/admin/diner-digest", methods=["GET", "POST"])
+@admin_required
+def admin_diner_digest():
+    digest = build_diner_digest()
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "test":
+            recipient = app.config["EMAIL_TEST_RECIPIENT"]
+            result = send_diner_digest_to(recipient)
+            if result["success"]:
+                flash(f"Sent diner digest test to {recipient}.")
+            else:
+                flash(f"Diner digest test failed: {result['error']}")
+        elif action == "production":
+            subscribers = skagit_subscribers_query().order_by(Subscriber.email).all()
+            results = [send_diner_digest_to(subscriber.email) for subscriber in subscribers]
+            sent_count = sum(result["success"] for result in results)
+            if sent_count:
+                record_digest_distribution(digest["specials"])
+            failed_count = len(results) - sent_count
+            flash(f"Sent diner digest to {sent_count} Skagit subscribers. {failed_count} failed.")
+        else:
+            abort(400)
+        return redirect(url_for("admin_diner_digest"))
+    return render_template("admin/diner_digest.html", digest=digest, test_recipient=app.config["EMAIL_TEST_RECIPIENT"])
 
 
 @app.route("/admin/email-tools", methods=["GET", "POST"])

@@ -271,6 +271,8 @@ class Subscriber(db.Model):
     city = db.Column(db.String(80), nullable=True)
     location = db.Column(db.String(160), nullable=True)
     favorite_tags = db.Column(db.Text, nullable=True)
+    is_subscribed = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    unsubscribed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
 

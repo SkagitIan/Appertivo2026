@@ -1,0 +1,20 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:26px;line-height:1.2;">What's good today in Skagit Valley</h1>
+<p style="margin:0 0 22px;color:#51463d;line-height:1.5;">A short list of local specials available right now.</p>
+{% if specials %}
+  {% for special in specials %}
+    <div style="border-top:1px solid #e6ded3;padding:18px 0;">
+      <p style="margin:0 0 4px;color:#176f70;font-size:13px;font-weight:bold;">{{ special.restaurant_name }} · {{ special.city }}</p>
+      <h2 style="margin:0 0 6px;font-size:20px;line-height:1.25;">{{ special.title }}</h2>
+      {% if special.description %}<p style="margin:0 0 8px;line-height:1.5;">{{ special.description }}</p>{% endif %}
+      {% if special.price or special.availability_text %}
+        <p style="margin:0 0 12px;color:#51463d;">{{ special.price }}{% if special.price and special.availability_text %} · {% endif %}{{ special.availability_text }}</p>
+      {% endif %}
+      <p style="margin:0;"><a href="{{ special.url }}" style="color:#176f70;font-weight:bold;">View this special</a></p>
+    </div>
+  {% endfor %}
+{% else %}
+  <p style="margin:0;line-height:1.5;">No active specials are ready for today's digest yet.</p>
+{% endif %}
+{% endblock %}
