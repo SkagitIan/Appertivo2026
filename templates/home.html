@@ -2,13 +2,12 @@
 {% block title %}Find today's local restaurant specials | Appertivo{% endblock %}
 {% block content %}
 <section class="hero">
-  <div class="page-width grid items-center gap-10 lg:grid-cols-[.9fr_1.1fr]">
+  <div class="page-width hero-grid">
     <div>
       <p class="eyebrow">Today's specials &middot; nearby restaurants</p>
 
       <h1 class="display-xl mt-4">Local kitchens. <span class="text-[#ed4b0b]">Today's best dishes.</span></h1>
       <p class="mt-6 max-w-xl text-lg text-stone-600">Discover what restaurants are serving right now.</p>
-      <a href="#specials" class="button-primary mt-7">Browse today's specials</a>
     </div>
     {% set hero_special = specials[0] if specials else none %}
     <aside class="hero-panel">
@@ -25,7 +24,7 @@
             <span class="special-price">{% if hero_special and hero_special.price %}{{ hero_special.price }}{% else %}$28{% endif %}</span>
           </div>
           <p class="mt-3 text-sm text-stone-600">{% if hero_special %}{{ hero_special.description }}{% else %}Sample post: local salmon with roasted market vegetables and herb butter.{% endif %}</p>
-          <a href="{% if hero_special %}{{ url_for('special_detail', public_id=hero_special.public_id) }}{% else %}#specials{% endif %}" class="button-primary mt-5">View sample</a>
+          <span class="date-pill hero-date-pill"><span class="date-pill-icon" aria-hidden="true"></span>{% if hero_special %}{% if special_is_today(hero_special) %}Today &middot; {% endif %}{{ special_display_date(hero_special) }}{% else %}Today{% endif %}</span>
         </div>
       </div>
     </aside>
@@ -90,12 +89,12 @@
 {% endif %}
 <section class="bg-[#f8ead8]">
   <div class="page-width section-space">
-    <div class="home-restaurant-cta">
-      <div class="home-restaurant-cta-lead">
+    <div class="home-restaurant-card">
+      <div class="home-restaurant-card-lead">
         <p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p>
         <h2>You cook.<br><span>We promote.</span></h2>
       </div>
-      <div class="home-restaurant-cta-body">
+      <div class="home-restaurant-card-body">
         <p>Send us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p>
         <div class="mt-7 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div>
       </div>

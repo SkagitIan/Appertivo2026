@@ -15,7 +15,7 @@
     <div class="mt-3 flex items-start justify-between gap-3"><h3 class="text-2xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
     <p class="mt-3 text-sm text-stone-600">{{ special.description }}</p>
     <div class="special-card-actions">
-      <span class="special-card-date">{% if special_is_today(special) %}Today &middot; {% endif %}{{ special_display_date(special) }}</span>
+      <span class="date-pill"><span class="date-pill-icon" aria-hidden="true"></span>{% if special_is_today(special) %}Today &middot; {% endif %}{{ special_display_date(special) }}</span>
     {% if special_card_url is defined %}
       <a href="{{ special_card_url }}" class="button-primary">{{ special_card_action_label|default("View special") }}</a>
     {% elif special.public_id %}
