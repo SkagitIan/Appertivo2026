@@ -17,9 +17,8 @@
     <div class="page-width flex min-h-[76px] items-center justify-between gap-5">
       <a href="{{ url_for('home') }}" aria-label="Appertivo home"><span class="brand">Appertivo</span><span class="brand-tag">Today's special, local spotlight.</span></a>
       <nav class="desktop-nav flex items-center gap-7">
-        <a href="{{ url_for('how_it_works') }}" class="nav-link">How It Works</a>
+        <a href="{{ url_for('how_it_works') }}" class="nav-link">FAQ</a>
         <a href="{{ url_for('for_restaurants') }}" class="nav-link">For Restaurants</a>
-        <a href="{{ url_for('for_diners') }}" class="nav-link">For Diners</a>
         <a href="{{ url_for('get_started') }}" class="button-primary">Get Started</a>
       </nav>
       <a href="{{ url_for('get_started') }}" class="button-primary md:hidden">Get Started</a>
@@ -51,7 +50,7 @@
   <footer class="site-footer mt-16">
     <div class="page-width grid gap-8 py-10 md:grid-cols-[1.3fr_.7fr_.7fr]">
       <div><h2 class="text-3xl">Appertivo</h2><p class="mt-2 max-w-sm text-sm text-orange-100">Today's special, local spotlight. Discover what nearby restaurants are serving right now.</p></div>
-      <div><h3 class="footer-heading">Explore</h3><div class="mt-3 grid gap-2 text-sm"><a href="{{ url_for('home') }}">Today's specials</a><a href="{{ url_for('restaurants') }}">Restaurants</a><a href="{{ url_for('how_it_works') }}">How it works</a><a href="{{ url_for('get_started') }}">Get started</a><a href="{{ url_for('contact') }}">Contact</a>{% if session.admin_authenticated %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}</div></div>
+      <div><h3 class="footer-heading">Explore</h3><div class="mt-3 grid gap-2 text-sm"><a href="{{ url_for('home') }}">Today's specials</a><a href="{{ url_for('restaurants') }}">Restaurants</a><a href="{{ url_for('how_it_works') }}">FAQ</a><a href="{{ url_for('get_started') }}">Get started</a><a href="{{ url_for('contact') }}">Contact</a>{% if session.admin_authenticated %}<a href="{{ url_for('admin_dashboard') }}">Admin</a>{% endif %}</div></div>
       <div><h3 class="footer-heading">Follow Appertivo</h3><div class="mt-3 grid gap-2 text-sm"><a href="https://www.facebook.com/appertivo" rel="noopener" target="_blank">Facebook</a><a href="https://x.com/appertivo" rel="noopener" target="_blank">Twitter</a><a href="https://www.instagram.com/appertivo" rel="noopener" target="_blank">Instagram</a></div></div>
     </div>
     <div class="border-t border-white/15">

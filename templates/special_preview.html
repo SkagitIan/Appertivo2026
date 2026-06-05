@@ -1,23 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Special preview | Appertivo{% endblock %}
 {% block content %}
-<section class="admin-card mx-auto max-w-2xl p-6">
-  <p class="eyebrow">Draft preview &middot; {{ draft.status }}</p>
-  <h1 class="display-md mt-2">{{ draft.title }}</h1>
-  {% if draft.restaurant %}<p class="mt-2 font-bold text-[#176f70]">{{ draft.restaurant.name }}</p>{% endif %}
-  {% if draft.image_url %}<img src="{{ draft.image_url }}" alt="" class="mt-5 h-64 w-full rounded-lg object-cover">{% endif %}
-  {% if draft.image_disclaimer %}<p class="mt-2 text-xs text-stone-500">{{ draft.image_disclaimer }}</p>{% endif %}
-  <p class="mt-5 text-stone-700">{{ draft.description }}</p>
-  {% if draft.price_text %}<p class="mt-3 font-bold">{{ draft.price_text }}</p>{% endif %}
-  {% if draft.availability_text %}<p class="mt-2 text-sm text-stone-600">Availability: {{ draft.availability_text }}</p>{% endif %}
-  {% if draft.cta_text %}<p class="mt-2 text-sm text-stone-600">CTA: {{ draft.cta_text }}</p>{% endif %}
-  <div class="mt-6 flex flex-wrap gap-2">
-    {% if draft.status in ["awaiting_approval", "approved", "draft"] %}
-      <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Publish</button></form>
-      <a href="mailto:specials@appertivo.com?subject=Edit special draft {{ draft.id }}" class="button-quiet">Edit</a>
-    {% elif draft.published_special %}
-      <a href="{{ url_for('special_detail', public_id=draft.published_special.public_id) }}" class="button-primary">View live special</a>
-    {% endif %}
+<section class="page-width section-space">
+  <div class="mx-auto max-w-3xl">
+    <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="eyebrow">Draft preview &middot; {{ draft.status }}</p>
+        <h1 class="display-md mt-2">Review your special</h1>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% if draft.status in ["awaiting_approval", "approved", "draft"] %}
+          <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Publish</button></form>
+          <a href="mailto:specials@appertivo.com?subject=Edit special draft {{ draft.id }}" class="button-quiet">Edit</a>
+        {% endif %}
+      </div>
+    </div>
+    {% set special = preview_special %}
+    {% set special_card_action_label = "Preview only" %}
+    {% include "partials/special_card.html" %}
+    {% if draft.image_disclaimer %}<p class="mt-3 text-xs text-stone-500">{{ draft.image_disclaimer }}</p>{% endif %}
   </div>
 </section>
 {% endblock %}

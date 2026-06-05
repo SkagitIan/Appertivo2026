@@ -1,0 +1,22 @@
+<section class="operator-tools mt-6">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <p class="eyebrow">Operator tools</p>
+      <h2 class="mt-1 text-2xl">Manage this special</h2>
+      <p class="mt-2 text-sm text-stone-600">Available when you upgrade your Appertivo account.</p>
+    </div>
+    {% if special.public_id %}
+      <form method="post" action="{{ url_for('mark_special_sold_out', public_id=special.public_id) }}">
+        <button class="button-primary">Sold Out</button>
+      </form>
+    {% endif %}
+  </div>
+  <div class="operator-tool-grid mt-4">
+    <button type="button" class="operator-tool" disabled><strong>Edit special</strong><span>Adjust copy, price, date, or photo.</span></button>
+    <button type="button" class="operator-tool" disabled><strong>Add Order Now link</strong><span>Send diners to your ordering platform.</span></button>
+    <button type="button" class="operator-tool" disabled><strong>Create Google offer</strong><span>Prepare a Google Maps offer from this special.</span></button>
+    <button type="button" class="operator-tool" disabled><strong>Share on Facebook</strong><span>Post polished copy to your page.</span></button>
+    <button type="button" class="operator-tool" disabled><strong>Share on Instagram</strong><span>Create a ready-to-post caption and image.</span></button>
+    <button type="button" class="operator-tool" disabled><strong>Send to team</strong><span>Email the live special to staff or managers.</span></button>
+  </div>
+</section>

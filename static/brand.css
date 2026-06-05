@@ -75,6 +75,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .special-no-image h3 { color: #fff7e7; font-size: 2.05rem; letter-spacing: 0; line-height: .98; margin-top: .55rem; max-width: 18rem; position: relative; }
 .special-price { background: var(--plum); border-radius: 999px; color: white; flex: none; font-size: .85rem; font-weight: 800; padding: .4rem .7rem; }
 .preview-badge { color: var(--orange-dark); font-size: .65rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.operator-tools { background: var(--cream-deep); border: 1px solid var(--line); border-radius: 1rem; padding: 1rem; }
+.operator-tool-grid { display: grid; gap: .7rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.operator-tool { background: rgba(255, 255, 255, .7); border: 1px dashed #d7bdab; border-radius: .8rem; color: var(--muted); cursor: not-allowed; min-height: 5.2rem; padding: .85rem; text-align: left; }
+.operator-tool strong { color: var(--ink); display: block; font-size: .9rem; }
+.operator-tool span { display: block; font-size: .78rem; line-height: 1.35; margin-top: .25rem; }
+.faq-item { background: var(--paper); border: 1px solid var(--line); border-radius: 1rem; box-shadow: 0 5px 16px rgba(77, 44, 29, .05); padding: 1.1rem; }
+.faq-item h2 { font-size: 1.25rem; line-height: 1.05; }
+.faq-item p { color: var(--muted); font-size: .95rem; line-height: 1.55; margin-top: .55rem; }
 .location-search { align-items: center; background: white; border: 1px solid var(--line); border-radius: 1rem; box-shadow: var(--shadow); display: flex; gap: .55rem; max-width: 39rem; padding: .45rem; }
 .location-search input { border: 0; flex: 1; min-width: 0; padding: .65rem .7rem; }
 .location-search input:focus { outline: 0; }
@@ -129,6 +137,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
   .hero-special-card { max-width: none; }
   .hero-special-photo { height: 6rem; }
   .section-space { padding-block: 3rem; }
+  .operator-tool-grid { grid-template-columns: 1fr; }
   .map-layout { grid-template-columns: 1fr; }
   .specials-map { min-height: 22rem; }
   .map-results { max-height: none; }

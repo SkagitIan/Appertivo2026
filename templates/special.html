@@ -3,15 +3,14 @@
 {% block head %}<meta property="og:title" content="{{ special.title }} at {{ special.restaurant.name }}"><meta property="og:description" content="{{ special.description }}">{% if special.photo_url %}<meta property="og:image" content="{{ special.photo_url }}">{% endif %}{% endblock %}
 {% block content %}
 <section class="page-width section-space">
-  <article class="special-card mx-auto max-w-3xl">
-    {% if special.photo_url %}<img src="{{ special.photo_url }}" alt="{{ special.title }}" class="h-80 w-full object-cover">{% else %}<div class="special-placeholder">Fresh local special</div>{% endif %}
-    <div class="p-7">
-      {% if special.source == "demo" %}<p class="preview-badge mb-3">Sample special &middot; launch preview</p>{% endif %}
-      <a href="{{ url_for('restaurant_detail', slug=special.restaurant.slug) }}" class="eyebrow">{{ special.restaurant.name }} &middot; {{ special.restaurant.city }}</a>
-      <div class="mt-3 flex justify-between gap-4"><h1 class="display-md">{{ special.title }}</h1>{% if special.price %}<span class="special-price h-fit">{{ special.price }}</span>{% endif %}</div>
-      <p class="mt-4 text-lg text-stone-600">{{ special.description }}</p>
-      <div class="mt-6 flex flex-wrap gap-2">{% if special.restaurant.latitude is not none %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='directions') }}" class="button-primary">Directions</a>{% endif %}{% if special.restaurant.phone %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='call') }}" class="button-secondary">Call</a>{% endif %}{% if special.restaurant.site %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='website') }}" class="button-secondary">Website</a>{% endif %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='share') }}" class="button-secondary">Share link</a></div>
-    </div>
-  </article>
+  <div class="mx-auto max-w-3xl">
+    {% set special_card_action_label = "View restaurant" %}
+    {% set special_card_url = url_for('restaurant_detail', slug=special.restaurant.slug) %}
+    {% include "partials/special_card.html" %}
+    <div class="mt-5 flex flex-wrap gap-2">{% if special.restaurant.latitude is not none %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='directions') }}" class="button-primary">Directions</a>{% endif %}{% if special.restaurant.phone %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='call') }}" class="button-secondary">Call</a>{% endif %}{% if special.restaurant.site %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='website') }}" class="button-secondary">Website</a>{% endif %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='share') }}" class="button-secondary">Share link</a></div>
+    {% if can_manage %}
+      {% include "partials/operator_tools.html" %}
+    {% endif %}
+  </div>
 </section>
 {% endblock %}

@@ -263,10 +263,16 @@ def test_marketing_routes_and_first_special_workflow(client, monkeypatch):
         lambda draft, to_email: sent.append((draft.id, to_email))
         or {"success": True, "provider": "test", "message_id": "draft-1", "error": None},
     )
-    for path in ["/how-it-works", "/for-restaurants", "/for-diners", "/get-started", "/contact"]:
+    for path in ["/how-it-works", "/for-restaurants", "/get-started", "/contact"]:
         response = client.get(path)
         assert response.status_code == 200
         assert b"Appertivo" in response.data
+    assert client.get("/for-diners").status_code == 302
+    assert client.get("/faq").status_code == 302
+    faq_page = client.get("/how-it-works")
+    assert b"For diners" in faq_page.data
+    assert b"For restaurants" in faq_page.data
+    assert b"Can I mark a special sold out early" in faq_page.data
 
     response = client.post(
         "/get-started",
@@ -556,6 +562,7 @@ def test_public_preview_publish_button_publishes_special(client):
         token = SpecialDraft.query.one().approval_token
     preview = client.get(f"/specials/preview/{token}")
     assert preview.status_code == 200
+    assert b"special-card" in preview.data
     assert b"Publish" in preview.data
     assert b"Edit" in preview.data
     assert b"Draft queue" not in preview.data
@@ -564,9 +571,54 @@ def test_public_preview_publish_button_publishes_special(client):
     assert response.status_code == 302
     with app.app_context():
         special = Special.query.one()
+        public_id = special.public_id
         assert special.status == "published"
         assert SpecialDraft.query.one().status == "published"
         assert RawSpecialSubmission.query.one().status == "published"
+    live_page = client.get(f"/specials/{public_id}")
+    assert b"Operator tools" in live_page.data
+    assert b"Sold Out" in live_page.data
+    assert b"Add Order Now link" in live_page.data
+    restaurant_page = client.get("/restaurants/test-kitchen")
+    assert b"Operator tools" in restaurant_page.data
+    sold_out = client.post(f"/specials/{public_id}/sold-out", data={"csrf_token": csrf(client)})
+    assert sold_out.status_code == 302
+    with app.app_context():
+        assert Special.query.one().status == "expired"
+    assert client.get(f"/specials/{public_id}").status_code == 404
+
+
+def test_published_preview_link_redirects_to_live_special_and_grants_tools(client):
+    client.post(
+        "/submit-special",
+        data={
+            "csrf_token": csrf(client),
+            "restaurant_id": "1",
+            "raw_text": "Dinner special today $20",
+            "sender_email": "owner@example.com",
+        },
+    )
+    with app.app_context():
+        token = SpecialDraft.query.one().approval_token
+    client.post(f"/specials/preview/{token}/publish", data={"csrf_token": csrf(client)})
+    followup = client.get(f"/specials/preview/{token}")
+    assert followup.status_code == 302
+    with app.app_context():
+        public_id = Special.query.one().public_id
+    assert f"/specials/{public_id}" in followup.location
+    assert b"Operator tools" in client.get(f"/specials/{public_id}").data
+
+
+def test_restaurant_hours_are_human_readable(client):
+    with app.app_context():
+        restaurant = Restaurant.query.one()
+        restaurant.working_hours = {"Monday": ["12-8PM"], "Tuesday": "['Closed']"}
+        db.session.commit()
+    response = client.get("/restaurants/test-kitchen")
+    assert response.status_code == 200
+    assert b"12-8PM" in response.data
+    assert b"Closed" in response.data
+    assert b"['12-8PM']" not in response.data
 
 
 def test_preview_rejection_updates_submission(client):

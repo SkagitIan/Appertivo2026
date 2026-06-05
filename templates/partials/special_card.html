@@ -18,6 +18,13 @@
     <p class="eyebrow">{{ special.restaurant.name }} <span class="text-stone-500">&middot; {{ special.restaurant.city }}</span></p>
     <div class="mt-3 flex items-start justify-between gap-3"><h3 class="text-2xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
     <p class="mt-3 text-sm text-stone-600">{{ special.description }}</p>
-    <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary mt-5">View special</a>
+    {% if special_card_url is defined %}
+      <a href="{{ special_card_url }}" class="button-primary mt-5">{{ special_card_action_label|default("View special") }}</a>
+    {% elif special.public_id %}
+      <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary mt-5">View special</a>
+    {% endif %}
+    {% if show_operator_tools|default(false) %}
+      {% include "partials/operator_tools.html" %}
+    {% endif %}
   </div>
 </article>

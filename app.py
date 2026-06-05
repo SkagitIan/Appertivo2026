@@ -4,6 +4,7 @@ import os
 import secrets
 from datetime import UTC, datetime, timedelta, time
 from functools import wraps
+from types import SimpleNamespace
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -599,6 +600,52 @@ def special_is_today(special):
 app.jinja_env.globals["special_is_today"] = special_is_today
 
 
+def format_hours_value(hours):
+    if isinstance(hours, list):
+        return ", ".join(str(hour).strip() for hour in hours if str(hour).strip())
+    if isinstance(hours, tuple):
+        return ", ".join(str(hour).strip() for hour in hours if str(hour).strip())
+    if isinstance(hours, str):
+        value = hours.strip()
+        if value.startswith("[") and value.endswith("]"):
+            return value.strip("[]").replace("'", "").replace('"', "")
+        return value
+    return str(hours or "")
+
+
+app.jinja_env.globals["format_hours_value"] = format_hours_value
+
+
+def remember_operator_special(special):
+    ids = {int(special_id) for special_id in session.get("operator_special_ids", [])}
+    ids.add(special.id)
+    session["operator_special_ids"] = sorted(ids)
+
+
+def can_manage_special(special):
+    if session.get("admin_authenticated"):
+        return True
+    return special.id in {int(special_id) for special_id in session.get("operator_special_ids", [])}
+
+
+app.jinja_env.globals["can_manage_special"] = can_manage_special
+
+
+def draft_as_preview_special(draft):
+    return SimpleNamespace(
+        title=draft.title,
+        description=draft.description,
+        price=draft.price_text,
+        photo_url=draft.image_url,
+        restaurant=draft.restaurant or SimpleNamespace(name="Restaurant to be assigned", city=""),
+        starts_at=draft.starts_at,
+        expires_at=draft.expires_at,
+        created_at=draft.created_at,
+        source="draft",
+        public_id=None,
+    )
+
+
 def schedule_window_from_form():
     date_value = request.form["special_date"]
     schedule_option = request.form.get("schedule_option", "today")
@@ -815,7 +862,7 @@ def home():
 
 @app.get("/how-it-works")
 def how_it_works():
-    return render_template("how_it_works.html")
+    return render_template("faq.html")
 
 
 @app.get("/for-restaurants")
@@ -825,7 +872,12 @@ def for_restaurants():
 
 @app.get("/for-diners")
 def for_diners():
-    return render_template("for_diners.html")
+    return redirect(url_for("home"))
+
+
+@app.get("/faq")
+def faq():
+    return redirect(url_for("how_it_works"))
 
 
 @app.get("/contact")
@@ -1103,7 +1155,27 @@ def special_detail(public_id):
         .first_or_404()
     )
     record_metric(special, "view", request.args.get("channel"))
-    return render_template("special.html", special=special)
+    return render_template("special.html", special=special, can_manage=can_manage_special(special))
+
+
+@app.post("/specials/<public_id>/sold-out")
+def mark_special_sold_out(public_id):
+    special = (
+        Special.query.join(Restaurant)
+        .filter(
+            Special.public_id == public_id,
+            Special.status == "published",
+            Restaurant.catalog_status == "included",
+        )
+        .first_or_404()
+    )
+    if not can_manage_special(special):
+        abort(403)
+    special.status = "expired"
+    special.expires_at = utc_now()
+    db.session.commit()
+    flash("Special marked sold out.")
+    return redirect(url_for("restaurant_detail", slug=special.restaurant.slug))
 
 
 @app.get("/specials/<public_id>/action/<event_type>")
@@ -1832,7 +1904,10 @@ def admin_publish_special_draft(draft_id):
 @app.get("/specials/preview/<approval_token>")
 def special_preview(approval_token):
     draft = SpecialDraft.query.filter_by(approval_token=approval_token).first_or_404()
-    return render_template("special_preview.html", draft=draft)
+    if draft.published_special:
+        remember_operator_special(draft.published_special)
+        return redirect(url_for("special_detail", public_id=draft.published_special.public_id))
+    return render_template("special_preview.html", draft=draft, preview_special=draft_as_preview_special(draft))
 
 
 @app.post("/specials/preview/<approval_token>/approve")
@@ -1852,6 +1927,7 @@ def publish_special_preview(approval_token):
         special = publish_draft(draft.id)
     except ValueError as error:
         abort(400, str(error))
+    remember_operator_special(special)
     flash("Special published.")
     return redirect(url_for("special_detail", public_id=special.public_id))
 
