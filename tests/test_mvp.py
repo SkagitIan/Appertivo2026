@@ -238,8 +238,14 @@ def test_demo_special_seed_is_idempotent(client):
         assert Special.query.filter_by(source="demo").count() == 6
 
 
-def test_marketing_routes_and_restaurant_lead_workflow(client):
-    for path in ["/how-it-works", "/for-restaurants", "/for-diners", "/get-started"]:
+def test_marketing_routes_and_first_special_workflow(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(
+        "email_system.outreach_service.send_draft_publish_email",
+        lambda draft, to_email: sent.append((draft.id, to_email))
+        or {"success": True, "provider": "test", "message_id": "draft-1", "error": None},
+    )
+    for path in ["/how-it-works", "/for-restaurants", "/for-diners", "/get-started", "/contact"]:
         response = client.get(path)
         assert response.status_code == 200
         assert b"Appertivo" in response.data
@@ -249,22 +255,129 @@ def test_marketing_routes_and_restaurant_lead_workflow(client):
         data={
             "csrf_token": csrf(client),
             "restaurant_name": "Local Table",
-            "contact_name": "Alex Cook",
-            "email": "alex@example.com",
-            "phone": "360-555-0199",
-            "city": "Anacortes",
-            "note": "Dinner specials",
+            "restaurant_city": "Anacortes",
+            "restaurant_address": "101 Commercial Ave, Anacortes, WA",
+            "sender_email": "chef@example.com",
+            "special_date": "2026-06-05",
+            "raw_text": "halibut tacos tonite 18 until sold out",
         },
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Let's get your specials" in response.data
+    assert b"Special received" in response.data
     with app.app_context():
-        lead = RestaurantLead.query.one()
-        assert lead.status == "new"
-        assert lead.restaurant_name == "Local Table"
+        restaurant = Restaurant.query.filter_by(name="Local Table").one()
+        submission = RawSpecialSubmission.query.one()
+        draft = SpecialDraft.query.one()
+        assert restaurant.catalog_status == "included"
+        assert restaurant.contact_email == "chef@example.com"
+        assert submission.source_channel == "get_started"
+        assert submission.sender_email == "chef@example.com"
+        assert draft.restaurant_id == restaurant.id
+        assert sent == [(draft.id, "chef@example.com")]
 
     assert client.get("/admin/leads").status_code == 302
+    login(client)
+    assert b"Local Table" not in client.get("/admin/leads").data
+    assert b"Leads" in client.get("/admin/tools").data
+    assert b"Leads" not in client.get("/admin").data
+
+
+def test_get_started_requires_email_and_special_details(client):
+    response = client.post(
+        "/get-started",
+        data={"csrf_token": csrf(client), "restaurant_name": "Incomplete"},
+    )
+    assert response.status_code == 400
+    with app.app_context():
+        assert RestaurantLead.query.count() == 0
+        assert RawSpecialSubmission.query.count() == 0
+
+
+def test_get_started_restaurant_lookup_includes_google_places(client, monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "places": [
+                    {
+                        "id": "places/local-table",
+                        "displayName": {"text": "Local Table"},
+                        "formattedAddress": "101 Commercial Ave, Anacortes, WA 98221, USA",
+                        "nationalPhoneNumber": "(360) 555-0199",
+                        "websiteUri": "https://local.example",
+                    }
+                ]
+            }
+
+    monkeypatch.setitem(app.config, "GOOGLE_PLACES_API_KEY", "places-key")
+    monkeypatch.setattr("app.requests.post", lambda *args, **kwargs: Response())
+    results = client.get("/api/restaurant-lookup?q=Local").json
+    assert results[-1] == {
+        "id": None,
+        "place_id": "places/local-table",
+        "name": "Local Table",
+        "city": "Anacortes",
+        "address": "101 Commercial Ave, Anacortes, WA 98221, USA",
+        "phone": "(360) 555-0199",
+        "website": "https://local.example",
+        "status": "google_place",
+    }
+
+
+def test_get_started_restaurant_lookup_marks_outside_market_places_coming_soon(client, monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "places": [
+                    {
+                        "id": "places/seattle-table",
+                        "displayName": {"text": "Seattle Table"},
+                        "formattedAddress": "1 Pike St, Seattle, WA 98101, USA",
+                    }
+                ]
+            }
+
+    monkeypatch.setitem(app.config, "GOOGLE_PLACES_API_KEY", "places-key")
+    monkeypatch.setattr("app.requests.post", lambda *args, **kwargs: Response())
+    results = client.get("/api/restaurant-lookup?q=Seattle").json
+    assert results[-1]["status"] == "coming_soon"
+
+    response = client.post(
+        "/get-started",
+        data={
+            "csrf_token": csrf(client),
+            "place_id": "places/seattle-table",
+            "restaurant_name": "Seattle Table",
+            "restaurant_city": "Seattle",
+            "sender_email": "chef@example.com",
+            "special_date": "2026-06-05",
+            "raw_text": "oysters today 12",
+        },
+    )
+    assert response.status_code == 400
+    with app.app_context():
+        assert RawSpecialSubmission.query.count() == 0
+
+
+def test_restaurant_lead_admin_actions_still_work_from_tools(client):
+    with app.app_context():
+        db.session.add(
+            RestaurantLead(
+                restaurant_name="Local Table",
+                contact_name="Alex Cook",
+                city="Anacortes",
+                email="alex@example.com",
+                phone="360-555-0199",
+                status="new",
+            )
+        )
+        db.session.commit()
     login(client)
     assert b"Local Table" in client.get("/admin/leads").data
     response = client.post(
@@ -275,16 +388,6 @@ def test_marketing_routes_and_restaurant_lead_workflow(client):
     assert response.status_code == 200
     with app.app_context():
         assert RestaurantLead.query.one().status == "contacted"
-
-
-def test_restaurant_lead_requires_practical_intake_fields(client):
-    response = client.post(
-        "/get-started",
-        data={"csrf_token": csrf(client), "restaurant_name": "Incomplete"},
-    )
-    assert response.status_code == 400
-    with app.app_context():
-        assert RestaurantLead.query.count() == 0
 
 
 def test_r2_storage_uses_s3_compatible_client(monkeypatch):
@@ -427,6 +530,9 @@ def test_public_preview_publish_button_publishes_special(client):
     preview = client.get(f"/specials/preview/{token}")
     assert preview.status_code == 200
     assert b"Publish" in preview.data
+    assert b"Edit" in preview.data
+    assert b"Draft queue" not in preview.data
+    assert b"Send publish email" not in preview.data
     response = client.post(f"/specials/preview/{token}/publish", data={"csrf_token": csrf(client)})
     assert response.status_code == 302
     with app.app_context():
@@ -544,6 +650,7 @@ def test_admin_structured_special_creation_publishes_through_pipeline(client):
             "description": "Three courses.",
             "price": "$35",
             "special_date": "2099-06-05",
+            "schedule_option": "till_sold_out",
             "status": "published",
             "source": "manual",
         },
@@ -552,7 +659,10 @@ def test_admin_structured_special_creation_publishes_through_pipeline(client):
     with app.app_context():
         assert RawSpecialSubmission.query.one().source_channel == "admin"
         assert SpecialDraft.query.one().status == "published"
-        assert Special.query.one().title == "Chef dinner"
+        special = Special.query.one()
+        assert special.title == "Chef dinner"
+        assert special.availability_text == "Until sold out"
+        assert special.expires_at == datetime(2099, 6, 6, 6, 59)
 
 
 def test_admin_special_creation_enhances_and_redirects_to_preview(client, monkeypatch):

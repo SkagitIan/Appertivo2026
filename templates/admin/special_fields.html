@@ -19,17 +19,25 @@
     <label class="block text-sm font-semibold text-stone-700">Description</label>
     <textarea name="description" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ special.description or '' }}</textarea>
   </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">When is it available?</label>
+    <div class="mt-2 grid gap-2 md:grid-cols-4">
+      {% set selected_schedule = "till_sold_out" if special.availability_text == "Until sold out" else "this_weekend" if special.availability_text == "This weekend" else "today" %}
+      {% for value, label in [("today", "Today"), ("this_weekend", "This weekend"), ("till_sold_out", "Till sold out"), ("custom", "Calendar date")] %}
+        <label class="schedule-choice">
+          <input type="radio" name="schedule_option" value="{{ value }}" {% if selected_schedule == value %}checked{% endif %}>
+          <span>{{ label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
   <div>
-    <label class="block text-sm font-semibold text-stone-700">Special date</label>
+    <label class="block text-sm font-semibold text-stone-700">Calendar date</label>
     <input required name="special_date" type="date" value="{{ special_date_value(special) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
   </div>
   <div>
-    <label class="block text-sm font-semibold text-stone-700">Start time</label>
-    <input name="start_time" type="time" value="{{ special_time_value(special.starts_at) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">End time</label>
-    <input name="end_time" type="time" value="{{ special_time_value(special.expires_at) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    <label class="block text-sm font-semibold text-stone-700">Availability note</label>
+    <input name="availability_text" value="{{ special.availability_text or '' }}" placeholder="Optional, for custom timing" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
   </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">Status</label>

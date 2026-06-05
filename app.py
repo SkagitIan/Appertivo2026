@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import os
 import secrets
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime, timedelta, time
 from functools import wraps
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -277,6 +277,20 @@ def restaurant_submit_result(restaurant, status="included"):
     }
 
 
+def unique_restaurant_slug(name, current_id=None):
+    base = slugify(name) or "restaurant"
+    candidate = base
+    counter = 2
+    while True:
+        query = Restaurant.query.filter_by(slug=candidate)
+        if current_id:
+            query = query.filter(Restaurant.id != current_id)
+        if not query.first():
+            return candidate
+        candidate = f"{base}-{counter}"
+        counter += 1
+
+
 def google_places_submit_suggestions(term, limit=5):
     api_key = app.config.get("GOOGLE_PLACES_API_KEY")
     if not api_key or len(term) < 3:
@@ -319,6 +333,54 @@ def google_places_submit_suggestions(term, limit=5):
     return suggestions
 
 
+def google_places_restaurant_lookup(term, limit=6):
+    api_key = app.config.get("GOOGLE_PLACES_API_KEY")
+    if not api_key or len(term) < 3:
+        return []
+    payload = {
+        "textQuery": f"{term} restaurant in Skagit Valley Washington",
+        "includedType": "restaurant",
+        "maxResultCount": limit,
+        "locationBias": {
+            "rectangle": {
+                "low": {"latitude": 48.24, "longitude": -122.72},
+                "high": {"latitude": 48.7, "longitude": -121.95},
+            }
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": api_key,
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri",
+    }
+    try:
+        response = requests.post(PLACES_TEXT_SEARCH_URL, json=payload, headers=headers, timeout=4)
+        response.raise_for_status()
+    except requests.RequestException:
+        return []
+    results = []
+    for place in response.json().get("places", []):
+        name = ((place.get("displayName") or {}).get("text") or "").strip()
+        if not name:
+            continue
+        address = place.get("formattedAddress", "")
+        city = city_from_address(address)
+        status = "google_place" if city in SKAGIT_VALLEY["cities"] else "coming_soon"
+        results.append(
+            {
+                "id": None,
+                "place_id": place.get("id"),
+                "name": name,
+                "city": city,
+                "address": address,
+                "phone": place.get("nationalPhoneNumber", ""),
+                "website": place.get("websiteUri", ""),
+                "status": status,
+            }
+        )
+    return results
+
+
 def subscribe(email, city=None, location=None, favorite_tag=None):
     subscriber = Subscriber.query.filter_by(email=email).first()
     if not subscriber:
@@ -341,6 +403,60 @@ def subscribe(email, city=None, location=None, favorite_tag=None):
         tags.add(favorite_tag)
         subscriber.favorite_tags = ",".join(sorted(tags))
     db.session.commit()
+
+
+def city_from_address(address):
+    parts = [part.strip() for part in (address or "").split(",") if part.strip()]
+    if len(parts) >= 3:
+        return parts[-3]
+    if len(parts) >= 2:
+        return parts[-2]
+    return ""
+
+
+def restaurant_from_get_started_form():
+    restaurant_id = request.form.get("restaurant_id", type=int)
+    email = request.form["sender_email"].strip().lower()
+    if restaurant_id:
+        restaurant = included_restaurant_or_404(restaurant_id)
+        if email and not restaurant.contact_email:
+            restaurant.contact_email = email
+        return restaurant
+    place_id = request.form.get("place_id", "").strip() or None
+    submitted_city = (
+        request.form.get("restaurant_city", "").strip()
+        or city_from_address(request.form.get("restaurant_address", ""))
+    )
+    if place_id and submitted_city not in SKAGIT_VALLEY["cities"]:
+        abort(400, "Appertivo is coming soon for that restaurant.")
+    restaurant = Restaurant.query.filter_by(place_id=place_id).first() if place_id else None
+    if restaurant:
+        if restaurant.catalog_status != "included":
+            restaurant.catalog_status = "included"
+            restaurant.catalog_reason = "restaurant submitted first special"
+            restaurant.catalog_reviewed_at = utc_now()
+        if email and not restaurant.contact_email:
+            restaurant.contact_email = email
+        return restaurant
+    name = request.form.get("restaurant_name", "").strip()
+    if not name:
+        abort(400, "Choose or enter your restaurant.")
+    restaurant = Restaurant(
+        name=name,
+        slug=unique_restaurant_slug(name),
+        city=submitted_city or "Skagit Valley",
+        full_address=request.form.get("restaurant_address", "").strip(),
+        contact_email=email,
+        phone=request.form.get("restaurant_phone", "").strip(),
+        site=request.form.get("restaurant_website", "").strip(),
+        place_id=place_id,
+        catalog_status="included",
+        catalog_reason="restaurant submitted first special",
+        catalog_reviewed_at=utc_now(),
+    )
+    db.session.add(restaurant)
+    db.session.flush()
+    return restaurant
 
 
 def unsubscribe_signature(email):
@@ -463,12 +579,51 @@ def special_time_value(moment):
 app.jinja_env.globals["special_time_value"] = special_time_value
 
 
-def set_special_schedule(special):
+def special_display_date(special):
+    moment = special.starts_at or special.expires_at or special.created_at or utc_now()
+    local_moment = moment.replace(tzinfo=UTC).astimezone(LOCAL_TZ)
+    return local_moment.strftime("%b %d").replace(" 0", " ")
+
+
+app.jinja_env.globals["special_display_date"] = special_display_date
+
+
+def special_is_today(special):
+    moment = special.starts_at or special.expires_at or special.created_at
+    if not moment:
+        return False
+    local_date = moment.replace(tzinfo=UTC).astimezone(LOCAL_TZ).date()
+    return local_date == datetime.now(LOCAL_TZ).date()
+
+
+app.jinja_env.globals["special_is_today"] = special_is_today
+
+
+def schedule_window_from_form():
     date_value = request.form["special_date"]
-    special.starts_at = parse_local_datetime(date_value, request.form.get("start_time") or None)
-    special.expires_at = parse_local_datetime(
-        date_value, request.form.get("end_time") or None, time(23, 59)
-    )
+    schedule_option = request.form.get("schedule_option", "today")
+    start = parse_local_datetime(date_value, default_time=time(0, 0))
+    end_date_value = date_value
+    availability_text = None
+
+    if schedule_option == "this_weekend":
+        selected_day = datetime.strptime(date_value, "%Y-%m-%d").date()
+        days_until_sunday = (6 - selected_day.weekday()) % 7
+        weekend_end = selected_day + timedelta(days=days_until_sunday)
+        end_date_value = weekend_end.strftime("%Y-%m-%d")
+        availability_text = "This weekend"
+    elif schedule_option == "till_sold_out":
+        availability_text = "Until sold out"
+    elif schedule_option == "custom":
+        availability_text = request.form.get("availability_text", "").strip() or None
+
+    end = parse_local_datetime(end_date_value, default_time=time(23, 59))
+    return start, end, availability_text
+
+
+def set_special_schedule(special):
+    special.starts_at, special.expires_at, availability_text = schedule_window_from_form()
+    special.availability_text = availability_text
 
 
 def save_photo_if_present(special):
@@ -504,10 +659,8 @@ def structured_draft_from_form(source_channel, restaurant_id, enhance=True):
         draft.title = title
         draft.description = description
         draft.price_text = price or None
-    draft.starts_at = parse_local_datetime(request.form["special_date"], request.form.get("start_time") or None)
-    draft.expires_at = parse_local_datetime(
-        request.form["special_date"], request.form.get("end_time") or None, time(23, 59)
-    )
+    draft.starts_at, draft.expires_at, availability_text = schedule_window_from_form()
+    draft.availability_text = availability_text
     db.session.commit()
     return draft
 
@@ -675,6 +828,11 @@ def for_diners():
     return render_template("for_diners.html")
 
 
+@app.get("/contact")
+def contact():
+    return render_template("contact.html")
+
+
 @app.get("/unsubscribe")
 def unsubscribe():
     email = request.args.get("email", "").strip().lower()
@@ -694,19 +852,37 @@ def unsubscribe():
 
 @app.route("/get-started", methods=["GET", "POST"])
 def get_started():
+    default_date = request.form.get("special_date") or datetime.now(LOCAL_TZ).date().isoformat()
     if request.method == "POST":
-        fields = {
-            name: request.form.get(name, "").strip()
-            for name in ["restaurant_name", "contact_name", "email", "phone", "city"]
-        }
-        if not all(fields.values()):
-            flash("Please complete each required field so we can follow up.")
-            return render_template("get_started.html", form=request.form), 400
-        lead = RestaurantLead(**fields, note=request.form.get("note", "").strip())
-        db.session.add(lead)
+        raw_text = request.form.get("raw_text", "").strip()
+        sender_email = request.form.get("sender_email", "").strip().lower()
+        if not raw_text or not sender_email:
+            flash("Choose your restaurant, add an email, and paste the special details.")
+            return render_template("get_started.html", form=request.form, special_date=default_date), 400
+        try:
+            image_path, image_url = save_submitted_photo()
+            restaurant = restaurant_from_get_started_form()
+        except UploadError as error:
+            flash(str(error))
+            return render_template("get_started.html", form=request.form, special_date=default_date), 400
+        submission = create_raw_submission(
+            source_channel="get_started",
+            restaurant_id=restaurant.id,
+            raw_text=raw_text,
+            raw_image_url=image_url,
+            raw_image_path=image_path,
+            sender_email=sender_email,
+        )
+        draft = generate_draft_from_submission(submission.id)
+        special_date = request.form.get("special_date") or datetime.now(LOCAL_TZ).date().isoformat()
+        draft.starts_at = parse_local_datetime(special_date, default_time=time(0, 0))
+        draft.expires_at = parse_local_datetime(special_date, default_time=time(23, 59))
+        from email_system.outreach_service import send_draft_publish_email
+
+        send_draft_publish_email(draft, sender_email)
         db.session.commit()
-        return redirect(url_for("get_started", submitted="1"))
-    return render_template("get_started.html", submitted=request.args.get("submitted") == "1")
+        return render_template("submit_success.html", restaurant=restaurant, special=None)
+    return render_template("get_started.html", special_date=default_date)
 
 
 @app.route("/restaurants")
@@ -766,6 +942,26 @@ def submit_restaurant_suggestions():
     local_names = {restaurant.name.lower() for restaurant in local_restaurants}
     for suggestion in google_places_submit_suggestions(term, limit=max(0, 8 - len(results))):
         if suggestion["name"].lower() not in local_names:
+            results.append(suggestion)
+    return jsonify(results)
+
+
+@app.get("/api/restaurant-lookup")
+def restaurant_lookup():
+    term = request.args.get("q", "").strip()
+    if len(term) < 2:
+        return jsonify([])
+    local_restaurants = (
+        included_restaurants_query()
+        .filter(restaurant_search_filter(term))
+        .order_by(Restaurant.name)
+        .limit(6)
+        .all()
+    )
+    results = [restaurant_submit_result(restaurant, status="included") for restaurant in local_restaurants]
+    seen = {restaurant.name.lower() for restaurant in local_restaurants}
+    for suggestion in google_places_restaurant_lookup(term, limit=max(0, 8 - len(results))):
+        if suggestion["name"].lower() not in seen:
             results.append(suggestion)
     return jsonify(results)
 
@@ -986,6 +1182,12 @@ def admin_dashboard():
 @admin_required
 def admin_tools():
     tools = [
+        {
+            "title": "Leads",
+            "description": "Review restaurant leads and move them through outreach statuses.",
+            "url": url_for("admin_leads"),
+            "count": RestaurantLead.query.filter_by(status="new").count(),
+        },
         {
             "title": "Catalog review",
             "description": "Review venues that need an include or exclude decision.",

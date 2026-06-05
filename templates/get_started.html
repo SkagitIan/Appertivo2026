@@ -1,22 +1,122 @@
 {% extends "base.html" %}
-{% block title %}Get your restaurant started | Appertivo{% endblock %}
+{% block title %}Publish your first special | Appertivo{% endblock %}
 {% block content %}
 <section class="page-width section-space">
-  <div class="mx-auto max-w-3xl">
-    {% if submitted %}
-      <div class="card p-8 text-center"><p class="eyebrow">You're on the list</p><h1 class="display-md mt-3">Let's get your specials in front of more locals.</h1><p class="mt-4 text-stone-600">Thanks for reaching out. We'll follow up soon and keep setup simple.</p><a href="{{ url_for('home') }}" class="button-primary mt-6">See today's specials</a></div>
-    {% else %}
-      <div class="text-center"><p class="eyebrow">For restaurants</p><h1 class="display-md mt-3">Get your daily special in front of a bigger crowd.</h1><p class="mx-auto mt-4 max-w-xl text-stone-600">Tell us where to reach you. We'll follow up with the simplest way to start sending specials.</p></div>
-      <form method="post" class="card mt-8 grid gap-4 p-6 md:grid-cols-2">
-        <label class="text-sm font-bold">Restaurant name<input required name="restaurant_name" value="{{ form.restaurant_name if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
-        <label class="text-sm font-bold">Your name<input required name="contact_name" value="{{ form.contact_name if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
-        <label class="text-sm font-bold">Email<input required type="email" name="email" value="{{ form.email if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
-        <label class="text-sm font-bold">Phone<input required name="phone" value="{{ form.phone if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
-        <label class="text-sm font-bold md:col-span-2">City<input required name="city" value="{{ form.city if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
-        <label class="text-sm font-bold md:col-span-2">Anything we should know? <span class="font-normal text-stone-500">(optional)</span><textarea name="note" rows="4" class="mt-1 w-full rounded-lg border px-3 py-2">{{ form.note if form else '' }}</textarea></label>
-        <button class="button-primary md:col-span-2">Start the conversation</button>
-      </form>
-    {% endif %}
+  <div class="grid gap-8 lg:grid-cols-[.9fr_1.1fr]">
+    <div>
+      <p class="eyebrow">For restaurants</p>
+      <h1 class="display-lg mt-3">Send one special. We make it ready to publish.</h1>
+      <p class="mt-5 max-w-xl text-lg text-stone-600">No account setup. Search for your restaurant, add the special, and check your email. You approve the enhanced draft before it goes live.</p>
+      <div class="mt-7 grid gap-3 text-sm text-stone-600">
+        <p><strong class="text-stone-900">1.</strong> Paste rough special details or menu copy.</p>
+        <p><strong class="text-stone-900">2.</strong> Appertivo cleans up the text and prepares the image.</p>
+        <p><strong class="text-stone-900">3.</strong> Press Publish from your email preview.</p>
+      </div>
+    </div>
+    <form method="post" enctype="multipart/form-data" class="card grid gap-4 p-6" data-restaurant-special-form>
+      <input type="hidden" name="restaurant_id" data-restaurant-id>
+      <input type="hidden" name="place_id" data-place-id>
+      <input type="hidden" name="restaurant_name" data-restaurant-name>
+      <input type="hidden" name="restaurant_city" data-restaurant-city>
+      <input type="hidden" name="restaurant_address" data-restaurant-address>
+      <input type="hidden" name="restaurant_phone" data-restaurant-phone>
+      <input type="hidden" name="restaurant_website" data-restaurant-website>
+
+      <div>
+        <label class="text-sm font-bold" for="restaurant-search">Restaurant</label>
+        <input id="restaurant-search" required autocomplete="off" placeholder="Search your restaurant" class="mt-1 w-full rounded-lg border px-3 py-2" data-restaurant-search>
+        <div class="mt-2 hidden rounded-lg border bg-white shadow-sm" data-restaurant-results></div>
+        <p class="mt-2 text-sm text-stone-500" data-restaurant-message>Choose an existing Appertivo restaurant or a Google Places match.</p>
+      </div>
+
+      <label class="text-sm font-bold">Email<input required type="email" name="sender_email" value="{{ form.sender_email if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"><span class="mt-1 block text-sm font-normal text-stone-500">We send the enhanced preview and Publish button here.</span></label>
+      <label class="text-sm font-bold">Special date<input required name="special_date" type="date" value="{{ special_date }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+      <label class="text-sm font-bold">Special details<textarea required name="raw_text" rows="6" placeholder="Tonight only: salmon tacos, $16, available until sold out." class="mt-1 w-full rounded-lg border px-3 py-2">{{ form.raw_text if form else '' }}</textarea><span class="mt-1 block text-sm font-normal text-stone-500">Rough notes are fine. Include price, timing, and whether it repeats.</span></label>
+      <label class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 block w-full text-sm"></label>
+      <button class="button-primary">Send special</button>
+    </form>
   </div>
 </section>
+<script>
+(() => {
+  const form = document.querySelector("[data-restaurant-special-form]");
+  if (!form) return;
+  const search = form.querySelector("[data-restaurant-search]");
+  const results = form.querySelector("[data-restaurant-results]");
+  const message = form.querySelector("[data-restaurant-message]");
+  const fields = {
+    restaurant_id: form.querySelector("[data-restaurant-id]"),
+    place_id: form.querySelector("[data-place-id]"),
+    restaurant_name: form.querySelector("[data-restaurant-name]"),
+    restaurant_city: form.querySelector("[data-restaurant-city]"),
+    restaurant_address: form.querySelector("[data-restaurant-address]"),
+    restaurant_phone: form.querySelector("[data-restaurant-phone]"),
+    restaurant_website: form.querySelector("[data-restaurant-website]"),
+  };
+  let controller;
+
+  const clearSelection = () => Object.values(fields).forEach((field) => { field.value = ""; });
+  const hideResults = () => { results.classList.add("hidden"); results.innerHTML = ""; };
+  const setSelection = (item) => {
+    fields.restaurant_id.value = item.id || "";
+    fields.place_id.value = item.place_id || "";
+    fields.restaurant_name.value = item.name || "";
+    fields.restaurant_city.value = item.city || "";
+    fields.restaurant_address.value = item.address || "";
+    fields.restaurant_phone.value = item.phone || "";
+    fields.restaurant_website.value = item.website || "";
+    search.value = item.name || "";
+    message.textContent = `${item.name} selected.`;
+    hideResults();
+  };
+
+  const renderResults = (items) => {
+    results.innerHTML = "";
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "p-3 text-sm text-stone-600";
+      empty.textContent = "No match yet. Keep typing the restaurant name.";
+      results.appendChild(empty);
+    }
+    items.forEach((item) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "block w-full border-b px-3 py-2 text-left text-sm";
+      const detail = item.city || item.address || "Skagit Valley";
+      button.textContent = item.status === "coming_soon" ? `${item.name} - ${detail} (coming soon)` : `${item.name} - ${detail}`;
+      if (item.status === "coming_soon") {
+        button.disabled = true;
+        button.className += " text-stone-400";
+      } else {
+        button.addEventListener("click", () => setSelection(item));
+      }
+      results.appendChild(button);
+    });
+    results.classList.remove("hidden");
+  };
+
+  search.addEventListener("input", async () => {
+    const term = search.value.trim();
+    clearSelection();
+    if (controller) controller.abort();
+    if (term.length < 2) {
+      hideResults();
+      message.textContent = "Choose an existing Appertivo restaurant or a Google Places match.";
+      return;
+    }
+    controller = new AbortController();
+    const response = await fetch(`/api/restaurant-lookup?q=${encodeURIComponent(term)}`, { signal: controller.signal }).catch(() => null);
+    if (!response) return;
+    renderResults(await response.json());
+  });
+
+  form.addEventListener("submit", (event) => {
+    if (!fields.restaurant_id.value && !fields.place_id.value && !fields.restaurant_name.value) {
+      event.preventDefault();
+      message.textContent = "Select a restaurant before sending.";
+      search.focus();
+    }
+  });
+})();
+</script>
 {% endblock %}

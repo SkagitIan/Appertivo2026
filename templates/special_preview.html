@@ -12,17 +12,12 @@
   {% if draft.availability_text %}<p class="mt-2 text-sm text-stone-600">Availability: {{ draft.availability_text }}</p>{% endif %}
   {% if draft.cta_text %}<p class="mt-2 text-sm text-stone-600">CTA: {{ draft.cta_text }}</p>{% endif %}
   <div class="mt-6 flex flex-wrap gap-2">
-    {% if draft.status == "awaiting_approval" %}
-      {% if session.admin_authenticated %}
-        <form method="post" action="{{ url_for('approve_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Approve</button></form>
-        <form method="post" action="{{ url_for('reject_special_preview', approval_token=draft.approval_token) }}"><button class="button-quiet">Reject</button></form>
-      {% else %}
-        <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Publish</button></form>
-      {% endif %}
+    {% if draft.status in ["awaiting_approval", "approved", "draft"] %}
+      <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Publish</button></form>
+      <a href="mailto:specials@appertivo.com?subject=Edit special draft {{ draft.id }}" class="button-quiet">Edit</a>
+    {% elif draft.published_special %}
+      <a href="{{ url_for('special_detail', public_id=draft.published_special.public_id) }}" class="button-primary">View live special</a>
     {% endif %}
-    {% if session.admin_authenticated and draft.raw_submission.sender_email %}<form method="post" action="{{ url_for('admin_send_special_publish_email', draft_id=draft.id) }}"><button class="button-quiet">Send publish email</button></form>{% endif %}
-    {% if session.admin_authenticated and draft.status == "approved" %}<form method="post" action="{{ url_for('admin_publish_special_draft', draft_id=draft.id) }}"><button class="button-primary">Publish</button></form>{% endif %}
-    {% if session.admin_authenticated %}<a href="{{ url_for('admin_special_drafts') }}" class="button-quiet">Draft queue</a>{% endif %}
   </div>
 </section>
 {% endblock %}

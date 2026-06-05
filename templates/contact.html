@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}About and contact | Appertivo{% endblock %}
+{% block content %}
+<section class="page-width section-space">
+  <div class="grid gap-8 lg:grid-cols-[1fr_.8fr]">
+    <div>
+      <p class="eyebrow">About Appertivo</p>
+      <h1 class="display-lg mt-3">A local specials board for Skagit restaurants.</h1>
+      <p class="mt-5 max-w-2xl text-lg text-stone-600">Appertivo helps independent restaurants turn the thing they are excited to serve today into a polished local post diners can act on quickly.</p>
+      <p class="mt-4 max-w-2xl text-stone-600">Restaurants should not need another complicated dashboard. Send the special, review the enhanced draft, and publish when it looks right.</p>
+    </div>
+    <aside class="soft-panel p-7">
+      <h2 class="text-3xl">Reach the chef</h2>
+      <p class="mt-3 text-stone-600">Questions, corrections, restaurant updates, or partnership ideas can go straight to Ian.</p>
+      <a href="mailto:ian@appertivo.com" class="button-primary mt-5">ian@appertivo.com</a>
+      <div class="mt-6 grid gap-2 text-sm text-stone-600">
+        <p>For restaurants: send specials to <strong>specials@appertivo.com</strong>.</p>
+        <p>For diners: browse what is fresh today and follow the places you love.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

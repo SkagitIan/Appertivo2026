@@ -1,5 +1,18 @@
 <article class="special-card">
-  {% if special.photo_url %}<img src="{{ special.photo_url }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo">{% else %}<div class="special-placeholder text-xs font-black">Fresh local special</div>{% endif %}
+  {% if special.photo_url %}
+    <div class="special-media">
+      <img src="{{ special.photo_url }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo">
+      <span class="special-date-badge">{{ special_display_date(special) }}</span>
+      {% if special_is_today(special) %}<span class="today-flag">Today</span>{% endif %}
+    </div>
+  {% else %}
+    <div class="special-no-image">
+      <span class="special-date-badge">{{ special_display_date(special) }}</span>
+      {% if special_is_today(special) %}<span class="today-flag">Today</span>{% endif %}
+      <p class="special-no-image-kicker">{{ special.restaurant.name }}</p>
+      <h3>{{ special.title }}</h3>
+    </div>
+  {% endif %}
   <div class="p-5">
     {% if special.source == "demo" %}<p class="preview-badge">Sample special</p>{% endif %}
     <p class="eyebrow">{{ special.restaurant.name }} <span class="text-stone-500">&middot; {{ special.restaurant.city }}</span></p>
