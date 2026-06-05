@@ -294,6 +294,15 @@ def test_get_started_requires_email_and_special_details(client):
         assert RawSpecialSubmission.query.count() == 0
 
 
+def test_for_restaurants_page_has_launch_trust_signals(client):
+    response = client.get("/for-restaurants")
+    assert response.status_code == 200
+    assert b"polished local post diners can find and act on tonight" in response.data
+    assert b"You approve it before anything goes live" in response.data
+    assert b"Early restaurants post free" in response.data
+    assert b"Most drafts are ready within a few minutes" in response.data
+
+
 def test_get_started_restaurant_lookup_includes_google_places(client, monkeypatch):
     class Response:
         def raise_for_status(self):
