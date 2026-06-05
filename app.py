@@ -1502,6 +1502,7 @@ def reject_special_preview(approval_token):
 
 
 @app.route("/admin/specials/new", methods=["GET", "POST"])
+@app.route("/admin/specials/create", methods=["GET", "POST"])
 @admin_required
 def admin_new_special():
     if request.method == "POST":
