@@ -14,7 +14,7 @@
     </div>
   {% endif %}
   <div class="p-5">
-    {% if special.source == "demo" %}<p class="preview-badge">Sample special</p>{% endif %}
+    {% if special.source == "demo" and not hide_sample_badge|default(false) %}<p class="preview-badge">Sample special</p>{% endif %}
     <p class="eyebrow">{{ special.restaurant.name }} <span class="text-stone-500">&middot; {{ special.restaurant.city }}</span></p>
     <div class="mt-3 flex items-start justify-between gap-3"><h3 class="text-2xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
     <p class="mt-3 text-sm text-stone-600">{{ special.description }}</p>

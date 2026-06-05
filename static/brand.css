@@ -51,14 +51,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .display-xl { font-size: clamp(3rem, 7vw, 5.8rem); letter-spacing: -.075em; line-height: .95; }
 .display-lg { font-size: clamp(2.5rem, 5vw, 4.5rem); letter-spacing: -.065em; line-height: .98; }
 .display-md { font-size: clamp(2rem, 4vw, 3.1rem); letter-spacing: -.055em; line-height: 1; }
-.hero { overflow: hidden; padding-block: 4.8rem 3.8rem; position: relative; }
-.hero-panel { background: var(--plum); border-radius: 2rem; color: white; min-height: 21rem; overflow: hidden; padding: 2rem; position: relative; }
+.hero { overflow: hidden; padding-block: 3.8rem 2.8rem; position: relative; }
+.hero-panel { background: var(--plum); border-radius: 2rem; color: white; min-height: 24rem; overflow: hidden; padding: 2rem; position: relative; }
 .hero-panel h2 { color: white; }
 .hero-panel::after { background: var(--orange); border-radius: 50%; content: ""; height: 13rem; opacity: .85; position: absolute; right: -4rem; top: -4rem; width: 13rem; }
 .hero-panel::before { border: 3px solid var(--lilac); border-radius: 50%; bottom: -6rem; content: ""; height: 15rem; position: absolute; right: 2rem; width: 15rem; }
-.hero-special-card { background: rgba(255, 255, 255, .97); border: 1px solid rgba(255, 255, 255, .65); border-radius: 1rem; box-shadow: 0 18px 45px rgba(44, 17, 37, .25); color: var(--ink); max-width: 26rem; overflow: hidden; position: relative; z-index: 2; }
+.hero-special-card { background: rgba(255, 255, 255, .97); border: 1px solid rgba(255, 255, 255, .65); border-radius: 1rem; box-shadow: 0 18px 45px rgba(44, 17, 37, .25); color: var(--ink); max-width: 31rem; overflow: hidden; position: relative; z-index: 2; }
 .hero-special-card h2 { color: var(--plum); }
-.hero-special-photo { height: 10rem; object-fit: cover; width: 100%; }
+.hero-special-photo { height: 12.5rem; object-fit: cover; width: 100%; }
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: 1.2rem; box-shadow: var(--shadow); }
 .soft-panel { background: var(--cream-deep); border: 1px solid var(--line); border-radius: 1.5rem; }
 .plum-panel { background: var(--plum); border-radius: 1.5rem; color: white; }

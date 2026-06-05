@@ -2,17 +2,12 @@
 {% block title %}Find today's local restaurant specials | Appertivo{% endblock %}
 {% block content %}
 <section class="hero">
-  <div class="page-width grid items-center gap-10 lg:grid-cols-[1.12fr_.88fr]">
+  <div class="page-width grid items-center gap-10 lg:grid-cols-[.9fr_1.1fr]">
     <div>
       <p class="eyebrow">Today's specials &middot; nearby restaurants</p>
       <h1 class="display-xl mt-4">Find what's <span class="text-[#ed4b0b]">good nearby</span> today.</h1>
-      <p class="mt-6 max-w-2xl text-lg text-stone-600">Discover restaurant specials, fresh drops, and limited menus close to home. Appertivo is launching first in Skagit Valley.</p>
-      <form method="get" class="location-search mt-7">
-        <label for="location" class="sr-only">Search location</label>
-        <input id="location" name="location" value="{{ location }}" placeholder="City or region" autocomplete="address-level2">
-        <button class="button-primary">Find specials</button>
-      </form>
-      <div class="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-stone-500"><span>Try:</span><a href="{{ url_for('home', location='Skagit Valley, WA') }}" class="text-[#176f70]">Skagit Valley, WA</a><span>or</span><a href="{{ url_for('home', location='Anacortes') }}" class="text-[#176f70]">Anacortes</a></div>
+      <p class="mt-6 max-w-xl text-lg text-stone-600">Discover what's good nearby tonight.</p>
+      <a href="#specials" class="button-primary mt-7">Browse today's specials</a>
     </div>
     {% set hero_special = specials[0] if specials else none %}
     <aside class="hero-panel">
@@ -22,7 +17,7 @@
           <img src="{{ hero_special.photo_url }}" alt="{{ hero_special.title }} at {{ hero_special.restaurant.name }}" class="hero-special-photo">
         {% endif %}
         <div class="p-5">
-          <p class="preview-badge">{{ "Today's special" if hero_special and hero_special.source != "demo" else "Sample special" }}</p>
+          <p class="preview-badge">{{ "Today's special" if hero_special and hero_special.source != "demo" else "Preview special" }}</p>
           <p class="mt-2 text-sm font-bold uppercase tracking-wide text-stone-500">{% if hero_special %}{{ hero_special.restaurant.name }} &middot; {{ hero_special.restaurant.city }}{% else %}Adrift Restaurant &middot; Anacortes{% endif %}</p>
           <div class="mt-3 flex items-start justify-between gap-3">
             <h2 class="text-3xl leading-none">{% if hero_special %}{{ hero_special.title }}{% else %}Cedar Plank Salmon Dinner{% endif %}</h2>
@@ -38,27 +33,30 @@
 {% if market %}
 <section id="specials" class="page-width pb-12">
   <div class="flex flex-wrap items-end justify-between gap-4">
-    <div><p class="eyebrow">{{ market.name }} &middot; preview feed</p><h2 class="display-md mt-2">Today's specials</h2></div>
+    <div><p class="eyebrow">{{ market.name }} &middot; Updated daily</p><h2 class="display-md mt-2">Today's specials</h2></div>
     <div class="flex flex-wrap items-center gap-2">
       <form method="get"><input type="hidden" name="location" value="{{ location }}"><select name="city" onchange="this.form.submit()" class="rounded-full border px-4 py-3 text-sm font-bold"><option value="">All Skagit cities</option>{% for option in cities %}<option {% if option == city %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></form>
       {% if specials %}<button type="button" id="map-view-toggle" class="button-secondary" aria-pressed="false"><span aria-hidden="true">&#8982;</span> <span>Map view</span></button>{% endif %}
     </div>
   </div>
+  {% if specials and specials|selectattr("source", "equalto", "demo")|list|length %}
+    <div class="mt-5 soft-panel p-4 text-sm font-bold text-stone-700">Skagit Valley preview - sample posts below. Real specials coming soon.</div>
+  {% endif %}
   <div id="specials-list-view">
     <div class="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-      {% for special in specials[:3] %}{% include "partials/special_card.html" %}{% else %}
+      {% for special in specials[:3] %}{% set hide_sample_badge = true %}{% include "partials/special_card.html" %}{% else %}
         <div class="soft-panel p-8 text-center md:col-span-2 lg:col-span-3"><h3 class="text-2xl">The Skagit feed is taking shape.</h3><p class="mt-2 text-stone-600">Join the early list and we'll tell you when local specials start landing.</p></div>
       {% endfor %}
     </div>
     <form id="early-list" method="post" class="plum-panel mt-6 p-7">
       <div class="grid items-end gap-4 md:grid-cols-[1fr_auto]">
-        <div><p class="eyebrow text-orange-200">Early access</p><h2 class="mt-2 text-3xl">Get {{ market.name }} specials alerts</h2><p class="mt-2 text-sm text-orange-100">Join the local launch list. We'll tell you when fresh specials land.</p><input type="hidden" name="city" value="{{ city }}"><input type="hidden" name="location" value="{{ location }}"></div>
+        <div><p class="eyebrow text-orange-200">Early access</p><h2 class="mt-2 text-3xl">Don't miss tonight's special.</h2><p class="mt-2 text-sm text-orange-100">Join the local launch list. We'll tell you when fresh specials land.</p><input type="hidden" name="city" value="{{ city }}"><input type="hidden" name="location" value="{{ location }}"></div>
         <div class="flex flex-wrap gap-2"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg px-4 py-3 text-stone-900"><button class="button-primary">Join early list</button></div>
       </div>
     </form>
     {% if specials|length > 3 %}
       <div class="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {% for special in specials[3:] %}{% include "partials/special_card.html" %}{% endfor %}
+        {% for special in specials[3:] %}{% set hide_sample_badge = true %}{% include "partials/special_card.html" %}{% endfor %}
       </div>
     {% endif %}
   </div>
@@ -68,7 +66,6 @@
       <div class="map-results">
         {% for special in specials %}
           <article class="map-result-card">
-            {% if special.source == "demo" %}<p class="preview-badge">Sample special</p>{% endif %}
             <p class="eyebrow mt-2">{{ special.restaurant.name }} &middot; {{ special.restaurant.city }}</p>
             <div class="mt-2 flex items-start justify-between gap-3"><h3 class="text-xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
             <p class="mt-2 line-clamp-2 text-sm text-stone-600">{{ special.description }}</p>
@@ -92,11 +89,9 @@
 {% endif %}
 <section class="bg-[#f8ead8]">
   <div class="page-width section-space">
-    <div class="mb-7 text-center"><p class="eyebrow">Simple by design</p><h2 class="display-md mt-2">How it works</h2></div>
-    {% include "partials/steps.html" %}
-    <div class="mt-8 grid overflow-hidden rounded-3xl border border-[#eadacb] lg:grid-cols-[.9fr_1.1fr]">
-      <div class="bg-[#176f70] p-8 text-white"><p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p><h3 class="mt-4 text-5xl leading-none text-white">You cook.<br><span class="text-orange-200">We promote.</span></h3></div>
-      <div class="bg-white p-8"><p class="max-w-xl text-lg text-stone-600">Send us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p><div class="mt-6 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div></div>
+    <div class="grid overflow-hidden rounded-3xl border border-[#eadacb] lg:grid-cols-[.9fr_1.1fr]">
+      <div class="bg-[#176f70] p-10 text-white"><p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p><h2 class="mt-4 text-6xl leading-none text-white">You cook.<br><span class="text-orange-200">We promote.</span></h2></div>
+      <div class="bg-white p-10"><p class="max-w-xl text-xl text-stone-600">Send us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p><div class="mt-7 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div></div>
     </div>
   </div>
 </section>

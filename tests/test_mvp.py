@@ -204,9 +204,27 @@ def test_subscriber_capture(client):
 
 
 def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
+    with app.app_context():
+        db.session.add(
+            Special(
+                restaurant_id=1,
+                title="Preview Pasta",
+                description="A sample dinner special.",
+                price="$18",
+                status="published",
+                source="demo",
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.session.commit()
+
     default_page = client.get("/")
     assert b"Fresh from nearby kitchens" in default_page.data
-    assert b"Sample special" in default_page.data
+    assert b"Discover what's good nearby tonight" in default_page.data
+    assert b"Skagit Valley preview - sample posts below" in default_page.data
+    assert b"Sample special" not in default_page.data
+    assert b"Updated daily" in default_page.data
+    assert b"Don't miss tonight's special" in default_page.data
     assert b"Skagit Valley launch preview" not in default_page.data
     assert b'value="Skagit Valley, WA"' in default_page.data
 
