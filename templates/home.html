@@ -14,23 +14,29 @@
       </form>
       <div class="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-stone-500"><span>Try:</span><a href="{{ url_for('home', location='Skagit Valley, WA') }}" class="text-[#176f70]">Skagit Valley, WA</a><span>or</span><a href="{{ url_for('home', location='Anacortes') }}" class="text-[#176f70]">Anacortes</a></div>
     </div>
+    {% set hero_special = specials[0] if specials else none %}
     <aside class="hero-panel">
       <p class="text-sm font-bold uppercase tracking-[.15em] text-orange-200">Fresh from nearby kitchens</p>
-      <h2 class="mt-4 max-w-sm text-4xl leading-none">What's good today?</h2>
-      <p class="mt-4 max-w-md text-orange-100">Search your location, scan today's feed, and make tonight easy.</p>
-      <div class="relative z-10 mt-10 grid max-w-sm gap-3">
-        <div class="rounded-xl bg-white/95 p-4 text-sm font-bold text-[#3d1730]">Local specials, all in one place.</div>
-        <div class="rounded-xl bg-white/95 p-4 text-sm font-bold text-[#3d1730]">Launching first in Skagit Valley.</div>
+      <div class="hero-special-card mt-5">
+        {% if hero_special and hero_special.photo_url %}
+          <img src="{{ hero_special.photo_url }}" alt="{{ hero_special.title }} at {{ hero_special.restaurant.name }}" class="hero-special-photo">
+        {% endif %}
+        <div class="p-5">
+          <p class="preview-badge">{{ "Today's special" if hero_special and hero_special.source != "demo" else "Sample special" }}</p>
+          <p class="mt-2 text-sm font-bold uppercase tracking-wide text-stone-500">{% if hero_special %}{{ hero_special.restaurant.name }} &middot; {{ hero_special.restaurant.city }}{% else %}Adrift Restaurant &middot; Anacortes{% endif %}</p>
+          <div class="mt-3 flex items-start justify-between gap-3">
+            <h2 class="text-3xl leading-none">{% if hero_special %}{{ hero_special.title }}{% else %}Cedar Plank Salmon Dinner{% endif %}</h2>
+            <span class="special-price">{% if hero_special and hero_special.price %}{{ hero_special.price }}{% else %}$28{% endif %}</span>
+          </div>
+          <p class="mt-3 text-sm text-stone-600">{% if hero_special %}{{ hero_special.description }}{% else %}Sample post: local salmon with roasted market vegetables and herb butter.{% endif %}</p>
+          <a href="{% if hero_special %}{{ url_for('special_detail', public_id=hero_special.public_id) }}{% else %}#specials{% endif %}" class="button-primary mt-5">View sample</a>
+        </div>
       </div>
     </aside>
   </div>
 </section>
 {% if market %}
 <section id="specials" class="page-width pb-12">
-  <div class="launch-note mb-6">
-    <div><p class="eyebrow">Skagit Valley launch preview</p><p class="mt-1 text-sm text-stone-600">We're building the first local feed now. Sample posts below show what diners will see as restaurants come aboard.</p></div>
-    <a href="#early-list" class="text-sm font-black text-[#176f70]">Join the early list &rarr;</a>
-  </div>
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div><p class="eyebrow">{{ market.name }} &middot; preview feed</p><h2 class="display-md mt-2">Today's specials</h2></div>
     <div class="flex flex-wrap items-center gap-2">
@@ -88,12 +94,10 @@
   <div class="page-width section-space">
     <div class="mb-7 text-center"><p class="eyebrow">Simple by design</p><h2 class="display-md mt-2">How it works</h2></div>
     {% include "partials/steps.html" %}
-  </div>
-</section>
-<section class="page-width section-space">
-  <div class="grid overflow-hidden rounded-3xl border border-[#eadacb] lg:grid-cols-[.9fr_1.1fr]">
-    <div class="bg-[#176f70] p-8 text-white"><p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p><h2 class="mt-4 text-5xl leading-none text-white">You cook.<br><span class="text-orange-200">We promote.</span></h2></div>
-    <div class="bg-white p-8"><p class="max-w-xl text-lg text-stone-600">Text us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p><div class="mt-6 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div></div>
+    <div class="mt-8 grid overflow-hidden rounded-3xl border border-[#eadacb] lg:grid-cols-[.9fr_1.1fr]">
+      <div class="bg-[#176f70] p-8 text-white"><p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p><h3 class="mt-4 text-5xl leading-none text-white">You cook.<br><span class="text-orange-200">We promote.</span></h3></div>
+      <div class="bg-white p-8"><p class="max-w-xl text-lg text-stone-600">Send us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p><div class="mt-6 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div></div>
+    </div>
   </div>
 </section>
 {% if market and specials %}
