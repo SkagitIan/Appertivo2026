@@ -531,6 +531,81 @@ def test_admin_structured_special_creation_publishes_through_pipeline(client):
         assert Special.query.one().title == "Chef dinner"
 
 
+def test_admin_special_creation_enhances_and_redirects_to_preview(client, monkeypatch):
+    login(client)
+    monkeypatch.setattr(
+        "special_pipeline.polish_special_copy",
+        lambda raw_text, restaurant=None: {
+            "success": True,
+            "fields": {
+                "title": "Enhanced Chef Dinner",
+                "description": "A polished three-course dinner.",
+                "price_text": "$35",
+                "availability_text": "tonight",
+                "cta_text": "View Special",
+            },
+            "error": None,
+        },
+    )
+    response = client.post(
+        "/admin/specials/new",
+        data={
+            "csrf_token": csrf(client),
+            "restaurant_id": "1",
+            "title": "chef diner",
+            "description": "three courses",
+            "price": "35",
+            "special_date": "2099-06-05",
+            "status": "draft",
+            "source": "manual",
+            "enhance": "on",
+        },
+    )
+    assert response.status_code == 302
+    assert "/specials/preview/" in response.location
+    with app.app_context():
+        draft = SpecialDraft.query.one()
+        assert draft.status == "draft"
+        assert draft.title == "Enhanced Chef Dinner"
+        assert draft.description == "A polished three-course dinner."
+        assert Special.query.count() == 0
+
+
+def test_admin_submission_enhance_action_updates_existing_draft(client, monkeypatch):
+    login(client)
+    with app.app_context():
+        submission = RawSpecialSubmission(
+            restaurant_id=1,
+            source_channel="email",
+            raw_text="burger nite 12",
+            sender_email="owner@example.com",
+        )
+        db.session.add(submission)
+        db.session.commit()
+        submission_id = submission.id
+    monkeypatch.setattr(
+        "special_pipeline.polish_special_copy",
+        lambda raw_text, restaurant=None: {
+            "success": True,
+            "fields": {
+                "title": "Enhanced Burger Night",
+                "description": "A polished burger special.",
+                "price_text": "$12",
+                "availability_text": "tonight",
+                "cta_text": "View Special",
+            },
+            "error": None,
+        },
+    )
+    response = client.post(f"/admin/special-submissions/{submission_id}/enhance", data={"csrf_token": csrf(client)})
+    assert response.status_code == 302
+    assert "/specials/preview/" in response.location
+    with app.app_context():
+        draft = SpecialDraft.query.one()
+        assert draft.title == "Enhanced Burger Night"
+        assert RawSpecialSubmission.query.one().status == "awaiting_approval"
+
+
 def test_admin_diner_digest_preview_send_and_unsubscribe(client, monkeypatch):
     login(client)
     sent = []

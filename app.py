@@ -46,6 +46,7 @@ from services import parse_special_text, slugify
 from special_pipeline import (
     approve_draft,
     create_raw_submission,
+    enhance_draft_from_submission,
     generate_draft_from_submission,
     publish_draft,
     reject_draft,
@@ -483,7 +484,7 @@ def save_submitted_photo():
     return None, None
 
 
-def structured_draft_from_form(source_channel, restaurant_id):
+def structured_draft_from_form(source_channel, restaurant_id, enhance=True):
     image_path, image_url = save_submitted_photo()
     title = request.form["title"].strip()
     description = request.form.get("description", "").strip()
@@ -499,9 +500,10 @@ def structured_draft_from_form(source_channel, restaurant_id):
         raw_image_path=image_path,
     )
     draft = generate_draft_from_submission(submission.id)
-    draft.title = title
-    draft.description = description
-    draft.price_text = price or None
+    if not enhance:
+        draft.title = title
+        draft.description = description
+        draft.price_text = price or None
     draft.starts_at = parse_local_datetime(request.form["special_date"], request.form.get("start_time") or None)
     draft.expires_at = parse_local_datetime(
         request.form["special_date"], request.form.get("end_time") or None, time(23, 59)
@@ -1548,6 +1550,17 @@ def admin_special_submissions():
     return render_template("admin/special_submissions.html", submissions=submissions)
 
 
+@app.post("/admin/special-submissions/<int:submission_id>/enhance")
+@admin_required
+def admin_enhance_special_submission(submission_id):
+    try:
+        draft = enhance_draft_from_submission(submission_id)
+    except ValueError as error:
+        abort(400, str(error))
+    flash("Submission enhanced into a draft.")
+    return redirect(url_for("special_preview", approval_token=draft.approval_token))
+
+
 @app.get("/admin/special-drafts")
 @admin_required
 def admin_special_drafts():
@@ -1565,6 +1578,18 @@ def admin_assign_special_draft(draft_id):
     db.session.commit()
     flash("Restaurant assigned.")
     return redirect(request.referrer or url_for("admin_special_drafts"))
+
+
+@app.post("/admin/special-drafts/<int:draft_id>/enhance")
+@admin_required
+def admin_enhance_special_draft(draft_id):
+    draft = SpecialDraft.query.get_or_404(draft_id)
+    try:
+        draft = enhance_draft_from_submission(draft.raw_submission_id)
+    except ValueError as error:
+        abort(400, str(error))
+    flash("Draft enhanced.")
+    return redirect(url_for("special_preview", approval_token=draft.approval_token))
 
 
 @app.post("/admin/special-drafts/<int:draft_id>/publish")
@@ -1610,15 +1635,20 @@ def reject_special_preview(approval_token):
 def admin_new_special():
     if request.method == "POST":
         try:
-            draft = structured_draft_from_form("admin", included_restaurant_id_from_form())
+            draft = structured_draft_from_form(
+                "admin",
+                included_restaurant_id_from_form(),
+                enhance=request.form.get("enhance") == "on",
+            )
             if request.form.get("status", "draft") == "published":
                 approve_draft(draft.approval_token)
-                publish_draft(draft.id)
+                special = publish_draft(draft.id)
+                return redirect(url_for("admin_edit_special", special_id=special.id))
         except UploadError as error:
             flash(str(error))
             return redirect(url_for("admin_new_special"))
-        return redirect(url_for("admin_special_drafts"))
-    special = Special(status="published", source="manual")
+        return redirect(url_for("special_preview", approval_token=draft.approval_token))
+    special = Special(status="draft", source="manual")
     restaurant_id = request.args.get("restaurant_id", type=int)
     if restaurant_id and included_restaurants_query().filter_by(id=restaurant_id).first():
         special.restaurant_id = restaurant_id

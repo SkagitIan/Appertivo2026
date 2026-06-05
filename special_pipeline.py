@@ -102,13 +102,35 @@ def generate_draft_from_submission(raw_submission_id):
         raise ValueError("Raw special submission was not found.")
     if submission.draft:
         return submission.draft
+    fields = enhanced_special_text(submission.raw_text, restaurant=submission.restaurant)
+    image_fields = create_or_prepare_image(submission)
     draft = SpecialDraft(
         raw_submission_id=submission.id,
         restaurant_id=submission.restaurant_id,
         status="draft" if submission.source_channel == "admin" else "awaiting_approval",
-        **enhanced_special_text(submission.raw_text, restaurant=submission.restaurant),
-        **create_or_prepare_image(submission),
+        **fields,
+        **image_fields,
     )
+    submission.status = "drafted" if draft.status == "draft" else "awaiting_approval"
+    db.session.add(draft)
+    db.session.commit()
+    return draft
+
+
+def enhance_draft_from_submission(raw_submission_id):
+    submission = db.session.get(RawSpecialSubmission, raw_submission_id)
+    if not submission:
+        raise ValueError("Raw special submission was not found.")
+    draft = submission.draft or SpecialDraft(
+        raw_submission_id=submission.id,
+        restaurant_id=submission.restaurant_id,
+        status="draft" if submission.source_channel == "admin" else "awaiting_approval",
+    )
+    fields = enhanced_special_text(submission.raw_text, restaurant=submission.restaurant)
+    image_fields = create_or_prepare_image(submission)
+    for key, value in {**fields, **image_fields}.items():
+        setattr(draft, key, value)
+    draft.restaurant_id = submission.restaurant_id
     submission.status = "drafted" if draft.status == "draft" else "awaiting_approval"
     db.session.add(draft)
     db.session.commit()

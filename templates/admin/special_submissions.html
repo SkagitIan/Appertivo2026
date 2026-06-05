@@ -1,8 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Special submissions | Appertivo admin{% endblock %}
 {% block content %}
-<div class="mb-6"><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Special submissions</h1></div>
-<div class="space-y-3">{% for submission in submissions %}
-  <article class="admin-card p-5"><p class="text-xs font-black uppercase text-stone-500">{{ submission.source_channel }} · {{ submission.status }}</p><p class="mt-2 font-bold">{{ submission.restaurant.name if submission.restaurant else "Unassigned restaurant" }}</p><p class="mt-2 whitespace-pre-line text-sm text-stone-600">{{ submission.raw_text }}</p>{% if submission.draft %}<a href="{{ url_for('special_preview', approval_token=submission.draft.approval_token) }}" class="mt-3 inline-block font-bold text-[#176f70]">Preview draft</a>{% endif %}</article>
-{% else %}<p class="admin-card p-6 text-stone-600">No submissions found.</p>{% endfor %}</div>
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Special submissions</h1></div>
+  <a href="{{ url_for('admin_special_drafts') }}" class="button-secondary">Draft queue</a>
+</div>
+<div class="space-y-3">
+  {% for submission in submissions %}
+    <article class="admin-card p-5">
+      <p class="text-xs font-black uppercase text-stone-500">{{ submission.source_channel }} &middot; {{ submission.status }}</p>
+      <p class="mt-2 font-bold">{{ submission.restaurant.name if submission.restaurant else "Unassigned restaurant" }}</p>
+      <p class="mt-2 whitespace-pre-line text-sm text-stone-600">{{ submission.raw_text }}</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        {% if submission.draft %}
+          <a href="{{ url_for('special_preview', approval_token=submission.draft.approval_token) }}" class="button-quiet">Preview draft</a>
+          <form method="post" action="{{ url_for('admin_enhance_special_submission', submission_id=submission.id) }}"><button class="button-primary">Enhance again</button></form>
+        {% else %}
+          <form method="post" action="{{ url_for('admin_enhance_special_submission', submission_id=submission.id) }}"><button class="button-primary">Enhance into draft</button></form>
+        {% endif %}
+      </div>
+    </article>
+  {% else %}
+    <p class="admin-card p-6 text-stone-600">No submissions found.</p>
+  {% endfor %}
+</div>
 {% endblock %}
