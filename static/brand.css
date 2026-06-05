@@ -67,15 +67,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .plum-panel h1, .plum-panel h2, .plum-panel h3 { color: white; }
 
 .special-card { background: var(--paper); border: 1px solid var(--line); border-radius: 1.1rem; box-shadow: var(--shadow); overflow: hidden; }
-.special-media { height: 13.5rem; overflow: hidden; position: relative; }
+.special-media { height: 12.8rem; overflow: hidden; position: relative; }
 .special-photo { height: 100%; object-fit: cover; width: 100%; }
-.special-no-image { background: #251f1d; color: #fff7e7; min-height: 13.5rem; overflow: hidden; padding: 4.2rem 1.25rem 1.25rem; position: relative; }
+.special-no-image { background: #251f1d; color: #fff7e7; min-height: 12.8rem; overflow: hidden; padding: 4.2rem 1.25rem 1.25rem; position: relative; }
 .special-no-image::before { border: 1px solid rgba(255, 247, 231, .18); border-radius: .55rem; content: ""; inset: .65rem; pointer-events: none; position: absolute; }
 .special-no-image-kicker { color: #ffb18c; font-size: .72rem; font-weight: 900; letter-spacing: .12em; position: relative; text-transform: uppercase; }
 .special-no-image h3 { color: #fff7e7; font-size: 2.05rem; letter-spacing: 0; line-height: .98; margin-top: .55rem; max-width: 18rem; position: relative; }
-.special-price { background: var(--plum); border-radius: 999px; color: white; flex: none; font-size: .85rem; font-weight: 800; padding: .4rem .7rem; }
-.special-card-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1.35rem; }
-.date-pill { align-items: center; background: #fff4e8; border: 1px solid #f2d6bf; border-radius: 999px; color: var(--plum); display: inline-flex; flex: none; font-size: .78rem; font-weight: 900; gap: .45rem; letter-spacing: .04em; padding: .48rem .72rem; text-transform: uppercase; }
+.special-price { background: var(--plum); border-radius: 999px; color: white; flex: none; font-size: .8rem; font-weight: 800; padding: .38rem .64rem; }
+.special-card-actions { align-items: center; display: flex; flex-wrap: nowrap; gap: .7rem; margin-top: 1.15rem; min-width: 0; white-space: nowrap; }
+.special-card-actions .button-primary { flex: 0 0 auto; padding-inline: .9rem; }
+.date-pill { align-items: center; background: #fff4e8; border: 1px solid #f2d6bf; border-radius: 999px; color: var(--plum); display: inline-flex; flex: none; font-size: .74rem; font-weight: 900; gap: .4rem; letter-spacing: .03em; padding: .43rem .62rem; text-transform: uppercase; }
 .date-pill-icon { border: 2px solid currentColor; border-radius: .2rem; display: inline-block; height: .9rem; position: relative; width: .86rem; }
 .date-pill-icon::before { background: currentColor; content: ""; height: 2px; left: -2px; position: absolute; right: -2px; top: .22rem; }
 .date-pill-icon::after { background: currentColor; border-radius: 999px; box-shadow: .35rem 0 0 currentColor; content: ""; height: 2px; left: .16rem; position: absolute; top: -.26rem; width: 2px; }

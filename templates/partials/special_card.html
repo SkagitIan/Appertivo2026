@@ -10,10 +10,10 @@
     </div>
   {% endif %}
   <div class="p-5">
-    {% if special.source == "demo" and not hide_sample_badge|default(false) %}<p class="preview-badge">Sample special</p>{% endif %}
+    {% if special.source == "demo" and not hide_sample_badge|default(false) %}<p class="preview-badge">Featured special</p>{% endif %}
     <p class="eyebrow">{{ special.restaurant.name }} <span class="text-stone-500">&middot; {{ special.restaurant.city }}</span></p>
-    <div class="mt-3 flex items-start justify-between gap-3"><h3 class="text-2xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
-    <p class="mt-3 text-sm text-stone-600">{{ special.description }}</p>
+    <div class="mt-3 flex items-start justify-between gap-3"><h3 class="text-2xl leading-none">{{ special.title }}</h3></div>
+    <p class="mt-3 text-sm text-stone-600">{{ special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}</p>
     <div class="special-card-actions">
       <span class="date-pill"><span class="date-pill-icon" aria-hidden="true"></span>{% if special_is_today(special) %}Today &middot; {% endif %}{{ special_display_date(special) }}</span>
     {% if special_card_url is defined %}
@@ -21,6 +21,7 @@
     {% elif special.public_id %}
       <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary">View special</a>
     {% endif %}
+    {% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}
     </div>
     {% if show_operator_tools|default(false) %}
       {% include "partials/operator_tools.html" %}

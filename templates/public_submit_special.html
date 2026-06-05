@@ -75,7 +75,7 @@
     if (!items.length) {
       const empty = document.createElement("div");
       empty.className = "p-3 text-sm text-stone-600";
-      empty.textContent = "No pilot match yet. Coming soon.";
+      empty.textContent = "No pilot match yet. Try another spelling or send the restaurant through Get Started.";
       results.appendChild(empty);
     }
     items.forEach((item) => {
@@ -83,7 +83,7 @@
       button.type = "button";
       button.className = "block w-full border-b px-3 py-2 text-left text-sm";
       const details = item.city || item.address || "Skagit Valley";
-      button.textContent = item.status === "included" ? `${item.name} - ${details}` : `${item.name} - coming soon`;
+      button.textContent = item.status === "included" ? `${item.name} - ${details}` : `${item.name} - not accepting direct submissions yet`;
       if (item.status === "included") {
         button.addEventListener("click", () => {
           search.value = item.name;

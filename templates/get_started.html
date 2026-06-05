@@ -10,7 +10,7 @@
       <div class="mt-7 grid gap-3 text-sm text-stone-600">
         <p><strong class="text-stone-900">1.</strong> Paste rough special details or menu copy.</p>
         <p><strong class="text-stone-900">2.</strong> Appertivo cleans up the text and prepares the image.</p>
-        <p><strong class="text-stone-900">3.</strong> Press Publish from your email preview.</p>
+        <p><strong class="text-stone-900">3.</strong> Press Publish from your approval email.</p>
       </div>
     </div>
     <form method="post" enctype="multipart/form-data" class="card grid gap-4 p-6" data-restaurant-special-form>
@@ -29,7 +29,7 @@
         <p class="mt-2 text-sm text-stone-500" data-restaurant-message>Choose an existing Appertivo restaurant or a Google Places match.</p>
       </div>
 
-      <label class="text-sm font-bold">Email<input required type="email" name="sender_email" value="{{ form.sender_email if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"><span class="mt-1 block text-sm font-normal text-stone-500">We send the enhanced preview and Publish button here.</span></label>
+      <label class="text-sm font-bold">Email<input required type="email" name="sender_email" value="{{ form.sender_email if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"><span class="mt-1 block text-sm font-normal text-stone-500">We send the polished draft and Publish button here.</span></label>
       <label class="text-sm font-bold">Special date<input required name="special_date" type="date" value="{{ special_date }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
       <label class="text-sm font-bold">Special details<textarea required name="raw_text" rows="6" placeholder="Tonight only: salmon tacos, $16, available until sold out." class="mt-1 w-full rounded-lg border px-3 py-2">{{ form.raw_text if form else '' }}</textarea><span class="mt-1 block text-sm font-normal text-stone-500">Rough notes are fine. Include price, timing, and whether it repeats.</span></label>
       <label class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 block w-full text-sm"></label>
@@ -83,7 +83,7 @@
       button.type = "button";
       button.className = "block w-full border-b px-3 py-2 text-left text-sm";
       const detail = item.city || item.address || "Skagit Valley";
-      button.textContent = item.status === "coming_soon" ? `${item.name} - ${detail} (coming soon)` : `${item.name} - ${detail}`;
+      button.textContent = item.status === "coming_soon" ? `${item.name} - ${detail} (not accepting submissions yet)` : `${item.name} - ${detail}`;
       if (item.status === "coming_soon") {
         button.disabled = true;
         button.className += " text-stone-400";
