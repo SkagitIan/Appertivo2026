@@ -89,9 +89,15 @@
 {% endif %}
 <section class="bg-[#f8ead8]">
   <div class="page-width section-space">
-    <div class="grid overflow-hidden rounded-3xl border border-[#eadacb] lg:grid-cols-[.9fr_1.1fr]">
-      <div class="bg-[#176f70] p-10 text-white"><p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p><h2 class="mt-4 text-6xl leading-none text-white">You cook.<br><span class="text-orange-200">We promote.</span></h2></div>
-      <div class="bg-white p-10"><p class="max-w-xl text-xl text-stone-600">Send us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p><div class="mt-7 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div></div>
+    <div class="home-restaurant-cta">
+      <div class="home-restaurant-cta-lead">
+        <p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p>
+        <h2>You cook.<br><span>We promote.</span></h2>
+      </div>
+      <div class="home-restaurant-cta-body">
+        <p>Send us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p>
+        <div class="mt-7 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div>
+      </div>
     </div>
   </div>
 </section>

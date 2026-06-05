@@ -2,13 +2,9 @@
   {% if special.photo_url %}
     <div class="special-media">
       <img src="{{ special.photo_url }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo">
-      <span class="special-date-badge">{{ special_display_date(special) }}</span>
-      {% if special_is_today(special) %}<span class="today-flag">Today</span>{% endif %}
     </div>
   {% else %}
     <div class="special-no-image">
-      <span class="special-date-badge">{{ special_display_date(special) }}</span>
-      {% if special_is_today(special) %}<span class="today-flag">Today</span>{% endif %}
       <p class="special-no-image-kicker">{{ special.restaurant.name }}</p>
       <h3>{{ special.title }}</h3>
     </div>
@@ -18,11 +14,14 @@
     <p class="eyebrow">{{ special.restaurant.name }} <span class="text-stone-500">&middot; {{ special.restaurant.city }}</span></p>
     <div class="mt-3 flex items-start justify-between gap-3"><h3 class="text-2xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
     <p class="mt-3 text-sm text-stone-600">{{ special.description }}</p>
+    <div class="special-card-actions">
+      <span class="special-card-date">{% if special_is_today(special) %}Today &middot; {% endif %}{{ special_display_date(special) }}</span>
     {% if special_card_url is defined %}
-      <a href="{{ special_card_url }}" class="button-primary mt-5">{{ special_card_action_label|default("View special") }}</a>
+      <a href="{{ special_card_url }}" class="button-primary">{{ special_card_action_label|default("View special") }}</a>
     {% elif special.public_id %}
-      <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary mt-5">View special</a>
+      <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary">View special</a>
     {% endif %}
+    </div>
     {% if show_operator_tools|default(false) %}
       {% include "partials/operator_tools.html" %}
     {% endif %}
