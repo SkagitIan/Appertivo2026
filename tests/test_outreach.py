@@ -155,12 +155,16 @@ def test_inbound_special_email_routes_to_special_pipeline(outreach_app, monkeypa
         "email_system.outreach_service.resend.Emails.Receiving.get",
         lambda email_id: {"text": "Friday fish tacos $12 today."},
     )
+    monkeypatch.setattr(
+        "special_pipeline.polish_special_copy",
+        lambda raw_text, restaurant=None: {"success": False, "fields": None, "error": "OPENAI_API_KEY is not configured."},
+    )
     payload = json.dumps(
         {
             "type": "email.received",
             "data": {
                 "email_id": "special-1",
-                "from": "owner@example.com",
+                "from": "Owner <owner@example.com>",
                 "to": ["specials@appertivo.com"],
                 "subject": "Special",
                 "created_at": "2026-06-01T12:00:00.000Z",

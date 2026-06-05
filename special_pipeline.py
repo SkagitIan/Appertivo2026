@@ -1,5 +1,9 @@
 import re
 
+from flask import current_app
+
+from email_system.cloudinary_client import enhance_image_url
+from email_system.openai_client import polish_special_copy
 from models import RawSpecialSubmission, Restaurant, Special, SpecialDraft, db, utc_now
 
 
@@ -29,8 +33,28 @@ def polish_special_text(raw_text):
     }
 
 
+def enhanced_special_text(raw_text, restaurant=None):
+    result = polish_special_copy(raw_text, restaurant=restaurant)
+    if result["success"]:
+        return result["fields"]
+    if result["error"] != "OPENAI_API_KEY is not configured.":
+        current_app.logger.warning("OpenAI special polish skipped: %s", result["error"])
+    return polish_special_text(raw_text)
+
+
 def create_or_prepare_image(raw_submission):
     if raw_submission.raw_image_url or raw_submission.raw_image_path:
+        if raw_submission.raw_image_url and raw_submission.raw_image_url.startswith(("http://", "https://")):
+            enhanced = enhance_image_url(raw_submission.raw_image_url)
+            if enhanced["success"]:
+                return {
+                    "image_url": enhanced["image_url"],
+                    "image_path": enhanced["image_path"],
+                    "ai_generated_image": False,
+                    "image_disclaimer": None,
+                }
+            if enhanced["error"] != "Cloudinary is not configured.":
+                current_app.logger.warning("Cloudinary image enhancement skipped: %s", enhanced["error"])
         return {
             "image_url": raw_submission.raw_image_url,
             "image_path": raw_submission.raw_image_path,
@@ -82,7 +106,7 @@ def generate_draft_from_submission(raw_submission_id):
         raw_submission_id=submission.id,
         restaurant_id=submission.restaurant_id,
         status="draft" if submission.source_channel == "admin" else "awaiting_approval",
-        **polish_special_text(submission.raw_text),
+        **enhanced_special_text(submission.raw_text, restaurant=submission.restaurant),
         **create_or_prepare_image(submission),
     )
     submission.status = "drafted" if draft.status == "draft" else "awaiting_approval"

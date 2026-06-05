@@ -1,6 +1,7 @@
 import logging
 import re
 from datetime import datetime, timedelta
+from email.utils import parseaddr
 
 import resend
 from flask import current_app, render_template
@@ -91,7 +92,7 @@ Ian""",
 
 
 def normalize_email(email):
-    return (email or "").strip().lower()
+    return (parseaddr(email or "")[1] or email or "").strip().lower()
 
 
 def is_suppressed(email):
@@ -258,22 +259,26 @@ def receive_resend_email(payload, headers):
 
     event = current_app.json.loads(payload)
     if event.get("type") != "email.received":
+        logger.info("Ignoring Resend webhook event type %s", event.get("type"))
         return None
     data = event["data"]
     if OutreachMessage.query.filter_by(external_email_id=data["email_id"]).first():
+        logger.info("Ignoring duplicate received email %s", data["email_id"])
         return None
 
     resend.api_key = current_app.config["RESEND_API_KEY"]
     received = resend.Emails.Receiving.get(data["email_id"])
-    sender = data.get("from", "")
+    sender = normalize_email(data.get("from", ""))
     recipients = [normalize_email(item) for item in data.get("to", [])]
-    restaurant = Restaurant.query.filter(db.func.lower(Restaurant.contact_email) == sender.lower()).first()
-    campaign = OutreachCampaign.query.filter_by(recipient_email=normalize_email(sender)).order_by(
+    logger.info("Received inbound email %s from %s to %s", data["email_id"], sender, ",".join(recipients))
+    restaurant = Restaurant.query.filter(db.func.lower(Restaurant.contact_email) == sender).first()
+    campaign = OutreachCampaign.query.filter_by(recipient_email=sender).order_by(
         OutreachCampaign.updated_at.desc()
     ).first()
     body_text = _value(received, "text", "") or ""
     received_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00")).replace(tzinfo=None)
     if normalize_email(current_app.config["EMAIL_FROM_SPECIALS"]) in recipients:
+        logger.info("Routing received email %s into special pipeline", data["email_id"])
         submission = create_raw_submission(
             source_channel="email",
             restaurant_id=restaurant.id if restaurant else (campaign.restaurant_id if campaign else None),
@@ -288,6 +293,7 @@ def receive_resend_email(payload, headers):
             loops_client.send_event(campaign.recipient_email, "restaurantSpecialReceived", {"outreachId": str(campaign.id)})
             db.session.commit()
         return submission
+    logger.info("Routing received email %s into outreach inbox", data["email_id"])
     message = OutreachMessage(
         campaign_id=campaign.id if campaign else None,
         restaurant_id=restaurant.id if restaurant else None,

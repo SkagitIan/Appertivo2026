@@ -96,10 +96,17 @@ app.config.update(
     RESEND_WEBHOOK_SECRET=os.environ.get("RESEND_WEBHOOK_SECRET"),
     OPENAI_API_KEY=os.environ.get("OPENAI_API_KEY"),
     OPENAI_OUTREACH_MODEL=os.environ.get("OPENAI_OUTREACH_MODEL", "gpt-5.4-mini"),
+    OPENAI_SPECIAL_MODEL=os.environ.get(
+        "OPENAI_SPECIAL_MODEL", os.environ.get("OPENAI_OUTREACH_MODEL", "gpt-5.4-mini")
+    ),
     OUTREACH_DAILY_SEND_CAP=int(os.environ.get("OUTREACH_DAILY_SEND_CAP", 20)),
     OUTREACH_FOLLOWUP_DAYS=os.environ.get("OUTREACH_FOLLOWUP_DAYS", "3,4,5"),
     OUTREACH_REQUIRE_APPROVAL=os.environ.get("OUTREACH_REQUIRE_APPROVAL", "1") == "1",
     GOOGLE_PLACES_API_KEY=os.environ.get("GOOGLE_PLACES_API_KEY"),
+    CLOUDINARY_CLOUD_NAME=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    CLOUDINARY_API_KEY=os.environ.get("CLOUDINARY_API_KEY"),
+    CLOUDINARY_API_SECRET=os.environ.get("CLOUDINARY_API_SECRET"),
+    CLOUDINARY_FOLDER=os.environ.get("CLOUDINARY_FOLDER", "appertivo/specials"),
     SPECIAL_WEBHOOK_TEST_ENABLED=os.environ.get("SPECIAL_WEBHOOK_TEST_ENABLED") == "1",
 )
 db.init_app(app)
@@ -1250,7 +1257,7 @@ def resend_webhook():
     from email_system.outreach_service import receive_resend_email
 
     try:
-        receive_resend_email(
+        result = receive_resend_email(
             request.get_data(as_text=True),
             {
                 "id": request.headers.get("svix-id"),
@@ -1259,7 +1266,15 @@ def resend_webhook():
             },
         )
     except ValueError as error:
+        app.logger.warning("Resend webhook rejected: %s", error)
         abort(400, str(error))
+    except Exception:
+        app.logger.exception("Resend webhook processing failed.")
+        abort(500)
+    if result:
+        app.logger.info("Resend webhook processed into %s id=%s", type(result).__name__, getattr(result, "id", None))
+    else:
+        app.logger.info("Resend webhook received no-op event.")
     return jsonify({"received": True})
 
 

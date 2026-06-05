@@ -35,6 +35,10 @@ def client(tmp_path):
         ADMIN_PASSWORD="test-password",
         UPLOAD_ROOT=str(tmp_path / "uploads"),
         R2_ENDPOINT=None,
+        OPENAI_API_KEY=None,
+        CLOUDINARY_CLOUD_NAME=None,
+        CLOUDINARY_API_KEY=None,
+        CLOUDINARY_API_SECRET=None,
     )
     with app.app_context():
         db.drop_all()
@@ -315,6 +319,58 @@ def test_special_pipeline_parser_and_missing_image():
         "ai_generated_image": False,
         "image_disclaimer": None,
     }
+
+
+def test_special_pipeline_uses_openai_polished_fields(client, monkeypatch):
+    monkeypatch.setattr(
+        "special_pipeline.polish_special_copy",
+        lambda raw_text, restaurant=None: {
+            "success": True,
+            "fields": {
+                "title": "Polished Fish Tacos",
+                "description": "Crisp fish tacos with house slaw.",
+                "price_text": "$14",
+                "availability_text": "tonight",
+                "cta_text": "View Special",
+            },
+            "error": None,
+        },
+    )
+    with app.app_context():
+        submission = RawSpecialSubmission(
+            restaurant_id=1,
+            source_channel="email",
+            raw_text="fish tacos tonite 14",
+            sender_email="owner@example.com",
+        )
+        db.session.add(submission)
+        db.session.commit()
+        draft = SpecialDraft.query.count()
+        assert draft == 0
+        from special_pipeline import generate_draft_from_submission
+
+        generated = generate_draft_from_submission(submission.id)
+        assert generated.title == "Polished Fish Tacos"
+        assert generated.description == "Crisp fish tacos with house slaw."
+        assert generated.price_text == "$14"
+
+
+def test_special_pipeline_uses_cloudinary_enhanced_image(client, monkeypatch):
+    monkeypatch.setattr(
+        "special_pipeline.enhance_image_url",
+        lambda source_url: {
+            "success": True,
+            "image_url": "https://res.cloudinary.com/demo/image/upload/c_limit,w_1200/e_improve/q_auto/f_auto/appertivo/specials/photo.jpg",
+            "image_path": "appertivo/specials/photo",
+            "error": None,
+        },
+    )
+    with app.app_context():
+        result = create_or_prepare_image(
+            SimpleNamespace(raw_image_url="https://images.example/specials/raw.jpg", raw_image_path="specials/raw.jpg")
+        )
+    assert result["image_url"].startswith("https://res.cloudinary.com/")
+    assert result["image_path"] == "appertivo/specials/photo"
 
 
 def test_public_submission_preview_approval_and_publish(client):
