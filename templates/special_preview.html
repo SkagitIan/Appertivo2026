@@ -13,9 +13,14 @@
   {% if draft.cta_text %}<p class="mt-2 text-sm text-stone-600">CTA: {{ draft.cta_text }}</p>{% endif %}
   <div class="mt-6 flex flex-wrap gap-2">
     {% if draft.status == "awaiting_approval" %}
-      <form method="post" action="{{ url_for('approve_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Approve</button></form>
-      <form method="post" action="{{ url_for('reject_special_preview', approval_token=draft.approval_token) }}"><button class="button-quiet">Reject</button></form>
+      {% if session.admin_authenticated %}
+        <form method="post" action="{{ url_for('approve_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Approve</button></form>
+        <form method="post" action="{{ url_for('reject_special_preview', approval_token=draft.approval_token) }}"><button class="button-quiet">Reject</button></form>
+      {% else %}
+        <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Publish</button></form>
+      {% endif %}
     {% endif %}
+    {% if session.admin_authenticated and draft.raw_submission.sender_email %}<form method="post" action="{{ url_for('admin_send_special_publish_email', draft_id=draft.id) }}"><button class="button-quiet">Send publish email</button></form>{% endif %}
     {% if session.admin_authenticated and draft.status == "approved" %}<form method="post" action="{{ url_for('admin_publish_special_draft', draft_id=draft.id) }}"><button class="button-primary">Publish</button></form>{% endif %}
     {% if session.admin_authenticated %}<a href="{{ url_for('admin_special_drafts') }}" class="button-quiet">Draft queue</a>{% endif %}
   </div>

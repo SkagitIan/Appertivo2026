@@ -7,6 +7,7 @@ import resend
 from flask import current_app, render_template
 
 from email_system import loops_client, resend_client
+from email_system.email_service import send_special_received_email
 from models import OutreachCampaign, OutreachMessage, OutreachSuppression, Restaurant, db, utc_now
 from special_pipeline import create_raw_submission, generate_draft_from_submission
 
@@ -251,6 +252,42 @@ def _value(item, key, default=None):
     return getattr(item, key, default)
 
 
+def _list_value(response):
+    data = _value(response, "data")
+    if data is not None:
+        return data
+    return response if isinstance(response, list) else []
+
+
+def first_image_attachment_url(email_id):
+    try:
+        response = resend.Emails.Receiving.Attachments.list(email_id)
+    except Exception:
+        logger.exception("Could not list attachments for received email %s", email_id)
+        return None
+    for attachment in _list_value(response):
+        content_type = (_value(attachment, "content_type", "") or "").lower()
+        if content_type.startswith("image/"):
+            return _value(attachment, "download_url")
+    return None
+
+
+def send_draft_publish_email(draft, to_email):
+    if not to_email or not draft.restaurant_id:
+        return None
+    return send_special_received_email(
+        to_email,
+        restaurant_name=draft.restaurant.name if draft.restaurant else None,
+        special_title=draft.title,
+        approval_url=None,
+        publish_url=f"{current_app.config['APP_BASE_URL'].rstrip('/')}/specials/preview/{draft.approval_token}",
+        special_description=draft.description,
+        price_text=draft.price_text,
+        availability_text=draft.availability_text,
+        image_url=draft.image_url,
+    )
+
+
 def receive_resend_email(payload, headers):
     secret = current_app.config.get("RESEND_WEBHOOK_SECRET")
     if not secret:
@@ -279,14 +316,17 @@ def receive_resend_email(payload, headers):
     received_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00")).replace(tzinfo=None)
     if normalize_email(current_app.config["EMAIL_FROM_SPECIALS"]) in recipients:
         logger.info("Routing received email %s into special pipeline", data["email_id"])
+        image_url = first_image_attachment_url(data["email_id"])
         submission = create_raw_submission(
             source_channel="email",
             restaurant_id=restaurant.id if restaurant else (campaign.restaurant_id if campaign else None),
             raw_text=body_text or data.get("subject", "Email special submission"),
+            raw_image_url=image_url,
             sender_email=sender,
             source_url=f"resend:{data['email_id']}",
         )
-        generate_draft_from_submission(submission.id)
+        draft = generate_draft_from_submission(submission.id)
+        send_draft_publish_email(draft, sender)
         if campaign:
             campaign.status = "special_received"
             campaign.paused = True

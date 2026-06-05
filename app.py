@@ -842,6 +842,11 @@ def public_submit_special():
             restaurant_name=submission.restaurant.name if submission.restaurant else None,
             special_title=draft.title,
             approval_url=url_for("special_preview", approval_token=draft.approval_token, _external=True),
+            publish_url=url_for("special_preview", approval_token=draft.approval_token, _external=True),
+            special_description=draft.description,
+            price_text=draft.price_text,
+            availability_text=draft.availability_text,
+            image_url=draft.image_url,
         )
         return render_template("submit_success.html", restaurant=submission.restaurant, special=None)
     return render_template("public_submit_special.html", restaurants=restaurants)
@@ -1592,6 +1597,25 @@ def admin_enhance_special_draft(draft_id):
     return redirect(url_for("special_preview", approval_token=draft.approval_token))
 
 
+@app.post("/admin/special-drafts/<int:draft_id>/send-publish-email")
+@admin_required
+def admin_send_special_publish_email(draft_id):
+    from email_system.outreach_service import send_draft_publish_email
+
+    draft = SpecialDraft.query.get_or_404(draft_id)
+    sender_email = draft.raw_submission.sender_email
+    if not sender_email:
+        abort(400, "This draft does not have a sender email.")
+    if not draft.restaurant_id:
+        abort(400, "Assign a restaurant before sending the publish email.")
+    result = send_draft_publish_email(draft, sender_email)
+    if result and result["success"]:
+        flash("Publish email sent.")
+    else:
+        flash(f"Publish email failed: {(result or {}).get('error', 'unknown error')}")
+    return redirect(url_for("special_preview", approval_token=draft.approval_token))
+
+
 @app.post("/admin/special-drafts/<int:draft_id>/publish")
 @admin_required
 def admin_publish_special_draft(draft_id):
@@ -1617,6 +1641,17 @@ def approve_special_preview(approval_token):
         abort(400, str(error))
     flash("Draft approved.")
     return redirect(url_for("special_preview", approval_token=approval_token))
+
+
+@app.post("/specials/preview/<approval_token>/publish")
+def publish_special_preview(approval_token):
+    try:
+        draft = approve_draft(approval_token)
+        special = publish_draft(draft.id)
+    except ValueError as error:
+        abort(400, str(error))
+    flash("Special published.")
+    return redirect(url_for("special_detail", public_id=special.public_id))
 
 
 @app.post("/specials/preview/<approval_token>/reject")

@@ -412,6 +412,30 @@ def test_public_submission_preview_approval_and_publish(client):
         assert Special.query.count() == 1
 
 
+def test_public_preview_publish_button_publishes_special(client):
+    client.post(
+        "/submit-special",
+        data={
+            "csrf_token": csrf(client),
+            "restaurant_id": "1",
+            "raw_text": "Dinner special today $20",
+            "sender_email": "owner@example.com",
+        },
+    )
+    with app.app_context():
+        token = SpecialDraft.query.one().approval_token
+    preview = client.get(f"/specials/preview/{token}")
+    assert preview.status_code == 200
+    assert b"Publish" in preview.data
+    response = client.post(f"/specials/preview/{token}/publish", data={"csrf_token": csrf(client)})
+    assert response.status_code == 302
+    with app.app_context():
+        special = Special.query.one()
+        assert special.status == "published"
+        assert SpecialDraft.query.one().status == "published"
+        assert RawSpecialSubmission.query.one().status == "published"
+
+
 def test_preview_rejection_updates_submission(client):
     client.post(
         "/submit-special",

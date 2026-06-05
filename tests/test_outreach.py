@@ -150,14 +150,49 @@ def test_opt_out_blocks_outreach_send(outreach_app, monkeypatch):
 
 
 def test_inbound_special_email_routes_to_special_pipeline(outreach_app, monkeypatch):
+    sent = {}
     monkeypatch.setattr("email_system.outreach_service.resend.Webhooks.verify", lambda options: None)
     monkeypatch.setattr(
         "email_system.outreach_service.resend.Emails.Receiving.get",
         lambda email_id: {"text": "Friday fish tacos $12 today."},
     )
     monkeypatch.setattr(
+        "email_system.outreach_service.resend.Emails.Receiving.Attachments.list",
+        lambda email_id: {
+            "data": [
+                {
+                    "content_type": "image/jpeg",
+                    "download_url": "https://inbound-cdn.resend.com/email/attachments/photo",
+                }
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        "special_pipeline.enhance_image_url",
+        lambda image_url: {
+            "success": True,
+            "image_url": "https://res.cloudinary.com/demo/image/upload/c_limit,w_1200/e_improve/q_auto/f_auto/photo.jpg",
+            "image_path": "appertivo/specials/photo",
+            "error": None,
+        },
+    )
+    monkeypatch.setattr(
+        "email_system.resend_client.send_email",
+        lambda **kwargs: sent.update(kwargs) or {"success": True, "provider": "resend", "message_id": "publish-email", "error": None},
+    )
+    monkeypatch.setattr(
         "special_pipeline.polish_special_copy",
-        lambda raw_text, restaurant=None: {"success": False, "fields": None, "error": "OPENAI_API_KEY is not configured."},
+        lambda raw_text, restaurant=None: {
+            "success": True,
+            "fields": {
+                "title": "Enhanced Fish Tacos",
+                "description": "Polished fish tacos.",
+                "price_text": "$12",
+                "availability_text": "today",
+                "cta_text": "View Special",
+            },
+            "error": None,
+        },
     )
     payload = json.dumps(
         {
@@ -176,9 +211,16 @@ def test_inbound_special_email_routes_to_special_pipeline(outreach_app, monkeypa
         campaign = create_campaign_for_restaurant(Restaurant.query.one())
         receive_resend_email(payload, {"id": "1", "timestamp": "1", "signature": "v1,test"})
         submission = RawSpecialSubmission.query.one()
+        draft = submission.draft
         assert submission.restaurant_id == 1
-        assert submission.draft is not None
+        assert submission.raw_image_url == "https://inbound-cdn.resend.com/email/attachments/photo"
+        assert draft is not None
+        assert draft.title == "Enhanced Fish Tacos"
+        assert draft.image_url.startswith("https://res.cloudinary.com/")
         assert campaign.status == "special_received"
+    assert sent["to"] == "owner@example.com"
+    assert "Enhanced Fish Tacos" in sent["html"]
+    assert "Publish special" in sent["html"]
 
 
 def test_admin_outreach_enroll_generate_send_and_email_tool_guard(outreach_app, monkeypatch):

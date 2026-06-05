@@ -1,9 +1,19 @@
 {% extends "emails/base.html" %}
 {% block content %}
-<p>Thanks{% if restaurant_name %}, {{ restaurant_name }}{% endif %}. We received your special{% if special_title %}: <strong>{{ special_title }}</strong>{% endif %}.</p>
-{% if approval_url %}
-<p>Please review and approve the draft here: <a href="{{ approval_url }}">{{ approval_url }}</a></p>
-{% else %}
-<p>We will review it and get it ready for local diners.</p>
+<p style="margin:0 0 14px;line-height:1.5;">Thanks{% if restaurant_name %}, {{ restaurant_name }}{% endif %}. We enhanced your special and it is ready to publish.</p>
+{% if image_url %}
+  <img src="{{ image_url }}" alt="" style="display:block;width:100%;max-height:280px;object-fit:cover;border-radius:8px;margin:0 0 18px;">
 {% endif %}
+<div style="border:1px solid #e6ded3;border-radius:8px;padding:18px;margin:0 0 20px;background:#fffaf4;">
+  {% if restaurant_name %}<p style="margin:0 0 6px;color:#176f70;font-size:13px;font-weight:bold;">{{ restaurant_name }}</p>{% endif %}
+  {% if special_title %}<h1 style="margin:0 0 8px;font-size:24px;line-height:1.2;">{{ special_title }}</h1>{% endif %}
+  {% if special_description %}<p style="margin:0 0 10px;line-height:1.5;">{{ special_description }}</p>{% endif %}
+  {% if price_text or availability_text %}
+    <p style="margin:0;color:#51463d;font-weight:bold;">{{ price_text or "" }}{% if price_text and availability_text %} · {% endif %}{{ availability_text or "" }}</p>
+  {% endif %}
+</div>
+{% if publish_url %}
+  <p style="margin:0 0 18px;"><a href="{{ publish_url }}" style="display:inline-block;background:#ed4b0b;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:8px;padding:12px 18px;">Publish special</a></p>
+{% endif %}
+<p style="margin:0;color:#70675f;font-size:13px;line-height:1.5;">The button opens your Appertivo preview. Press Publish there and the special goes live.</p>
 {% endblock %}
