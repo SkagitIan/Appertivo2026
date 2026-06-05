@@ -337,14 +337,13 @@ def test_public_submission_preview_approval_and_publish(client):
         assert draft.status == "awaiting_approval"
         assert Special.query.count() == 0
 
-    assert client.get(f"/specials/preview/{token}").status_code == 302
-    login(client)
     assert b"Happy hour oysters" in client.get(f"/specials/preview/{token}").data
     assert client.post(
         f"/specials/preview/{token}/approve", data={"csrf_token": csrf(client)}
     ).status_code == 302
     with app.app_context():
         assert SpecialDraft.query.one().status == "approved"
+    login(client)
     response = client.post("/admin/special-drafts/1/publish", data={"csrf_token": csrf(client)})
     assert response.status_code == 302
     with app.app_context():
@@ -360,7 +359,12 @@ def test_public_submission_preview_approval_and_publish(client):
 def test_preview_rejection_updates_submission(client):
     client.post(
         "/submit-special",
-        data={"csrf_token": csrf(client), "restaurant_id": "1", "raw_text": "Weekend brunch $18"},
+        data={
+            "csrf_token": csrf(client),
+            "restaurant_id": "1",
+            "raw_text": "Weekend brunch $18",
+            "sender_email": "owner@example.com",
+        },
     )
     with app.app_context():
         token = SpecialDraft.query.one().approval_token
@@ -371,6 +375,48 @@ def test_preview_rejection_updates_submission(client):
     with app.app_context():
         assert SpecialDraft.query.one().status == "rejected"
         assert RawSpecialSubmission.query.one().status == "rejected"
+
+
+def test_public_submit_requires_email_and_searches_pilot_restaurants(client):
+    missing_email = client.post(
+        "/submit-special",
+        data={"csrf_token": csrf(client), "restaurant_id": "1", "raw_text": "Weekend brunch $18"},
+    )
+    assert missing_email.status_code == 400
+    assert b"Email is required" in missing_email.data
+
+    results = client.get("/api/submit-restaurants?q=Test").json
+    assert results[0]["status"] == "included"
+    assert results[0]["id"] == 1
+
+
+def test_submit_restaurant_search_marks_google_places_outside_pilot_coming_soon(client, monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "places": [
+                    {
+                        "displayName": {"text": "Future Cafe"},
+                        "formattedAddress": "123 Example St, Mount Vernon, WA",
+                    }
+                ]
+            }
+
+    monkeypatch.setitem(app.config, "GOOGLE_PLACES_API_KEY", "places-key")
+    monkeypatch.setattr("app.requests.post", lambda *args, **kwargs: Response())
+    results = client.get("/api/submit-restaurants?q=Future").json
+    assert results == [
+        {
+            "id": None,
+            "name": "Future Cafe",
+            "city": "",
+            "address": "123 Example St, Mount Vernon, WA",
+            "status": "coming_soon",
+        }
+    ]
 
 
 def test_simulated_webhooks_and_unassigned_assignment(client):

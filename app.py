@@ -8,6 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import click
+import requests
 from dotenv import load_dotenv
 from flask import (
     Flask,
@@ -23,7 +24,9 @@ from flask import (
 )
 from flask_migrate import Migrate
 from sqlalchemy import func, or_
+from werkzeug.exceptions import BadRequest
 
+from email_system.email_service import send_special_received_email
 from markets import SKAGIT_VALLEY, resolve_market
 from models import (
     DistributionLog,
@@ -55,6 +58,7 @@ LOCAL_TZ = ZoneInfo("America/Los_Angeles")
 METRIC_TYPES = {"view", "directions", "call", "website", "share"}
 CHANNELS = ["facebook_page", "facebook_group", "instagram", "email", "other"]
 LEAD_STATUSES = {"new", "contacted", "converted", "closed"}
+PLACES_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
 
 
 def normalize_database_url(database_url):
@@ -253,6 +257,58 @@ def restaurant_search_filter(search_term):
         Restaurant.category.ilike(pattern),
         Restaurant.subtypes.ilike(pattern),
     )
+
+
+def restaurant_submit_result(restaurant, status="included"):
+    return {
+        "id": restaurant.id if restaurant else None,
+        "name": restaurant.name if restaurant else "",
+        "city": restaurant.city if restaurant else "",
+        "address": restaurant.address if restaurant else "",
+        "status": status,
+    }
+
+
+def google_places_submit_suggestions(term, limit=5):
+    api_key = app.config.get("GOOGLE_PLACES_API_KEY")
+    if not api_key or len(term) < 3:
+        return []
+    payload = {
+        "textQuery": f"{term} restaurant in Skagit Valley Washington",
+        "includedType": "restaurant",
+        "maxResultCount": limit,
+        "locationBias": {
+            "rectangle": {
+                "low": {"latitude": 48.24, "longitude": -122.72},
+                "high": {"latitude": 48.7, "longitude": -121.95},
+            }
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": api_key,
+        "X-Goog-FieldMask": "places.displayName,places.formattedAddress",
+    }
+    try:
+        response = requests.post(PLACES_TEXT_SEARCH_URL, json=payload, headers=headers, timeout=4)
+        response.raise_for_status()
+    except requests.RequestException:
+        return []
+    suggestions = []
+    for place in response.json().get("places", []):
+        name = ((place.get("displayName") or {}).get("text") or "").strip()
+        if not name:
+            continue
+        suggestions.append(
+            {
+                "id": None,
+                "name": name,
+                "city": "",
+                "address": place.get("formattedAddress", ""),
+                "status": "coming_soon",
+            }
+        )
+    return suggestions
 
 
 def subscribe(email, city=None, location=None, favorite_tag=None):
@@ -685,6 +741,26 @@ def search_suggestions():
     return jsonify([{"name": item.name, "location": item.city, "url": url_for("restaurant_detail", slug=item.slug)} for item in items])
 
 
+@app.get("/api/submit-restaurants")
+def submit_restaurant_suggestions():
+    term = request.args.get("q", "").strip()
+    if len(term) < 2:
+        return jsonify([])
+    local_restaurants = (
+        included_restaurants_query()
+        .filter(restaurant_search_filter(term))
+        .order_by(Restaurant.name)
+        .limit(8)
+        .all()
+    )
+    results = [restaurant_submit_result(restaurant) for restaurant in local_restaurants]
+    local_names = {restaurant.name.lower() for restaurant in local_restaurants}
+    for suggestion in google_places_submit_suggestions(term, limit=max(0, 8 - len(results))):
+        if suggestion["name"].lower() not in local_names:
+            results.append(suggestion)
+    return jsonify(results)
+
+
 @app.route("/restaurants/<slug>", methods=["GET", "POST"])
 def restaurant_detail(slug):
     restaurant = Restaurant.query.filter_by(slug=slug, catalog_status="included").first_or_404()
@@ -724,10 +800,19 @@ def submit_special(token):
 def public_submit_special():
     restaurants = included_restaurants_query().order_by(Restaurant.name).all()
     if request.method == "POST":
-        restaurant_id = included_restaurant_id_from_form()
+        try:
+            restaurant_id = included_restaurant_id_from_form()
+        except BadRequest:
+            flash("That restaurant is coming soon. For now, submissions are open to the Skagit Valley pilot list.")
+            return render_template("public_submit_special.html", restaurants=restaurants), 400
         raw_text = request.form.get("raw_text", "").strip()
         if not raw_text:
-            abort(400, "Special details are required.")
+            flash("Special details are required.")
+            return render_template("public_submit_special.html", restaurants=restaurants), 400
+        sender_email = request.form.get("sender_email", "").strip()
+        if not sender_email:
+            flash("Email is required so we can send the approval link.")
+            return render_template("public_submit_special.html", restaurants=restaurants), 400
         try:
             image_path, image_url = save_submitted_photo()
         except UploadError as error:
@@ -739,10 +824,16 @@ def public_submit_special():
             raw_text=raw_text,
             raw_image_url=image_url,
             raw_image_path=image_path,
-            sender_email=request.form.get("sender_email", "").strip() or None,
+            sender_email=sender_email,
             sender_phone=request.form.get("sender_phone", "").strip() or None,
         )
-        generate_draft_from_submission(submission.id)
+        draft = generate_draft_from_submission(submission.id)
+        send_special_received_email(
+            sender_email,
+            restaurant_name=submission.restaurant.name if submission.restaurant else None,
+            special_title=draft.title,
+            approval_url=url_for("special_preview", approval_token=draft.approval_token, _external=True),
+        )
         return render_template("submit_success.html", restaurant=submission.restaurant, special=None)
     return render_template("public_submit_special.html", restaurants=restaurants)
 
@@ -1473,14 +1564,12 @@ def admin_publish_special_draft(draft_id):
 
 
 @app.get("/specials/preview/<approval_token>")
-@admin_required
 def special_preview(approval_token):
     draft = SpecialDraft.query.filter_by(approval_token=approval_token).first_or_404()
     return render_template("special_preview.html", draft=draft)
 
 
 @app.post("/specials/preview/<approval_token>/approve")
-@admin_required
 def approve_special_preview(approval_token):
     try:
         approve_draft(approval_token)
@@ -1491,7 +1580,6 @@ def approve_special_preview(approval_token):
 
 
 @app.post("/specials/preview/<approval_token>/reject")
-@admin_required
 def reject_special_preview(approval_token):
     try:
         reject_draft(approval_token)
@@ -1515,7 +1603,11 @@ def admin_new_special():
             flash(str(error))
             return redirect(url_for("admin_new_special"))
         return redirect(url_for("admin_special_drafts"))
-    return render_template("admin/special_form.html", restaurants=included_restaurants_query().order_by(Restaurant.name), special=Special(status="published", source="manual"))
+    special = Special(status="published", source="manual")
+    restaurant_id = request.args.get("restaurant_id", type=int)
+    if restaurant_id and included_restaurants_query().filter_by(id=restaurant_id).first():
+        special.restaurant_id = restaurant_id
+    return render_template("admin/special_form.html", restaurants=included_restaurants_query().order_by(Restaurant.name), special=special)
 
 
 @app.route("/admin/specials/<int:special_id>/edit", methods=["GET", "POST"])

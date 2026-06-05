@@ -77,12 +77,12 @@ def send_notification_email(to, subject, message):
     return send_transactional_email(to, subject, "notification", {"message": message})
 
 
-def send_special_received_email(to, restaurant_name=None, special_title=None):
+def send_special_received_email(to, restaurant_name=None, special_title=None, approval_url=None):
     return send_transactional_email(
         to,
         SUBJECTS["special_received"],
         "special_received",
-        {"restaurant_name": restaurant_name, "special_title": special_title},
+        {"restaurant_name": restaurant_name, "special_title": special_title, "approval_url": approval_url},
         from_email=current_app.config["EMAIL_FROM_SPECIALS"],
         reply_to=current_app.config["EMAIL_REPLY_TO_SPECIALS"],
     )

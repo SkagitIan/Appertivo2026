@@ -50,6 +50,7 @@
           <td class="p-3">
             <div class="flex items-center justify-end gap-1.5">
               <a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}" class="icon-button" title="View public page" aria-label="View public page for {{ restaurant.name }}">&#128065;</a>
+              <a href="{{ url_for('admin_new_special', restaurant_id=restaurant.id) }}" class="icon-button" title="Add special" aria-label="Add special for {{ restaurant.name }}">+</a>
               <a href="{{ url_for('admin_edit_restaurant', restaurant_id=restaurant.id) }}" class="icon-button" title="Edit" aria-label="Edit {{ restaurant.name }}">&#9998;</a>
               <form method="post" action="{{ url_for('admin_delete_restaurant', restaurant_id=restaurant.id) }}" onsubmit="return confirm('Delete this restaurant and its specials?');">
                 <button class="icon-button danger" title="Delete" aria-label="Delete {{ restaurant.name }}">&#128465;</button>

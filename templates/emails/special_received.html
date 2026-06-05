@@ -1,5 +1,9 @@
 {% extends "emails/base.html" %}
 {% block content %}
 <p>Thanks{% if restaurant_name %}, {{ restaurant_name }}{% endif %}. We received your special{% if special_title %}: <strong>{{ special_title }}</strong>{% endif %}.</p>
+{% if approval_url %}
+<p>Please review and approve the draft here: <a href="{{ approval_url }}">{{ approval_url }}</a></p>
+{% else %}
 <p>We will review it and get it ready for local diners.</p>
+{% endif %}
 {% endblock %}

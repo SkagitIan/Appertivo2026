@@ -3,14 +3,105 @@
 {% block content %}
 <section class="page-width section-space"><div class="mx-auto max-w-xl">
   <p class="eyebrow">Restaurant submission</p><h1 class="display-md mt-2">Send today's special</h1>
-  <p class="mt-3 text-stone-600">Choose the restaurant and send the details. We'll review the draft before it goes live.</p>
-  <form method="post" enctype="multipart/form-data" class="card mt-6 grid gap-4 p-5">
-    <label class="text-sm font-bold">Restaurant<select required name="restaurant_id" class="mt-1 w-full rounded-lg border px-3 py-2"><option value="">Choose a restaurant</option>{% for restaurant in restaurants %}<option value="{{ restaurant.id }}">{{ restaurant.name }}</option>{% endfor %}</select></label>
-    <label class="text-sm font-bold">Special details<textarea required name="raw_text" rows="5" placeholder="Tonight: fish tacos $14.99" class="mt-1 w-full rounded-lg border px-3 py-2"></textarea></label>
-    <label class="text-sm font-bold">Email <span class="font-normal text-stone-500">(optional)</span><input type="email" name="sender_email" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
+  <p class="mt-3 text-stone-600">Search for your restaurant and send the details. Pilot submissions are open for included Skagit Valley restaurants.</p>
+  <form method="post" enctype="multipart/form-data" class="card mt-6 grid gap-4 p-5" data-submit-special-form>
+    <input type="hidden" name="restaurant_id" data-restaurant-id disabled>
+    <div class="relative">
+      <label class="text-sm font-bold" for="restaurant-search">Restaurant</label>
+      <input id="restaurant-search" required autocomplete="off" placeholder="Start typing your restaurant name" class="mt-1 w-full rounded-lg border px-3 py-2" data-restaurant-search>
+      <div class="mt-2 hidden rounded-lg border bg-white shadow-sm" data-restaurant-results></div>
+      <p class="mt-2 text-sm text-stone-500" data-restaurant-message>Choose a Skagit Valley pilot restaurant from the list.</p>
+      <noscript><select required name="restaurant_id" class="mt-2 w-full rounded-lg border px-3 py-2"><option value="">Choose a restaurant</option>{% for restaurant in restaurants %}<option value="{{ restaurant.id }}">{{ restaurant.name }}</option>{% endfor %}</select></noscript>
+    </div>
+    <label class="text-sm font-bold">Special details<textarea required name="raw_text" rows="6" placeholder="Paste or type the messy version. Example: Tonight only, fish tacos, two plates for $14.99, 4-8pm. Repeats every Friday." class="mt-1 w-full rounded-lg border px-3 py-2"></textarea><span class="mt-1 block text-sm font-normal text-stone-500">Include the item, price, day or time, whether it repeats, and anything diners should know. We can parse rough notes, menu copy, or text from a flyer.</span></label>
+    <label class="text-sm font-bold">Email<input required type="email" name="sender_email" class="mt-1 w-full rounded-lg border px-3 py-2"><span class="mt-1 block text-sm font-normal text-stone-500">We'll send the approval link here before publishing.</span></label>
     <label class="text-sm font-bold">Phone <span class="font-normal text-stone-500">(optional)</span><input name="sender_phone" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
-    <label class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span><input type="file" accept="image/jpeg,image/png,image/webp" name="photo" class="mt-1 block w-full text-sm"></label>
+    <label class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span><input type="file" accept="image/jpeg,image/png,image/webp" name="photo" class="sr-only" data-photo-input><span class="button-secondary mt-1 w-fit" data-photo-button>Choose photo</span><span class="ml-3 text-sm font-normal text-stone-500" data-photo-name>No file chosen</span></label>
     <button class="button-primary">Send special</button>
   </form>
+  <section class="mt-6 rounded-lg border bg-white p-5">
+    <h2 class="text-xl font-black">What happens next</h2>
+    <div class="mt-3 grid gap-2 text-sm text-stone-600">
+      <p>1. We turn your notes into a clean special draft.</p>
+      <p>2. If you upload a photo, we prepare it for the public special card.</p>
+      <p>3. Check your inbox for the approval link before it goes live.</p>
+    </div>
+  </section>
 </div></section>
+<script>
+(() => {
+  const form = document.querySelector("[data-submit-special-form]");
+  if (!form) return;
+  const search = form.querySelector("[data-restaurant-search]");
+  const hiddenId = form.querySelector("[data-restaurant-id]");
+  const results = form.querySelector("[data-restaurant-results]");
+  const message = form.querySelector("[data-restaurant-message]");
+  const photoInput = form.querySelector("[data-photo-input]");
+  const photoButton = form.querySelector("[data-photo-button]");
+  const photoName = form.querySelector("[data-photo-name]");
+  let controller;
+  hiddenId.disabled = false;
+
+  const setMessage = (text) => { message.textContent = text; };
+  const hideResults = () => { results.classList.add("hidden"); results.innerHTML = ""; };
+
+  const renderResults = (items) => {
+    results.innerHTML = "";
+    if (!items.length) {
+      const empty = document.createElement("div");
+      empty.className = "p-3 text-sm text-stone-600";
+      empty.textContent = "No pilot match yet. Coming soon.";
+      results.appendChild(empty);
+    }
+    items.forEach((item) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "block w-full border-b px-3 py-2 text-left text-sm";
+      const details = item.city || item.address || "Skagit Valley";
+      button.textContent = item.status === "included" ? `${item.name} - ${details}` : `${item.name} - coming soon`;
+      if (item.status === "included") {
+        button.addEventListener("click", () => {
+          search.value = item.name;
+          hiddenId.value = item.id;
+          setMessage(`${item.name} selected.`);
+          hideResults();
+        });
+      } else {
+        button.disabled = true;
+        button.classList.add("text-stone-500");
+      }
+      results.appendChild(button);
+    });
+    results.classList.remove("hidden");
+  };
+
+  search.addEventListener("input", async () => {
+    const term = search.value.trim();
+    hiddenId.value = "";
+    if (controller) controller.abort();
+    if (term.length < 2) {
+      hideResults();
+      setMessage("Choose a Skagit Valley pilot restaurant from the list.");
+      return;
+    }
+    controller = new AbortController();
+    const response = await fetch(`/api/submit-restaurants?q=${encodeURIComponent(term)}`, { signal: controller.signal }).catch(() => null);
+    if (!response) return;
+    renderResults(await response.json());
+  });
+
+  form.addEventListener("submit", (event) => {
+    if (!hiddenId.value) {
+      event.preventDefault();
+      setMessage("Select an included pilot restaurant before sending.");
+      search.focus();
+    }
+  });
+
+  photoButton.addEventListener("click", () => photoInput.click());
+  photoInput.addEventListener("change", () => {
+    photoName.textContent = photoInput.files.length ? photoInput.files[0].name : "No file chosen";
+  });
+})();
+</script>
 {% endblock %}

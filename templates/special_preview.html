@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Special preview | Appertivo admin{% endblock %}
+{% block title %}Special preview | Appertivo{% endblock %}
 {% block content %}
 <section class="admin-card mx-auto max-w-2xl p-6">
-  <p class="eyebrow">Draft preview · {{ draft.status }}</p>
+  <p class="eyebrow">Draft preview &middot; {{ draft.status }}</p>
   <h1 class="display-md mt-2">{{ draft.title }}</h1>
   {% if draft.restaurant %}<p class="mt-2 font-bold text-[#176f70]">{{ draft.restaurant.name }}</p>{% endif %}
   {% if draft.image_url %}<img src="{{ draft.image_url }}" alt="" class="mt-5 h-64 w-full rounded-lg object-cover">{% endif %}
@@ -16,8 +16,8 @@
       <form method="post" action="{{ url_for('approve_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Approve</button></form>
       <form method="post" action="{{ url_for('reject_special_preview', approval_token=draft.approval_token) }}"><button class="button-quiet">Reject</button></form>
     {% endif %}
-    {% if draft.status == "approved" %}<form method="post" action="{{ url_for('admin_publish_special_draft', draft_id=draft.id) }}"><button class="button-primary">Publish</button></form>{% endif %}
-    <a href="{{ url_for('admin_special_drafts') }}" class="button-quiet">Draft queue</a>
+    {% if session.admin_authenticated and draft.status == "approved" %}<form method="post" action="{{ url_for('admin_publish_special_draft', draft_id=draft.id) }}"><button class="button-primary">Publish</button></form>{% endif %}
+    {% if session.admin_authenticated %}<a href="{{ url_for('admin_special_drafts') }}" class="button-quiet">Draft queue</a>{% endif %}
   </div>
 </section>
 {% endblock %}
