@@ -43,6 +43,18 @@
     <label class="block text-sm font-semibold text-stone-700">Subtypes</label>
     <input name="subtypes" value="{{ restaurant.subtypes if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
   </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Cuisine tags</label>
+    {% set selected_cuisines = selected_tag_options(restaurant.cuisine_tags if restaurant else '') %}
+    <div class="mt-2 grid gap-2 md:grid-cols-4">
+      {% for option in tag_options('cuisine') %}
+        <label class="schedule-choice">
+          <input type="checkbox" name="cuisine_tags" value="{{ option.key }}" {% if option.key in selected_cuisines %}checked{% endif %}>
+          <span>{{ option.label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
   <label class="flex items-center gap-2 text-sm font-semibold text-stone-700">
     <input name="claimed" type="checkbox" {% if restaurant and restaurant.claimed %}checked{% endif %}> Claimed
   </label>

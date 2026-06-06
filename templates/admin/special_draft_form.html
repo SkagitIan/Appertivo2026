@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Edit draft | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+  <div>
+    <p class="text-sm font-semibold uppercase tracking-wide text-rose-700">Admin</p>
+    <h1 class="text-3xl font-black tracking-tight">Edit draft</h1>
+  </div>
+  <a href="{{ url_for('special_preview', approval_token=draft.approval_token) }}" class="button-secondary">Preview</a>
+</div>
+<form method="post" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Restaurant</label>
+    <select name="restaurant_id" required class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      {% for restaurant in restaurants %}
+        <option value="{{ restaurant.id }}" {% if draft.restaurant_id == restaurant.id %}selected{% endif %}>{{ restaurant.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Status</label>
+    <select name="status" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      {% for option in ["draft", "awaiting_approval", "approved", "rejected"] %}
+        <option value="{{ option }}" {% if draft.status == option %}selected{% endif %}>{{ option|replace("_", " ")|title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Price</label>
+    <input name="price" value="{{ draft.price_text or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Value text</label>
+    <input name="value_text" value="{{ draft.value_text or '' }}" placeholder="$28 value" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Title</label>
+    <input name="title" required value="{{ draft.title or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Description</label>
+    <textarea name="description" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ draft.description or '' }}</textarea>
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">When is it available?</label>
+    <div class="mt-2 grid gap-2 md:grid-cols-4">
+      {% set selected_schedule = "till_sold_out" if draft.availability_text == "Until sold out" else "this_weekend" if draft.availability_text == "This weekend" else "today" %}
+      {% for value, label in [("today", "Today"), ("this_weekend", "This weekend"), ("till_sold_out", "Till sold out"), ("custom", "Calendar date")] %}
+        <label class="schedule-choice">
+          <input type="radio" name="schedule_option" value="{{ value }}" {% if selected_schedule == value %}checked{% endif %}>
+          <span>{{ label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Calendar date</label>
+    <input required name="special_date" type="date" value="{{ special_date_value(draft) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Availability note</label>
+    <input name="availability_text" value="{{ draft.availability_text or '' }}" placeholder="Optional, for custom timing" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Curated tags</label>
+    <input type="hidden" name="tag_keys_present" value="1">
+    {% set selected_tags = selected_tag_options(draft.tag_keys or '') %}
+    <div class="mt-2 grid gap-2 md:grid-cols-4">
+      {% for option in tag_options() %}
+        <label class="schedule-choice">
+          <input type="checkbox" name="tag_keys" value="{{ option.key }}" {% if option.key in selected_tags %}checked{% endif %}>
+          <span>{{ option.label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Primary tag</label>
+    <select name="primary_tag" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      <option value="">Auto</option>
+      {% for option in tag_options() %}
+        <option value="{{ option.key }}" {% if draft.primary_tag == option.key %}selected{% endif %}>{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Featured rank</label>
+    <input name="featured_rank" type="number" min="1" value="{{ draft.featured_rank or '' }}" placeholder="1" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Add-on name</label>
+    <input name="add_on_name" value="{{ draft.add_on_name or '' }}" placeholder="House Old Fashioned" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Add-on price</label>
+    <input name="add_on_price" value="{{ draft.add_on_price or '' }}" placeholder="$8" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Add-on value</label>
+    <input name="add_on_value_text" value="{{ draft.add_on_value_text or '' }}" placeholder="$12 value" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Photo</label>
+    <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 w-full">
+  </div>
+  <div class="md:col-span-2">
+    <button class="rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">Save draft</button>
+    <a href="{{ url_for('admin_special_drafts') }}" class="ml-3 text-sm font-semibold text-stone-600">Cancel</a>
+  </div>
+</form>
+{% endblock %}

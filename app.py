@@ -52,12 +52,24 @@ from special_pipeline import (
     publish_draft,
     reject_draft,
 )
+from special_taxonomy import (
+    CUISINE_TAG_KEYS,
+    feed_tag_options,
+    infer_restaurant_cuisine_tags,
+    normalize_tag_key,
+    parse_tag_text,
+    primary_tag_from,
+    serialize_tag_keys,
+    tag_label,
+    tag_labels,
+    tag_options,
+)
 from storage import UploadError, save_special_photo
 
 
 load_dotenv()
 LOCAL_TZ = ZoneInfo("America/Los_Angeles")
-METRIC_TYPES = {"view", "directions", "call", "website", "share"}
+METRIC_TYPES = {"view", "directions", "call", "website", "share", "save"}
 CHANNELS = ["facebook_page", "facebook_group", "instagram", "email", "other"]
 LEAD_STATUSES = {"new", "contacted", "converted", "closed"}
 PLACES_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
@@ -257,6 +269,21 @@ def active_specials_query():
     )
 
 
+def special_tag_filter(tag_key):
+    return or_(
+        Special.primary_tag == tag_key,
+        Special.tag_keys == tag_key,
+        Special.tag_keys.ilike(f"{tag_key},%"),
+        Special.tag_keys.ilike(f"%,{tag_key},%"),
+        Special.tag_keys.ilike(f"%,{tag_key}"),
+    )
+
+
+def selected_tag_key(value):
+    key = normalize_tag_key(value)
+    return key if tag_label(key) else ""
+
+
 def restaurant_search_filter(search_term):
     pattern = f"%{search_term}%"
     return or_(
@@ -266,6 +293,7 @@ def restaurant_search_filter(search_term):
         Restaurant.street.ilike(pattern),
         Restaurant.category.ilike(pattern),
         Restaurant.subtypes.ilike(pattern),
+        Restaurant.cuisine_tags.ilike(pattern),
     )
 
 
@@ -601,6 +629,52 @@ def special_is_today(special):
 app.jinja_env.globals["special_is_today"] = special_is_today
 
 
+def special_timing_badge(special):
+    if special.availability_text:
+        return special.availability_text
+    if special.expires_at and special.expires_at.replace(tzinfo=UTC).astimezone(LOCAL_TZ).date() == datetime.now(LOCAL_TZ).date():
+        return "Ends Today"
+    if special.starts_at or special.expires_at:
+        return special_display_date(special)
+    return "All Day"
+
+
+def special_tag_labels(special):
+    labels = tag_labels(getattr(special, "tag_keys", ""))
+    primary_label = tag_label(getattr(special, "primary_tag", ""))
+    if primary_label and primary_label not in labels:
+        labels.insert(0, primary_label)
+    return labels[:3]
+
+
+def saved_special_ids():
+    ids = set()
+    for special_id in session.get("saved_special_ids", []):
+        try:
+            ids.add(int(special_id))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def is_special_saved(special):
+    return special.id in saved_special_ids()
+
+
+def selected_tag_options(value):
+    return set(parse_tag_text(value))
+
+
+app.jinja_env.globals["special_timing_badge"] = special_timing_badge
+app.jinja_env.globals["special_tag_labels"] = special_tag_labels
+app.jinja_env.globals["is_special_saved"] = is_special_saved
+app.jinja_env.globals["tag_label"] = tag_label
+app.jinja_env.globals["tag_labels"] = tag_labels
+app.jinja_env.globals["tag_options"] = tag_options
+app.jinja_env.globals["feed_tag_options"] = feed_tag_options
+app.jinja_env.globals["selected_tag_options"] = selected_tag_options
+
+
 def format_hours_value(hours):
     if isinstance(hours, list):
         return ", ".join(str(hour).strip() for hour in hours if str(hour).strip())
@@ -637,8 +711,16 @@ def draft_as_preview_special(draft):
         title=draft.title,
         description=draft.description,
         price=draft.price_text,
+        value_text=draft.value_text,
         photo_url=draft.image_url,
         restaurant=draft.restaurant or SimpleNamespace(name="Restaurant to be assigned", city=""),
+        availability_text=draft.availability_text,
+        tag_keys=draft.tag_keys or "",
+        primary_tag=draft.primary_tag,
+        add_on_name=draft.add_on_name,
+        add_on_price=draft.add_on_price,
+        add_on_value_text=draft.add_on_value_text,
+        featured_rank=draft.featured_rank,
         starts_at=draft.starts_at,
         expires_at=draft.expires_at,
         created_at=draft.created_at,
@@ -672,6 +754,45 @@ def schedule_window_from_form():
 def set_special_schedule(special):
     special.starts_at, special.expires_at, availability_text = schedule_window_from_form()
     special.availability_text = availability_text
+
+
+def optional_int_from_form(name):
+    value = request.form.get(name, "").strip()
+    try:
+        return int(value) if value else None
+    except ValueError:
+        abort(400, f"{name} must be a number.")
+
+
+def selected_special_tag_keys_from_form():
+    values = request.form.getlist("tag_keys")
+    values.extend(parse_tag_text(request.form.get("tag_keys_text", "")))
+    return serialize_tag_keys(values)
+
+
+def set_special_taxonomy_fields(item):
+    submitted_tag_values = request.form.getlist("tag_keys")
+    submitted_tag_text = request.form.get("tag_keys_text", "").strip()
+    tag_input_present = bool(submitted_tag_values or submitted_tag_text or request.form.get("tag_keys_present"))
+    tag_keys = selected_special_tag_keys_from_form() if tag_input_present else (item.tag_keys or "")
+    if tag_input_present:
+        item.tag_keys = tag_keys
+    if tag_input_present or request.form.get("primary_tag"):
+        item.primary_tag = primary_tag_from(tag_keys.split(","), request.form.get("primary_tag"))
+    item.value_text = request.form.get("value_text", "").strip() or None
+    item.add_on_name = request.form.get("add_on_name", "").strip() or None
+    item.add_on_price = request.form.get("add_on_price", "").strip() or None
+    item.add_on_value_text = request.form.get("add_on_value_text", "").strip() or None
+    item.featured_rank = optional_int_from_form("featured_rank")
+
+
+def has_special_taxonomy_overrides():
+    if request.form.getlist("tag_keys") or request.form.get("tag_keys_text", "").strip():
+        return True
+    return any(
+        request.form.get(name, "").strip()
+        for name in ["primary_tag", "value_text", "add_on_name", "add_on_price", "add_on_value_text", "featured_rank"]
+    )
 
 
 def save_photo_if_present(special):
@@ -708,8 +829,11 @@ def structured_draft_from_form(source_channel, restaurant_id, enhance=True):
         draft.title = title
         draft.description = description
         draft.price_text = price or None
+        set_special_taxonomy_fields(draft)
     draft.starts_at, draft.expires_at, availability_text = schedule_window_from_form()
     draft.availability_text = availability_text
+    if enhance and has_special_taxonomy_overrides():
+        set_special_taxonomy_fields(draft)
     db.session.commit()
     return draft
 
@@ -721,6 +845,7 @@ def special_from_form(special=None):
     special.description = request.form.get("description", "").strip()
     special.price = request.form.get("price", "").strip()
     set_special_schedule(special)
+    set_special_taxonomy_fields(special)
     special.status = request.form.get("status", "draft")
     special.source = request.form.get("source", "manual")
     special.raw_text = request.form.get("raw_text", "").strip() or None
@@ -728,6 +853,23 @@ def special_from_form(special=None):
         special.published_at = utc_now()
     save_photo_if_present(special)
     return special
+
+
+def draft_from_form(draft):
+    draft.restaurant_id = included_restaurant_id_from_form()
+    draft.raw_submission.restaurant_id = draft.restaurant_id
+    draft.title = request.form["title"].strip()
+    draft.description = request.form.get("description", "").strip()
+    draft.price_text = request.form.get("price", "").strip() or None
+    draft.starts_at, draft.expires_at, availability_text = schedule_window_from_form()
+    draft.availability_text = availability_text
+    draft.status = request.form.get("status", draft.status)
+    set_special_taxonomy_fields(draft)
+    image_path, image_url = save_submitted_photo()
+    if image_url or image_path:
+        draft.image_path = image_path
+        draft.image_url = image_url
+    return draft
 
 
 def included_restaurants_query():
@@ -787,6 +929,8 @@ def restaurant_from_form(restaurant=None):
     restaurant.website = request.form.get("website", "").strip()
     restaurant.category = request.form.get("category", "").strip()
     restaurant.subtypes = request.form.get("subtypes", "").strip()
+    cuisine_tags = serialize_tag_keys(request.form.getlist("cuisine_tags"), allowed=CUISINE_TAG_KEYS)
+    restaurant.cuisine_tags = cuisine_tags or serialize_tag_keys(infer_restaurant_cuisine_tags(restaurant), allowed=CUISINE_TAG_KEYS)
     restaurant.claimed = request.form.get("claimed") == "on"
     restaurant.direct_publish_enabled = request.form.get("direct_publish_enabled") == "on"
     return restaurant
@@ -822,44 +966,88 @@ def special_map_data(specials):
     ]
 
 
-@app.route("/", methods=["GET", "POST"])
-def home():
+def feed_url_args(location=None, city=None, tag=None, view=None):
+    args = {}
+    if location:
+        args["location"] = location
+    if city:
+        args["city"] = city
+    if tag:
+        args["tag"] = tag
+    if view:
+        args["view"] = view
+    return args
+
+
+def select_featured_special(specials):
+    ranked = [special for special in specials if special.featured_rank is not None]
+    if ranked:
+        return sorted(ranked, key=lambda special: special.featured_rank)[0]
+    return next((special for special in specials if special.photo_url), None) or (specials[0] if specials else None)
+
+
+def render_specials_feed():
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         location = request.form.get("location", "").strip()
+        city = request.form.get("city", "").strip()
+        tag = selected_tag_key(request.form.get("tag", ""))
         market, _ = resolve_market(location)
         if email:
-            subscribe(email, city=request.form.get("city", "").strip(), location=location)
+            favorite_tag = f"special_tag:{tag}" if tag else None
+            subscribe(email, city=city, location=location, favorite_tag=favorite_tag)
             if market:
                 flash("You're on the early list. Skagit Valley specials alerts are coming soon.")
             else:
                 flash(f"You're on the waitlist. We'll let you know when Appertivo reaches {location}.")
-        return redirect(url_for("home", location=location))
+        return redirect(url_for(request.endpoint, **feed_url_args(location=location, city=city, tag=tag)))
     location = request.args.get("location", "").strip()
     market, matched_city = resolve_market(location)
     city = request.args.get("city", "").strip()
+    active_tag = selected_tag_key(request.args.get("tag", ""))
+    view = "map" if request.args.get("view") == "map" else "list"
     if not city and matched_city:
         city = matched_city
     if market:
         query = active_specials_query().filter(Restaurant.city.in_(market["cities"]))
         if city:
             query = query.filter(Restaurant.city.ilike(city))
-        specials = query.order_by(Special.published_at.desc(), Special.created_at.desc()).all()
+        if active_tag:
+            query = query.filter(special_tag_filter(active_tag))
+        all_specials = query.order_by(Special.published_at.desc(), Special.created_at.desc()).all()
         cities = market["cities"]
     else:
-        specials = []
+        all_specials = []
         cities = []
+    featured_special = select_featured_special(all_specials)
+    specials = [special for special in all_specials if not featured_special or special.id != featured_special.id]
     return render_template(
         "home.html",
         specials=specials,
+        all_specials=all_specials,
+        featured_special=featured_special,
         cities=cities,
         city=city,
         location=location or SKAGIT_VALLEY["label"],
+        active_tag=active_tag,
+        view=view,
+        feed_tags=feed_tag_options(),
         market=market,
         map_center=(market or SKAGIT_VALLEY)["center"],
         map_zoom=(market or SKAGIT_VALLEY)["zoom"],
-        map_specials=special_map_data(specials),
+        map_specials=special_map_data(all_specials),
+        saved_count=len(saved_special_ids()),
     )
+
+
+@app.route("/", methods=["GET", "POST"])
+def home():
+    return render_specials_feed()
+
+
+@app.route("/specials", methods=["GET", "POST"])
+def specials_feed():
+    return render_specials_feed()
 
 
 @app.get("/how-it-works")
@@ -1145,9 +1333,8 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_ROOT"], filename)
 
 
-@app.get("/specials/<public_id>")
-def special_detail(public_id):
-    special = (
+def active_special_by_public_id(public_id):
+    return (
         Special.query.join(Restaurant)
         .filter(
             Special.public_id == public_id,
@@ -1156,21 +1343,47 @@ def special_detail(public_id):
         )
         .first_or_404()
     )
+
+
+@app.get("/saved")
+def saved_specials():
+    ids = saved_special_ids()
+    specials = []
+    if ids:
+        specials = (
+            active_specials_query()
+            .filter(Special.id.in_(ids))
+            .order_by(Special.published_at.desc(), Special.created_at.desc())
+            .all()
+        )
+    return render_template("saved.html", specials=specials, saved_count=len(ids))
+
+
+@app.get("/specials/<public_id>")
+def special_detail(public_id):
+    special = active_special_by_public_id(public_id)
     record_metric(special, "view", request.args.get("channel"))
     return render_template("special.html", special=special, can_manage=can_manage_special(special))
 
 
+@app.post("/specials/<public_id>/save")
+def save_special(public_id):
+    special = active_special_by_public_id(public_id)
+    ids = saved_special_ids()
+    if special.id in ids:
+        ids.remove(special.id)
+        flash("Removed from saved specials.")
+    else:
+        ids.add(special.id)
+        record_metric(special, "save", request.args.get("channel"))
+        flash("Special saved.")
+    session["saved_special_ids"] = sorted(ids)
+    return redirect(request.referrer or url_for("special_detail", public_id=public_id))
+
+
 @app.post("/specials/<public_id>/sold-out")
 def mark_special_sold_out(public_id):
-    special = (
-        Special.query.join(Restaurant)
-        .filter(
-            Special.public_id == public_id,
-            Special.status == "published",
-            Restaurant.catalog_status == "included",
-        )
-        .first_or_404()
-    )
+    special = active_special_by_public_id(public_id)
     if not can_manage_special(special):
         abort(403)
     special.status = "expired"
@@ -1182,15 +1395,7 @@ def mark_special_sold_out(public_id):
 
 @app.get("/specials/<public_id>/action/<event_type>")
 def special_action(public_id, event_type):
-    special = (
-        Special.query.join(Restaurant)
-        .filter(
-            Special.public_id == public_id,
-            Special.status == "published",
-            Restaurant.catalog_status == "included",
-        )
-        .first_or_404()
-    )
+    special = active_special_by_public_id(public_id)
     destinations = {
         "directions": f"https://www.google.com/maps/search/?api=1&query={special.restaurant.latitude},{special.restaurant.longitude}",
         "call": f"tel:{special.restaurant.phone}",
@@ -1685,6 +1890,8 @@ def enhance_restaurant(restaurant, api_key):
 
     load_application()
     enrich_restaurant(restaurant, api_key)
+    if not restaurant.cuisine_tags:
+        restaurant.cuisine_tags = serialize_tag_keys(infer_restaurant_cuisine_tags(restaurant), allowed=CUISINE_TAG_KEYS)
     db.session.commit()
 
 
@@ -1848,6 +2055,26 @@ def admin_special_drafts():
     drafts = SpecialDraft.query.order_by(SpecialDraft.created_at.desc()).all()
     restaurants = included_restaurants_query().order_by(Restaurant.name).all()
     return render_template("admin/special_drafts.html", drafts=drafts, restaurants=restaurants)
+
+
+@app.route("/admin/special-drafts/<int:draft_id>/edit", methods=["GET", "POST"])
+@admin_required
+def admin_edit_special_draft(draft_id):
+    draft = SpecialDraft.query.get_or_404(draft_id)
+    if request.method == "POST":
+        try:
+            draft_from_form(draft)
+            db.session.commit()
+        except UploadError as error:
+            flash(str(error))
+            return redirect(url_for("admin_edit_special_draft", draft_id=draft.id))
+        flash("Draft updated.")
+        return redirect(url_for("special_preview", approval_token=draft.approval_token))
+    return render_template(
+        "admin/special_draft_form.html",
+        draft=draft,
+        restaurants=included_restaurants_query().order_by(Restaurant.name),
+    )
 
 
 @app.post("/admin/special-drafts/<int:draft_id>/assign")

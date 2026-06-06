@@ -14,6 +14,8 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
+from special_taxonomy import infer_restaurant_cuisine_tags, serialize_tag_keys
+
 DETAILS_URL = "https://places.googleapis.com/v1/places/{}"
 
 CORE_FIELDS = [
@@ -192,6 +194,8 @@ def apply_place_details(restaurant, details):
     for model_field, response_field in FIELD_MAP.items():
         if response_field in details:
             setattr(restaurant, model_field, details[response_field])
+    if not restaurant.cuisine_tags:
+        restaurant.cuisine_tags = serialize_tag_keys(infer_restaurant_cuisine_tags(restaurant))
     restaurant.google_place_refreshed_at = utc_now()
     if "reviews" in details:
         replace_reviews(restaurant, details["reviews"])

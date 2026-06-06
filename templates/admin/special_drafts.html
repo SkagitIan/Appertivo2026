@@ -22,6 +22,7 @@
       {% endif %}
       <div class="mt-4 flex flex-wrap gap-2">
         <a href="{{ url_for('special_preview', approval_token=draft.approval_token) }}" class="button-quiet" data-testid="draft-preview-link">Preview</a>
+        <a href="{{ url_for('admin_edit_special_draft', draft_id=draft.id) }}" class="button-quiet">Edit</a>
         <form method="post" action="{{ url_for('admin_enhance_special_draft', draft_id=draft.id) }}"><button class="button-primary">Enhance again</button></form>
         {% if draft.raw_submission.sender_email %}<form method="post" action="{{ url_for('admin_send_special_publish_email', draft_id=draft.id) }}"><button class="button-quiet" data-testid="send-publish-email">Send publish email</button></form>{% endif %}
         {% if draft.status == "approved" %}<form method="post" action="{{ url_for('admin_publish_special_draft', draft_id=draft.id) }}"><button class="button-primary" data-testid="admin-publish-draft">Publish</button></form>{% endif %}

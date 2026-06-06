@@ -17,8 +17,10 @@
     <div class="page-width flex min-h-[76px] items-center justify-between gap-5">
       <a href="{{ url_for('home') }}" aria-label="Appertivo home"><span class="brand">Appertivo</span><span class="brand-tag">Today's special, local spotlight.</span></a>
       <nav class="desktop-nav flex items-center gap-7">
-        <a href="{{ url_for('how_it_works') }}" class="nav-link">FAQ</a>
+        <a href="{{ url_for('specials_feed') }}" class="nav-link">Specials</a>
+        <a href="{{ url_for('restaurants') }}" class="nav-link">Restaurants</a>
         <a href="{{ url_for('for_restaurants') }}" class="nav-link">For Restaurants</a>
+        <a href="{{ url_for('how_it_works') }}" class="nav-link">FAQ</a>
         <a href="{{ url_for('get_started') }}" class="button-primary">Get Started</a>
       </nav>
       <a href="{{ url_for('get_started') }}" class="button-primary md:hidden">Get Started</a>
@@ -47,6 +49,15 @@
   <main class="{% if request.path.startswith('/admin') %}admin-main mx-auto px-4 py-8{% else %}public-main{% endif %}">
     {% block content %}{% endblock %}
   </main>
+  {% if not request.path.startswith('/admin') %}
+    <nav class="mobile-bottom-nav" aria-label="Primary">
+      <a href="{{ url_for('home') }}" class="{% if request.endpoint == 'home' %}is-active{% endif %}"><span class="bottom-nav-icon home-icon" aria-hidden="true"></span><span>Home</span></a>
+      <a href="{{ url_for('specials_feed') }}" class="{% if request.endpoint == 'specials_feed' %}is-active{% endif %}"><span class="bottom-nav-icon tag-icon" aria-hidden="true"></span><span>Specials</span></a>
+      <a href="{{ url_for('specials_feed', view='map') }}#specials"><span class="bottom-nav-icon pin-icon" aria-hidden="true"></span><span>Nearby</span></a>
+      <a href="{{ url_for('saved_specials') }}" class="{% if request.endpoint == 'saved_specials' %}is-active{% endif %}"><span class="bottom-nav-icon heart-icon" aria-hidden="true"></span><span>Saved</span></a>
+      <a href="{{ url_for('specials_feed') }}#early-list"><span class="bottom-nav-icon alert-icon" aria-hidden="true"></span><span>Alerts</span></a>
+    </nav>
+  {% endif %}
   <footer class="site-footer mt-16">
     <div class="page-width grid gap-8 py-10 md:grid-cols-[1.3fr_.7fr_.7fr]">
       <div><h2 class="text-3xl">Appertivo</h2><p class="mt-2 max-w-sm text-sm text-orange-100">Today's special, local spotlight. Discover what nearby restaurants are serving right now.</p></div>

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Saved specials | Appertivo{% endblock %}
+{% block content %}
+<section class="page-width section-space">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="eyebrow">Saved</p>
+      <h1 class="display-md mt-2">Saved specials</h1>
+    </div>
+    <a href="{{ url_for('specials_feed') }}" class="button-secondary">Browse Specials</a>
+  </div>
+  <div class="special-feed-grid mt-6">
+    {% for special in specials %}
+      {% include "partials/special_card.html" %}
+    {% else %}
+      <div class="soft-panel p-8 text-center md:col-span-2 lg:col-span-3">
+        <h2 class="text-2xl">No saved specials yet.</h2>
+        <p class="mt-2 text-stone-600">Save a special from the feed and it will show up here.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

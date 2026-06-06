@@ -11,6 +11,10 @@
     <label class="block text-sm font-semibold text-stone-700">Price</label>
     <input name="price" value="{{ special.price or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
   </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Value text</label>
+    <input name="value_text" value="{{ special.value_text or '' }}" placeholder="$28 value" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
   <div class="md:col-span-2">
     <label class="block text-sm font-semibold text-stone-700">Title</label>
     <input name="title" required value="{{ special.title or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
@@ -54,6 +58,44 @@
         <option value="{{ option }}" {% if special.source == option %}selected{% endif %}>{{ option|title }}</option>
       {% endfor %}
     </select>
+  </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Curated tags</label>
+    <input type="hidden" name="tag_keys_present" value="1">
+    {% set selected_tags = selected_tag_options(special.tag_keys or '') %}
+    <div class="mt-2 grid gap-2 md:grid-cols-4">
+      {% for option in tag_options() %}
+        <label class="schedule-choice">
+          <input type="checkbox" name="tag_keys" value="{{ option.key }}" {% if option.key in selected_tags %}checked{% endif %}>
+          <span>{{ option.label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Primary tag</label>
+    <select name="primary_tag" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      <option value="">Auto</option>
+      {% for option in tag_options() %}
+        <option value="{{ option.key }}" {% if special.primary_tag == option.key %}selected{% endif %}>{{ option.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Featured rank</label>
+    <input name="featured_rank" type="number" min="1" value="{{ special.featured_rank or '' }}" placeholder="1" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Add-on name</label>
+    <input name="add_on_name" value="{{ special.add_on_name or '' }}" placeholder="House Old Fashioned" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Add-on price</label>
+    <input name="add_on_price" value="{{ special.add_on_price or '' }}" placeholder="$8" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Add-on value</label>
+    <input name="add_on_value_text" value="{{ special.add_on_value_text or '' }}" placeholder="$12 value" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
   </div>
   <div class="md:col-span-2">
     <label class="block text-sm font-semibold text-stone-700">Photo</label>

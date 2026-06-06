@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from models import Restaurant, Special, utc_now
+from special_taxonomy import serialize_tag_keys
 
 
 DEMO_SPECIALS = [
@@ -10,6 +11,13 @@ DEMO_SPECIALS = [
         "title": "Cedar Plank Salmon Dinner",
         "description": "Sample post: local salmon with roasted market vegetables and herb butter.",
         "price": "$28",
+        "value_text": "$36 value",
+        "tag_keys": ["seafood", "american"],
+        "primary_tag": "seafood",
+        "featured_rank": 1,
+        "add_on_name": "House Chowder Cup",
+        "add_on_price": "$6",
+        "add_on_value_text": "$9 value",
         "photo_url": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=80",
     },
     {
@@ -18,6 +26,9 @@ DEMO_SPECIALS = [
         "title": "Smash Burger and Pint",
         "description": "Sample post: a double smash burger, seasoned fries, and a draft pint.",
         "price": "$18",
+        "value_text": "$24 value",
+        "tag_keys": ["burgers", "american"],
+        "primary_tag": "burgers",
         "photo_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80",
     },
     {
@@ -26,6 +37,9 @@ DEMO_SPECIALS = [
         "title": "Wood-Fired Mushroom Pizza",
         "description": "Sample post: roasted mushrooms, mozzarella, herbs, and a crisp wood-fired crust.",
         "price": "$19",
+        "value_text": "$25 value",
+        "tag_keys": ["pizza", "italian"],
+        "primary_tag": "pizza",
         "photo_url": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=900&q=80",
     },
     {
@@ -34,6 +48,9 @@ DEMO_SPECIALS = [
         "title": "Pitmaster Plate",
         "description": "Sample post: smoked brisket, pulled pork, slaw, and a rotating house side.",
         "price": "$24",
+        "value_text": "$31 value",
+        "tag_keys": ["bbq", "american"],
+        "primary_tag": "bbq",
         "photo_url": "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=900&q=80",
     },
     {
@@ -42,6 +59,9 @@ DEMO_SPECIALS = [
         "title": "Local Oyster Happy Hour",
         "description": "Sample post: a half dozen local oysters with mignonette and lemon.",
         "price": "$16",
+        "value_text": "$22 value",
+        "tag_keys": ["happy_hour", "seafood"],
+        "primary_tag": "happy_hour",
         "photo_url": "https://images.unsplash.com/photo-1498579397066-22750a3cb424?auto=format&fit=crop&w=900&q=80",
     },
     {
@@ -50,6 +70,9 @@ DEMO_SPECIALS = [
         "title": "Fresh Pastry Box",
         "description": "Sample post: today's bakery selection packed as a shareable take-home box.",
         "price": "$15",
+        "value_text": "$20 value",
+        "tag_keys": ["bakery", "dessert"],
+        "primary_tag": "bakery",
         "photo_url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80",
     },
 ]
@@ -73,6 +96,13 @@ def seed_demo_specials(session):
         special.title = item["title"]
         special.description = item["description"]
         special.price = item["price"]
+        special.value_text = item.get("value_text")
+        special.tag_keys = serialize_tag_keys(item.get("tag_keys", []))
+        special.primary_tag = item.get("primary_tag")
+        special.add_on_name = item.get("add_on_name")
+        special.add_on_price = item.get("add_on_price")
+        special.add_on_value_text = item.get("add_on_value_text")
+        special.featured_rank = item.get("featured_rank")
         special.photo_url = item["photo_url"]
         special.status = "published"
         special.published_at = now

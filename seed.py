@@ -6,6 +6,7 @@ from app import app
 from demo_data import seed_demo_specials
 from models import Restaurant, db
 from services import slugify
+from special_taxonomy import infer_restaurant_cuisine_tags, serialize_tag_keys
 
 
 CSV_PATH = Path(__file__).with_name("skagit_restaurants_master.csv")
@@ -102,7 +103,7 @@ def unique_slug(row, used_slugs):
 
 
 def restaurant_from_row(row, used_slugs):
-    return Restaurant(
+    restaurant = Restaurant(
         name=row["name"],
         slug=unique_slug(row, used_slugs),
         full_address=row["full_address"],
@@ -130,6 +131,8 @@ def restaurant_from_row(row, used_slugs):
         scraped_zip=row["scraped_zip"],
         source=row["source"],
     )
+    restaurant.cuisine_tags = serialize_tag_keys(infer_restaurant_cuisine_tags(restaurant))
+    return restaurant
 
 
 def seed_database(reset=False):

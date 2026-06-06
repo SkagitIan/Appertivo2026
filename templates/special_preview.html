@@ -9,6 +9,9 @@
         <h1 class="display-md mt-2">Review your special</h1>
       </div>
       <div class="flex flex-wrap gap-2">
+        {% if session.admin_authenticated %}
+          <a href="{{ url_for('admin_edit_special_draft', draft_id=draft.id) }}" class="button-secondary">Edit draft</a>
+        {% endif %}
         {% if draft.status in ["awaiting_approval", "approved", "draft"] %}
           <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary" data-testid="preview-publish">Publish</button></form>
           <a href="mailto:specials@appertivo.com?subject=Edit special draft {{ draft.id }}" class="button-quiet">Edit</a>

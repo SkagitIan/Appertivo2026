@@ -5,6 +5,8 @@ import re
 import requests
 from flask import current_app
 
+from special_taxonomy import primary_tag_from, serialize_tag_keys
+
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +94,14 @@ def polish_special_copy(raw_text, restaurant=None):
     prompt = (
         "Turn this restaurant special submission into clean structured fields for Appertivo. "
         "Correct spelling and grammar. Add light appetizing polish, but do not invent facts, ingredients, prices, dates, or availability. "
-        "If a field is unknown, return null or an empty string. Return only JSON with these keys: "
-        "title, description, price_text, availability_text, cta_text.\n\n"
+        "Use only these tag keys when clearly supported by the submission or restaurant context: "
+        "happy_hour, pizza, burgers, seafood, date_night, brunch, cocktails, pasta, tacos, sushi, steak, dessert, "
+        "italian, mexican, japanese, american, bbq, bakery, coffee. "
+        "Do not use LTO or limited time offer language. "
+        "If a field is unknown, return null or an empty string. Return only JSON with these flat keys: "
+        "title, description, price_text, value_text, availability_text, cta_text, tag_keys, primary_tag, "
+        "add_on_name, add_on_price, add_on_value_text, starts_at, expires_at. "
+        "Return starts_at and expires_at only as ISO 8601 strings when the raw submission clearly states them.\n\n"
         f"Restaurant context: {restaurant_context}\n"
         f"Raw special submission:\n{raw_text or ''}"
     )
@@ -113,12 +121,22 @@ def polish_special_copy(raw_text, restaurant=None):
         if not response.ok:
             return {"success": False, "fields": None, "error": data.get("error", {}).get("message", "OpenAI request failed.")}
         parsed = _json_from_text(_output_text(data))
+        tag_keys = serialize_tag_keys(parsed.get("tag_keys") or [])
+        tag_key_list = [key for key in tag_keys.split(",") if key]
         fields = {
             "title": (_clean_field(parsed.get("title")) or "Today's Special")[:160],
             "description": _clean_field(parsed.get("description")) or _clean_field(raw_text),
             "price_text": _clean_field(parsed.get("price_text")) or None,
+            "value_text": _clean_field(parsed.get("value_text")) or None,
             "availability_text": _clean_field(parsed.get("availability_text")) or None,
             "cta_text": _clean_field(parsed.get("cta_text")) or "View Special",
+            "tag_keys": tag_keys,
+            "primary_tag": primary_tag_from(tag_key_list, parsed.get("primary_tag")),
+            "add_on_name": _clean_field(parsed.get("add_on_name"))[:120] or None,
+            "add_on_price": _clean_field(parsed.get("add_on_price")) or None,
+            "add_on_value_text": _clean_field(parsed.get("add_on_value_text")) or None,
+            "starts_at": _clean_field(parsed.get("starts_at")) or None,
+            "expires_at": _clean_field(parsed.get("expires_at")) or None,
         }
         return {"success": True, "fields": fields, "error": None}
     except (requests.RequestException, ValueError, TypeError, json.JSONDecodeError) as error:

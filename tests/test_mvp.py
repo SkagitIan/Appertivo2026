@@ -23,6 +23,7 @@ from models import (
     db,
 )
 from special_pipeline import create_or_prepare_image, polish_special_text
+from special_taxonomy import infer_tags_from_text, serialize_tag_keys, tag_label
 from storage import R2Storage, UploadError, validate_image
 
 
@@ -219,12 +220,12 @@ def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
         db.session.commit()
 
     default_page = client.get("/")
-    assert b"Fresh from nearby kitchens" in default_page.data
-    assert b"Discover what restaurants are serving right now." in default_page.data
+    assert b"Tonight" in default_page.data
+    assert b"Best Specials" in default_page.data
     assert b"Today's specials" in default_page.data
     assert b"Sample special" not in default_page.data
     assert b"Updated daily" in default_page.data
-    assert b"Get local special alerts." in default_page.data
+    assert b"Miss a Special" in default_page.data
     assert b"Skagit Valley launch preview" not in default_page.data
     assert b'value="Skagit Valley, WA"' in default_page.data
 
@@ -234,7 +235,67 @@ def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
 
     waitlist_page = client.get("/?location=Seattle")
     assert b"Get restaurant specials near Seattle." in waitlist_page.data
-    assert b"Get notifications" in waitlist_page.data
+    assert b"Get Local Specials" in waitlist_page.data
+
+
+def test_specials_feed_filters_featured_and_saved_flow(client):
+    with app.app_context():
+        db.session.add_all(
+            [
+                Special(
+                    restaurant_id=1,
+                    title="Featured Burger",
+                    description="Burger and fries.",
+                    price="$16",
+                    status="published",
+                    tag_keys="burgers,american",
+                    primary_tag="burgers",
+                    featured_rank=1,
+                    expires_at=datetime(2099, 1, 1),
+                    photo_url="https://images.example/burger.jpg",
+                    published_at=datetime(2026, 6, 4),
+                ),
+                Special(
+                    restaurant_id=1,
+                    title="Seafood Pasta",
+                    description="Clams and linguine.",
+                    price="$21",
+                    status="published",
+                    tag_keys="seafood,pasta,italian",
+                    primary_tag="seafood",
+                    expires_at=datetime(2099, 1, 1),
+                    published_at=datetime(2026, 6, 5),
+                ),
+            ]
+        )
+        db.session.commit()
+        burger = Special.query.filter_by(title="Featured Burger").one()
+        pasta = Special.query.filter_by(title="Seafood Pasta").one()
+        burger_public_id = burger.public_id
+        pasta_public_id = pasta.public_id
+
+    page = client.get("/specials?tag=burgers")
+    assert page.status_code == 200
+    assert b'data-testid="featured-special"' in page.data
+    assert b"Featured Burger" in page.data
+    assert b"Seafood Pasta" not in page.data
+
+    seafood_page = client.get("/specials?tag=seafood")
+    assert b"Seafood Pasta" in seafood_page.data
+    assert b"Featured Burger" not in seafood_page.data
+
+    save_response = client.post(
+        f"/specials/{pasta_public_id}/save",
+        data={"csrf_token": csrf(client)},
+        follow_redirects=True,
+    )
+    assert save_response.status_code == 200
+    saved_page = client.get("/saved")
+    assert b"Seafood Pasta" in saved_page.data
+    assert b"Featured Burger" not in saved_page.data
+    with app.app_context():
+        assert SpecialMetric.query.filter_by(event_type="save", special_id=pasta.id).count() == 1
+        assert Special.query.filter_by(public_id=burger_public_id).one().featured_rank == 1
 
 
 def test_demo_special_seed_is_idempotent(client):
@@ -442,19 +503,25 @@ def test_r2_storage_uses_s3_compatible_client(monkeypatch):
 
 def test_special_pipeline_parser_and_missing_image():
     parsed = polish_special_text("Fish tacos tonight. Two plates for $14.99")
-    assert parsed == {
-        "title": "Fish tacos tonight",
-        "description": "Fish tacos tonight. Two plates for $14.99",
-        "price_text": "$14.99",
-        "availability_text": "tonight",
-        "cta_text": "View Special",
-    }
+    assert parsed["title"] == "Fish tacos tonight"
+    assert parsed["description"] == "Fish tacos tonight. Two plates for $14.99"
+    assert parsed["price_text"] == "$14.99"
+    assert parsed["availability_text"] == "tonight"
+    assert parsed["cta_text"] == "View Special"
+    assert parsed["tag_keys"] == "seafood,tacos,mexican"
+    assert parsed["primary_tag"] == "seafood"
     assert create_or_prepare_image(SimpleNamespace(raw_image_url=None, raw_image_path=None)) == {
         "image_url": None,
         "image_path": None,
         "ai_generated_image": False,
         "image_disclaimer": None,
     }
+
+
+def test_curated_taxonomy_rejects_unknown_tags():
+    assert serialize_tag_keys(["burgers", "made_up", "pizza", "Burgers"]) == "burgers,pizza"
+    assert tag_label("date_night") == "Date Night"
+    assert infer_tags_from_text("Smash burger and pint happy hour") == ["happy_hour", "burgers", "cocktails", "american"]
 
 
 def test_special_pipeline_uses_openai_polished_fields(client, monkeypatch):
@@ -466,8 +533,14 @@ def test_special_pipeline_uses_openai_polished_fields(client, monkeypatch):
                 "title": "Polished Fish Tacos",
                 "description": "Crisp fish tacos with house slaw.",
                 "price_text": "$14",
+                "value_text": "$18 value",
                 "availability_text": "tonight",
                 "cta_text": "View Special",
+                "tag_keys": ["tacos", "mexican", "unknown"],
+                "primary_tag": "tacos",
+                "add_on_name": "House Margarita",
+                "add_on_price": "$6",
+                "add_on_value_text": "$9 value",
             },
             "error": None,
         },
@@ -489,6 +562,17 @@ def test_special_pipeline_uses_openai_polished_fields(client, monkeypatch):
         assert generated.title == "Polished Fish Tacos"
         assert generated.description == "Crisp fish tacos with house slaw."
         assert generated.price_text == "$14"
+        assert generated.value_text == "$18 value"
+        assert generated.tag_keys == "tacos,mexican"
+        assert generated.primary_tag == "tacos"
+        assert generated.add_on_name == "House Margarita"
+        from special_pipeline import approve_draft, publish_draft
+
+        approve_draft(generated.approval_token)
+        published = publish_draft(generated.id)
+        assert published.tag_keys == "tacos,mexican"
+        assert published.value_text == "$18 value"
+        assert published.add_on_price == "$6"
 
 
 def test_special_pipeline_uses_cloudinary_enhanced_image(client, monkeypatch):
@@ -817,6 +901,40 @@ def test_admin_submission_enhance_action_updates_existing_draft(client, monkeypa
         draft = SpecialDraft.query.one()
         assert draft.title == "Enhanced Burger Night"
         assert RawSpecialSubmission.query.one().status == "awaiting_approval"
+
+
+def test_admin_special_form_saves_taxonomy_add_on_and_featured_rank(client):
+    login(client)
+    response = client.post(
+        "/admin/specials/new",
+        data={
+            "csrf_token": csrf(client),
+            "restaurant_id": "1",
+            "title": "Burger Date Night",
+            "description": "Two burgers and fries.",
+            "price": "$30",
+            "value_text": "$40 value",
+            "special_date": "2099-06-05",
+            "status": "published",
+            "source": "manual",
+            "tag_keys": ["burgers", "date_night", "made_up"],
+            "primary_tag": "date_night",
+            "add_on_name": "House Margarita",
+            "add_on_price": "$7",
+            "add_on_value_text": "$10 value",
+            "featured_rank": "2",
+        },
+    )
+    assert response.status_code == 302
+    with app.app_context():
+        special = Special.query.filter_by(title="Burger Date Night").one()
+        assert special.tag_keys == "burgers,date_night"
+        assert special.primary_tag == "date_night"
+        assert special.value_text == "$40 value"
+        assert special.add_on_name == "House Margarita"
+        assert special.add_on_price == "$7"
+        assert special.add_on_value_text == "$10 value"
+        assert special.featured_rank == 2
 
 
 def test_admin_diner_digest_preview_send_and_unsubscribe(client, monkeypatch):

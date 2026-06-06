@@ -11,7 +11,12 @@
     <div>
       <p class="eyebrow">{{ restaurant.city }}{% if restaurant.category %} &middot; {{ restaurant.category }}{% endif %}</p>
       <h1 class="display-lg mt-3">{{ restaurant.name }}</h1>
-      <p class="mt-4 max-w-2xl text-lg text-stone-600">Today's specials wall for {{ restaurant.name }}. Follow along for fresh local offers and limited drops.</p>
+      <p class="mt-4 max-w-2xl text-lg text-stone-600">Today's specials wall for {{ restaurant.name }}. Follow along for fresh local offers and kitchen updates.</p>
+      {% if tag_labels(restaurant.cuisine_tags) %}
+        <div class="special-tag-row mt-4">
+          {% for label in tag_labels(restaurant.cuisine_tags) %}<span>{{ label }}</span>{% endfor %}
+        </div>
+      {% endif %}
       <div class="mt-6 flex flex-wrap gap-3">
         {% if restaurant.site %}<a href="{{ restaurant.site }}" rel="nofollow" class="button-plum">Visit website</a>{% endif %}
         {% if restaurant.phone %}<a href="tel:{{ restaurant.phone }}" class="button-secondary">Call {{ restaurant.phone }}</a>{% endif %}

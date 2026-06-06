@@ -1,13 +1,90 @@
 import re
+from datetime import UTC, datetime
 
 from flask import current_app
 
 from email_system.cloudinary_client import enhance_image_url
 from email_system.openai_client import polish_special_copy
 from models import RawSpecialSubmission, Restaurant, Special, SpecialDraft, db, utc_now
+from special_taxonomy import infer_tags_from_text, primary_tag_from, serialize_tag_keys
 
 
 AVAILABILITY_PHRASES = ("happy hour", "this week", "weekend", "tonight", "today")
+
+
+def parse_iso_datetime(value):
+    value = str(value or "").strip()
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo:
+        return parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed
+
+
+def extract_value_text(text):
+    normalized = " ".join((text or "").split())
+    patterns = [
+        r"\(\s*(\$\s?\d+(?:\.\d{2})?)\s+value\s*\)",
+        r"\bvalue\s*:?\s*(\$\s?\d+(?:\.\d{2})?)",
+        r"\bregularly\s+(\$\s?\d+(?:\.\d{2})?)",
+        r"\bwas\s+(\$\s?\d+(?:\.\d{2})?)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, normalized, re.I)
+        if match:
+            return f"{match.group(1).replace(' ', '')} value"
+    return None
+
+
+def extract_add_on_fields(text):
+    match = re.search(r"\badd-?on\b[:\s-]*(.{1,140})", text or "", re.I)
+    if not match:
+        return {"add_on_name": None, "add_on_price": None, "add_on_value_text": None}
+    snippet = re.split(r"[.;\n]", match.group(1), maxsplit=1)[0].strip()
+    price_match = re.search(r"\$\s?\d+(?:\.\d{2})?", snippet)
+    value_text = extract_value_text(snippet)
+    name = snippet
+    price = None
+    if price_match:
+        price = price_match.group(0).replace(" ", "")
+        name = snippet[: price_match.start()].strip(" :-,") or snippet[price_match.end() :].strip(" :-,")
+    name = re.sub(r"\([^)]*value[^)]*\)", "", name, flags=re.I).strip(" :-,")
+    return {
+        "add_on_name": name[:120] or None,
+        "add_on_price": price,
+        "add_on_value_text": value_text,
+    }
+
+
+def finalize_special_fields(fields, raw_text, restaurant=None):
+    fields = dict(fields or {})
+    tags = serialize_tag_keys(fields.get("tag_keys") or [])
+    if not tags:
+        tags = serialize_tag_keys(
+            infer_tags_from_text(
+                raw_text,
+                fields.get("title"),
+                fields.get("description"),
+                getattr(restaurant, "name", ""),
+                getattr(restaurant, "category", ""),
+                getattr(restaurant, "subtypes", ""),
+                getattr(restaurant, "cuisine_tags", ""),
+            )
+        )
+    tag_keys = [key for key in tags.split(",") if key]
+    fields["tag_keys"] = tags
+    fields["primary_tag"] = primary_tag_from(tag_keys, fields.get("primary_tag"))
+    fields["value_text"] = fields.get("value_text") or extract_value_text(raw_text)
+    add_on_fields = extract_add_on_fields(raw_text)
+    for key, value in add_on_fields.items():
+        fields[key] = fields.get(key) or value
+    fields["starts_at"] = parse_iso_datetime(fields.get("starts_at"))
+    fields["expires_at"] = parse_iso_datetime(fields.get("expires_at"))
+    return fields
 
 
 def polish_special_text(raw_text):
@@ -24,22 +101,30 @@ def polish_special_text(raw_text):
         (phrase for phrase in AVAILABILITY_PHRASES if re.search(rf"\b{re.escape(phrase)}\b", normalized, re.I)),
         None,
     )
-    return {
+    fields = {
         "title": title,
         "description": raw_text or normalized,
         "price_text": price_match.group(0).replace(" ", "") if price_match else None,
+        "value_text": extract_value_text(raw_text),
         "availability_text": availability,
         "cta_text": "View Special",
+        "tag_keys": serialize_tag_keys(infer_tags_from_text(raw_text)),
+        "primary_tag": None,
+        **extract_add_on_fields(raw_text),
+        "starts_at": None,
+        "expires_at": None,
     }
+    fields["primary_tag"] = primary_tag_from(fields["tag_keys"].split(","))
+    return fields
 
 
 def enhanced_special_text(raw_text, restaurant=None):
     result = polish_special_copy(raw_text, restaurant=restaurant)
     if result["success"]:
-        return result["fields"]
+        return finalize_special_fields(result["fields"], raw_text, restaurant)
     if result["error"] != "OPENAI_API_KEY is not configured.":
         current_app.logger.warning("OpenAI special polish skipped: %s", result["error"])
-    return polish_special_text(raw_text)
+    return finalize_special_fields(polish_special_text(raw_text), raw_text, restaurant)
 
 
 def create_or_prepare_image(raw_submission):
@@ -177,8 +262,15 @@ def publish_draft(draft_id):
         title=draft.title,
         description=draft.description,
         price=draft.price_text or "",
+        value_text=draft.value_text,
         availability_text=draft.availability_text,
         cta_text=draft.cta_text,
+        tag_keys=draft.tag_keys or "",
+        primary_tag=draft.primary_tag,
+        add_on_name=draft.add_on_name,
+        add_on_price=draft.add_on_price,
+        add_on_value_text=draft.add_on_value_text,
+        featured_rank=draft.featured_rank,
         starts_at=draft.starts_at,
         expires_at=draft.expires_at,
         status="published",

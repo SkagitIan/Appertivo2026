@@ -1,72 +1,157 @@
 {% extends "base.html" %}
-{% block title %}Find today's local restaurant specials | Appertivo{% endblock %}
+{% block title %}Tonight's best local restaurant specials | Appertivo{% endblock %}
 {% block content %}
-<section class="hero">
-  <div class="page-width hero-grid">
-    <div>
-      <p class="eyebrow">Today's specials &middot; nearby restaurants</p>
-
-      <h1 class="display-xl mt-4">Local kitchens. <span class="text-[#ed4b0b]">Today's best dishes.</span></h1>
-      <p class="mt-6 max-w-xl text-lg text-stone-600">Discover what restaurants are serving right now.</p>
-    </div>
-    {% set hero_special = specials[0] if specials else none %}
-    <aside class="hero-panel">
-      <p class="text-sm font-bold uppercase tracking-[.15em] text-orange-200">Fresh from nearby kitchens</p>
-      <div class="hero-special-card mt-5">
-        {% if hero_special and hero_special.photo_url %}
-          <img src="{{ hero_special.photo_url }}" alt="{{ hero_special.title }} at {{ hero_special.restaurant.name }}" class="hero-special-photo">
-        {% endif %}
-        <div class="p-5">
-          <p class="preview-badge">Featured special</p>
-          <p class="mt-2 text-sm font-bold uppercase tracking-wide text-stone-500">{% if hero_special %}{{ hero_special.restaurant.name }} &middot; {{ hero_special.restaurant.city }}{% else %}Adrift Restaurant &middot; Anacortes{% endif %}</p>
-          <div class="mt-3 flex items-start justify-between gap-3">
-            <h2 class="text-3xl leading-none">{% if hero_special %}{{ hero_special.title }}{% else %}Cedar Plank Salmon Dinner{% endif %}</h2>
-            <span class="special-price">{% if hero_special and hero_special.price %}{{ hero_special.price }}{% else %}$28{% endif %}</span>
-          </div>
-          <p class="mt-3 text-sm text-stone-600">{% if hero_special %}{{ hero_special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}{% else %}Local salmon with roasted market vegetables and herb butter.{% endif %}</p>
-          <span class="date-pill hero-date-pill"><span class="date-pill-icon" aria-hidden="true"></span>{% if hero_special %}{% if special_is_today(hero_special) %}Today &middot; {% endif %}{{ special_display_date(hero_special) }}{% else %}Today{% endif %}</span>
-        </div>
+<section class="feed-hero">
+  <div class="page-width feed-hero-grid">
+    <div class="feed-hero-copy">
+      <p class="eyebrow feed-eyebrow">Fresh specials. Local flavor.</p>
+      <h1 class="display-xl">Tonight's<br><span>Best Specials</span></h1>
+      <p class="feed-hero-text">Handpicked local specials from restaurants near you.</p>
+      <a href="#specials" class="button-plum">View All Specials</a>
+      <div class="feed-trust-row" aria-label="Appertivo highlights">
+        <div><span class="feed-trust-icon icon-curated" aria-hidden="true"></span><strong>Curated Daily</strong><small>Fresh posts every day</small></div>
+        <div><span class="feed-trust-icon icon-local" aria-hidden="true"></span><strong>Local & Loved</strong><small>Independent spots</small></div>
+        <div><span class="feed-trust-icon icon-go" aria-hidden="true"></span><strong>Book & Go</strong><small>Act from each card</small></div>
       </div>
+    </div>
+    <aside class="featured-special-panel">
+      {% if featured_special %}
+        {% set special = featured_special %}
+        <article class="featured-special-card" data-testid="featured-special">
+          <div data-testid="special-card" data-special-title="{{ special.title }}">
+          <div class="featured-special-media">
+            {% if special.photo_url %}
+              <img src="{{ special.photo_url }}" alt="{{ special.title }} at {{ special.restaurant.name }}">
+            {% else %}
+              <div class="special-no-image">
+                <p class="special-no-image-kicker">{{ special.restaurant.name }}</p>
+                <h3>{{ special.title }}</h3>
+              </div>
+            {% endif %}
+            <div class="special-media-badges">
+              <span class="special-badge-primary">{{ tag_label(special.primary_tag) or "Fresh Special" }}</span>
+              <span class="special-badge-time">{{ special_timing_badge(special) }}</span>
+            </div>
+          </div>
+          <div class="featured-special-body">
+            <div>
+              <p class="eyebrow">{{ special.restaurant.name }}</p>
+              <h2>{{ special.title }}</h2>
+              <p>{{ special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}</p>
+              <div class="special-card-meta">
+                {% if special.price %}<strong class="special-card-price">{{ special.price }}</strong>{% endif %}
+                {% if special.value_text %}<span class="special-value-text">{{ special.value_text }}</span>{% endif %}
+              </div>
+            </div>
+            <div class="featured-special-side">
+              {% if special.add_on_name %}
+                <div class="special-add-on">
+                  <span class="special-add-on-label">Add-on</span>
+                  <strong>{{ special.add_on_name }}</strong>
+                  <span>{% if special.add_on_price %}{{ special.add_on_price }}{% endif %}{% if special.add_on_value_text %} <small>({{ special.add_on_value_text }})</small>{% endif %}</span>
+                </div>
+              {% endif %}
+              <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary w-full" data-testid="special-card-action">View Special</a>
+              <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="button-quiet save-special-button w-full" data-testid="featured-save-special">{{ "Saved" if is_special_saved(special) else "Save Special" }}</button>
+              </form>
+            </div>
+          </div>
+          </div>
+        </article>
+      {% else %}
+        <div class="soft-panel p-8">
+          <p class="eyebrow">Fresh Special</p>
+          <h2 class="mt-2 text-3xl">No specials are live right now.</h2>
+          <p class="mt-3 text-stone-600">Check back soon or join alerts below.</p>
+        </div>
+      {% endif %}
     </aside>
   </div>
 </section>
+
 {% if market %}
-<section id="specials" class="page-width pb-12">
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div><p class="eyebrow">{{ market.name }} &middot; Updated daily</p><h2 class="display-md mt-2">Today's specials</h2></div>
-    <div class="flex flex-wrap items-center gap-2">
-      <form method="get"><input type="hidden" name="location" value="{{ location }}"><select name="city" onchange="this.form.submit()" class="rounded-full border px-4 py-3 text-sm font-bold"><option value="">All Skagit cities</option>{% for option in cities %}<option {% if option == city %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></form>
-      {% if specials %}<button type="button" id="map-view-toggle" class="button-secondary" aria-pressed="false"><span aria-hidden="true">&#8982;</span> <span>Map view</span></button>{% endif %}
+<section id="specials" class="page-width feed-section">
+  <div class="feed-toolbar">
+    <div>
+      <p class="eyebrow">{{ market.name }} - Updated daily</p>
+      <h2 class="display-md mt-2">Today's specials</h2>
+    </div>
+    <div class="feed-toolbar-actions">
+      <form method="get" action="{{ url_for('specials_feed') }}">
+        <input type="hidden" name="location" value="{{ location }}">
+        <input type="hidden" name="tag" value="{{ active_tag }}">
+        <select name="city" onchange="this.form.submit()" class="rounded-full border px-4 py-3 text-sm font-bold">
+          <option value="">All Skagit cities</option>
+          {% for option in cities %}<option {% if option == city %}selected{% endif %}>{{ option }}</option>{% endfor %}
+        </select>
+      </form>
+      {% if all_specials %}
+        {% if view == "map" %}
+          <a class="button-secondary" href="{{ url_for('specials_feed', location=location, city=city, tag=active_tag) }}#specials">List view</a>
+        {% else %}
+          <a class="button-secondary" href="{{ url_for('specials_feed', location=location, city=city, tag=active_tag, view='map') }}#specials">Map view</a>
+        {% endif %}
+      {% endif %}
     </div>
   </div>
-  <div id="specials-list-view">
-    <div class="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-      {% for special in specials[:3] %}{% set hide_sample_badge = true %}{% include "partials/special_card.html" %}{% else %}
-        <div class="soft-panel p-8 text-center md:col-span-2 lg:col-span-3"><h3 class="text-2xl">No specials match this view.</h3><p class="mt-2 text-stone-600">Try another Skagit city or check back for the next posted special.</p></div>
+
+  <nav class="feed-chip-row" aria-label="Special filters">
+    <a class="feed-chip {% if not active_tag %}is-active{% endif %}" href="{{ url_for('specials_feed', location=location, city=city) }}#specials">All Specials</a>
+    {% for option in feed_tags %}
+      <a class="feed-chip {% if active_tag == option.key %}is-active{% endif %}" href="{{ url_for('specials_feed', location=location, city=city, tag=option.key) }}#specials">{{ option.label }}</a>
+    {% endfor %}
+  </nav>
+
+  <div id="specials-list-view" class="{% if view == 'map' %}hidden{% endif %}">
+    <div class="special-feed-grid">
+      {% for special in specials %}
+        {% include "partials/special_card.html" %}
+      {% else %}
+        <div class="soft-panel p-8 text-center md:col-span-2 lg:col-span-3">
+          {% if featured_special %}
+            <h3 class="text-2xl">The featured special matches this view.</h3>
+            <p class="mt-2 text-stone-600">Try another filter to discover more.</p>
+          {% else %}
+            <h3 class="text-2xl">No specials match this view.</h3>
+            <p class="mt-2 text-stone-600">Try another city or filter.</p>
+          {% endif %}
+        </div>
       {% endfor %}
     </div>
-    <form id="early-list" method="post" class="plum-panel mt-6 p-7">
-      <div class="grid items-end gap-4 md:grid-cols-[1fr_auto]">
-        <div><p class="eyebrow text-orange-200">Notifications</p><h2 class="mt-2 text-3xl">Get local special alerts.</h2><p class="mt-2 text-sm text-orange-100">Tell us where to send fresh restaurant specials from your area.</p><input type="hidden" name="city" value="{{ city }}"><input type="hidden" name="location" value="{{ location }}"></div>
-        <div class="flex flex-wrap gap-2"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg px-4 py-3 text-stone-900"><button class="button-primary">Get notifications</button></div>
+
+    <form id="early-list" method="post" class="newsletter-band">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="city" value="{{ city }}">
+      <input type="hidden" name="location" value="{{ location }}">
+      <input type="hidden" name="tag" value="{{ active_tag }}">
+      <div class="newsletter-icon" aria-hidden="true"></div>
+      <div>
+        <h2>Don't Miss a Special</h2>
+        <p>Get the best local specials delivered to your inbox every week.</p>
+      </div>
+      <div class="newsletter-fields">
+        <input required type="email" name="email" placeholder="Enter your email">
+        <button class="button-primary">Get Local Specials</button>
+        <small>No spam, ever. Unsubscribe anytime.</small>
       </div>
     </form>
-    {% if specials|length > 3 %}
-      <div class="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {% for special in specials[3:] %}{% set hide_sample_badge = true %}{% include "partials/special_card.html" %}{% endfor %}
-      </div>
-    {% endif %}
   </div>
-  <div id="specials-map-view" class="mt-6 hidden">
+
+  <div id="specials-map-view" class="{% if view != 'map' %}hidden{% endif %}">
     <div class="map-layout">
       <div id="specials-map" class="specials-map" aria-label="Map of today's specials"></div>
       <div class="map-results">
-        {% for special in specials %}
+        {% for special in all_specials %}
           <article class="map-result-card">
-            <p class="eyebrow mt-2">{{ special.restaurant.name }} &middot; {{ special.restaurant.city }}</p>
-            <div class="mt-2 flex items-start justify-between gap-3"><h3 class="text-xl leading-none">{{ special.title }}</h3>{% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}</div>
+            <p class="eyebrow">{{ special.restaurant.name }} - {{ special.restaurant.city }}</p>
+            <h3 class="mt-2 text-xl leading-none">{{ special.title }}</h3>
             <p class="mt-2 line-clamp-2 text-sm text-stone-600">{{ special.description }}</p>
-            <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="mt-3 inline-block text-sm font-black text-[#176f70]">View special &rarr;</a>
+            <div class="mt-3 flex items-center justify-between gap-3">
+              {% if special.price %}<span class="special-card-price">{{ special.price }}</span>{% endif %}
+              <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="text-sm font-black text-[#176f70]">View Special</a>
+            </div>
           </article>
         {% endfor %}
       </div>
@@ -76,39 +161,21 @@
 {% else %}
 <section id="specials" class="page-width pb-12">
   <div class="soft-panel mx-auto max-w-3xl p-8 text-center md:p-12">
-    <p class="eyebrow">Notifications</p>
+    <p class="eyebrow">Alerts</p>
     <h2 class="display-md mt-3">Get restaurant specials near {{ location }}.</h2>
     <p class="mx-auto mt-4 max-w-xl text-stone-600">Tell us where to send local specials and restaurant updates for your area.</p>
-    <form method="post" class="mx-auto mt-6 flex max-w-lg flex-wrap gap-2"><input type="hidden" name="location" value="{{ location }}"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg border px-4 py-3"><button class="button-primary">Get notifications</button></form>
-    <a href="{{ url_for('home', location='Skagit Valley, WA') }}" class="mt-5 inline-block text-sm font-black text-[#176f70]">See Skagit Valley specials &rarr;</a>
+    <form method="post" class="mx-auto mt-6 flex max-w-lg flex-wrap gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="location" value="{{ location }}"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg border px-4 py-3"><button class="button-primary">Get Local Specials</button></form>
+    <a href="{{ url_for('specials_feed', location='Skagit Valley, WA') }}" class="mt-5 inline-block text-sm font-black text-[#176f70]">See Skagit Valley specials</a>
   </div>
 </section>
 {% endif %}
-<section class="bg-[#f8ead8]">
-  <div class="page-width section-space">
-    <div class="home-restaurant-card">
-      <div class="home-restaurant-card-lead">
-        <p class="text-sm font-bold uppercase tracking-[.15em] text-teal-100">For restaurants</p>
-        <h2>You cook.<br><span>We promote.</span></h2>
-      </div>
-      <div class="home-restaurant-card-body">
-        <p>Send us your special. We make it look good and get it in front of local diners. No new dashboard to learn and no complicated setup.</p>
-        <div class="mt-7 flex flex-wrap gap-3"><a href="{{ url_for('get_started') }}" class="button-primary">Get your restaurant started</a><a href="{{ url_for('for_restaurants') }}" class="button-secondary">Learn more</a></div>
-      </div>
-    </div>
-  </div>
-</section>
-{% if market and specials %}
-<script>
-  const toggle = document.getElementById("map-view-toggle");
-  const listView = document.getElementById("specials-list-view");
-  const mapView = document.getElementById("specials-map-view");
-  const mapSpecials = {{ map_specials|tojson }};
-  let map;
 
+{% if market and all_specials and view == "map" %}
+<script>
+  const mapSpecials = {{ map_specials|tojson }};
   function loadLeaflet() {
     if (window.L) return Promise.resolve();
-    if (!document.querySelector('link[data-leaflet]')) {
+    if (!document.querySelector("link[data-leaflet]")) {
       const styles = document.createElement("link");
       styles.rel = "stylesheet";
       styles.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
@@ -125,13 +192,13 @@
       document.body.appendChild(script);
     });
   }
-
-  function initializeMap() {
-    map = L.map("specials-map").setView({{ map_center|tojson }}, {{ map_zoom }});
+  async function initializeMap() {
+    await loadLeaflet();
+    const map = L.map("specials-map").setView({{ map_center|tojson }}, {{ map_zoom }});
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
-    const markers = mapSpecials.map(special => {
+    const markers = mapSpecials.map((special) => {
       const marker = L.marker([special.latitude, special.longitude]).addTo(map);
       const popup = document.createElement("div");
       const restaurant = document.createElement("strong");
@@ -140,26 +207,14 @@
       if (special.price) popup.append(document.createElement("br"), document.createTextNode(special.price));
       const link = document.createElement("a");
       link.href = special.url;
-      link.textContent = "View special";
+      link.textContent = "View Special";
       popup.append(document.createElement("br"), link);
       marker.bindPopup(popup);
       return marker;
     });
     if (markers.length) map.fitBounds(L.featureGroup(markers).getBounds().pad(0.18), { maxZoom: 14 });
   }
-
-  toggle.addEventListener("click", async () => {
-    const showingMap = mapView.classList.toggle("hidden") === false;
-    listView.classList.toggle("hidden", showingMap);
-    toggle.setAttribute("aria-pressed", String(showingMap));
-    toggle.querySelector("span:last-child").textContent = showingMap ? "List view" : "Map view";
-
-    if (showingMap && !map) {
-      await loadLeaflet();
-      initializeMap();
-    }
-    if (showingMap) setTimeout(() => map.invalidateSize(), 0);
-  });
+  initializeMap();
 </script>
 {% endif %}
 {% endblock %}

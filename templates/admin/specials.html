@@ -24,7 +24,13 @@
           <p class="text-sm font-bold uppercase tracking-wide text-rose-700">{{ special.restaurant.name }} · {{ special.status }}</p>
           <h2 class="text-xl font-black">{{ special.title }} {% if special.price %}<span class="text-stone-500">{{ special.price }}</span>{% endif %}</h2>
           <p class="mt-1 text-stone-600">{{ special.description }}</p>
-          <p class="mt-2 text-sm text-stone-500">Source: {{ special.source }}{% if special.expires_at %} · Expires {{ special.expires_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}</p>
+          <p class="mt-2 text-sm text-stone-500">Source: {{ special.source }}{% if special.expires_at %} - Expires {{ special.expires_at.strftime("%Y-%m-%d %H:%M") }}{% endif %}{% if special.featured_rank %} - Featured #{{ special.featured_rank }}{% endif %}</p>
+          {% if special_tag_labels(special) or special.add_on_name %}
+            <p class="mt-2 text-sm text-stone-500">
+              {% for label in special_tag_labels(special) %}<span class="status-badge status-draft">{{ label }}</span> {% endfor %}
+              {% if special.add_on_name %}<span class="status-badge status-contacted">Add-on: {{ special.add_on_name }}</span>{% endif %}
+            </p>
+          {% endif %}
         </div>
         <div class="flex flex-wrap gap-2">
           <a href="{{ url_for('admin_edit_special', special_id=special.id) }}" class="rounded-md border border-stone-300 px-3 py-2 text-sm font-semibold">Edit</a>

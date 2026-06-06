@@ -14,6 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
+from special_taxonomy import infer_restaurant_cuisine_tags, serialize_tag_keys
+
 
 BOOLEAN_FIELDS = [
     "delivery",
@@ -113,6 +115,8 @@ def apply_csv_row(restaurant, row, utc_now, include_heavy_content=False):
     restaurant.scraped_zip = row["scraped_zip"]
     for field in BOOLEAN_FIELDS:
         setattr(restaurant, field, optional_bool(row[field]))
+    if not getattr(restaurant, "cuisine_tags", ""):
+        restaurant.cuisine_tags = serialize_tag_keys(infer_restaurant_cuisine_tags(restaurant))
     restaurant.google_place_refreshed_at = utc_now()
 
 
