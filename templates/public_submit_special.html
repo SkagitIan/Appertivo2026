@@ -82,6 +82,8 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = "block w-full border-b px-3 py-2 text-left text-sm";
+      button.dataset.testid = item.status === "included" ? "restaurant-result-included" : "restaurant-result-coming-soon";
+      button.dataset.restaurantName = item.name;
       const details = item.city || item.address || "Skagit Valley";
       button.textContent = item.status === "included" ? `${item.name} - ${details}` : `${item.name} - not accepting direct submissions yet`;
       if (item.status === "included") {

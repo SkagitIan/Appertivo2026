@@ -1,4 +1,4 @@
-<article class="special-card">
+<article class="special-card" data-testid="special-card" data-special-title="{{ special.title }}">
   {% if special.photo_url %}
     <div class="special-media">
       <img src="{{ special.photo_url }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo">
@@ -17,9 +17,9 @@
     <div class="special-card-actions">
       <span class="date-pill"><span class="date-pill-icon" aria-hidden="true"></span>{% if special_is_today(special) %}Today &middot; {% endif %}{{ special_display_date(special) }}</span>
     {% if special_card_url is defined %}
-      <a href="{{ special_card_url }}" class="button-primary">{{ special_card_action_label|default("View special") }}</a>
+      <a href="{{ special_card_url }}" class="button-primary" data-testid="special-card-action">{{ special_card_action_label|default("View special") }}</a>
     {% elif special.public_id %}
-      <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary">View special</a>
+      <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary" data-testid="special-card-action">View special</a>
     {% endif %}
     {% if special.price %}<span class="special-price">{{ special.price }}</span>{% endif %}
     </div>

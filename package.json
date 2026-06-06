@@ -1,0 +1,12 @@
+{
+  "name": "appertivo2026",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test tests/e2e/local.spec.js",
+    "test:prod-smoke": "node scripts/run_prod_smoke.mjs",
+    "test:launch": "python -m pytest -q && npm run test:e2e && npm run test:prod-smoke"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}

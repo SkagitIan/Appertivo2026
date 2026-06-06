@@ -1,4 +1,5 @@
 import os
+import json
 from types import SimpleNamespace
 
 import resend
@@ -127,6 +128,44 @@ def test_loops_contact_and_event_payloads(monkeypatch):
         "eventName": "restaurantLeadCreated",
         "eventProperties": {"city": "Anacortes"},
     }
+
+
+def test_email_and_loops_capture_backend(tmp_path):
+    capture_path = tmp_path / "email-capture.jsonl"
+    with app.app_context():
+        previous_capture = app.config.get("EMAIL_CAPTURE_PATH")
+        previous_resend_key = app.config.get("RESEND_API_KEY")
+        previous_loops_key = app.config.get("LOOPS_API_KEY")
+        app.config.update(EMAIL_CAPTURE_PATH=str(capture_path), RESEND_API_KEY=None, LOOPS_API_KEY=None)
+        try:
+            email = resend_client.send_email(
+                to="owner@example.com",
+                subject="Captured",
+                html="<p>Captured</p>",
+                text="Captured",
+                from_email="specials@example.com",
+                reply_to="reply@example.com",
+                tags=[{"name": "channel", "value": "test"}],
+            )
+            contact = loops_client.create_or_update_contact("owner@example.com", {"source": "test"})
+            event = loops_client.send_event("owner@example.com", "restaurantSpecialReceived", {"draft": "1"})
+        finally:
+            app.config.update(
+                EMAIL_CAPTURE_PATH=previous_capture,
+                RESEND_API_KEY=previous_resend_key,
+                LOOPS_API_KEY=previous_loops_key,
+            )
+
+    records = [json.loads(line) for line in capture_path.read_text(encoding="utf-8").splitlines()]
+    assert email["success"] is True
+    assert email["message_id"].startswith("capture-")
+    assert contact["contact_id"].startswith("capture-")
+    assert event["event_id"].startswith("capture-")
+    assert [record["kind"] for record in records] == ["email", "loops_contact", "loops_event"]
+    assert records[0]["to"] == "owner@example.com"
+    assert records[0]["tags"] == [{"name": "channel", "value": "test"}]
+    assert records[1]["properties"] == {"source": "test"}
+    assert records[2]["event_name"] == "restaurantSpecialReceived"
 
 
 def test_email_test_cli_is_disabled_by_default(monkeypatch):

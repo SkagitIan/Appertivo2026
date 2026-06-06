@@ -10,8 +10,8 @@
 - `ian@appertivo.com` is the founder sales sender.
 - `noreply@appertivo.com` is the system sender.
 
-Inbound parsing, Resend webhooks, newsletter sends, unsubscribe management, and campaign
-reporting are future extension points. They are not implemented yet.
+Inbound Resend webhooks, manual diner digest sends, unsubscribe management, and outreach
+event capture are implemented for the launch workflow.
 
 ## Environment
 
@@ -28,6 +28,7 @@ EMAIL_REPLY_TO_SALES=ian@appertivo.com
 APP_BASE_URL=https://appertivo.com
 EMAIL_TEST_ENABLED=0
 EMAIL_TEST_RECIPIENT=ian.larsen.1976@gmail.com
+EMAIL_CAPTURE_PATH=
 RESEND_WEBHOOK_SECRET=
 OPENAI_API_KEY=
 OPENAI_OUTREACH_MODEL=gpt-5.4-mini
@@ -111,6 +112,16 @@ The same batch is available at `/admin/email-tools` and through:
 ```bat
 python scripts/send_test_emails.py
 ```
+
+## Local Capture Backend
+
+Set `EMAIL_CAPTURE_PATH` only in local/test environments. When set, Resend sends
+and Loops contact/event calls are written as JSONL records instead of calling the
+providers. This is how `npm run test:e2e` verifies approval emails, diner digests,
+outreach email, and Loops events without real sends.
+
+Each capture record includes a `kind`, provider action, recipient/email, message
+content or event properties, tags, timestamp, and generated capture id.
 
 ## Outreach Inbox
 

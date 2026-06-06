@@ -5,3 +5,9 @@ __pycache__/
 instance/
 .env
 .playwright-cli/
+node_modules/
+output/playwright/
+playwright-report/
+test-results/
+restaurants_with_emails*.csv
+skagit_restaurants_master (*).csv

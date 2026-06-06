@@ -3,6 +3,8 @@ import logging
 import resend
 from flask import current_app
 
+from email_system.capture import write_capture
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,22 @@ def _message_id(response):
 
 
 def send_email(to, subject, html, text, from_email, reply_to=None, tags=None):
+    capture_id = write_capture(
+        {
+            "kind": "email",
+            "provider_action": "resend.send_email",
+            "to": to,
+            "subject": subject,
+            "html": html,
+            "text": text,
+            "from_email": from_email,
+            "reply_to": reply_to,
+            "tags": tags or [],
+        }
+    )
+    if capture_id:
+        return _result(True, message_id=capture_id)
+
     api_key = current_app.config.get("RESEND_API_KEY")
     if not api_key:
         error = "RESEND_API_KEY is not configured."

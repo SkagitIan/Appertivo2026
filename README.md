@@ -131,8 +131,19 @@ R2 exposes an S3-compatible API. A custom domain is preferred for production pub
 ## Tests
 
 ```bat
-python -m pytest
+python -m pytest -q
+npm run test:e2e
+npm run test:prod-smoke
+npm run test:launch
 ```
+
+`npm run test:e2e` starts an isolated Flask app on `127.0.0.1:5012`, resets a
+dedicated SQLite database, and captures outbound Resend/Loops calls to
+`output/playwright/email-capture.jsonl` instead of sending real email.
+
+`npm run test:prod-smoke` is read-only. It checks the configured production URL
+(`E2E_PROD_BASE_URL`, or the Railway URL by default) for `/health`, the homepage,
+restaurants, one restaurant detail page, and one live special detail page.
 
 ## Database Migrations
 
@@ -155,6 +166,10 @@ py -m flask --app app db upgrade
 3. Open `/admin/special-drafts`, preview the generated draft, and approve it.
 4. Publish the approved draft from the preview or draft queue.
 5. Open `/admin/specials` to confirm the published special exists.
+
+Private `/submit/<token>` links also accept an optional email address. When provided,
+the draft queue can send the restaurant a publish/approval link without a real email
+provider during local E2E tests.
 
 Development-only webhook simulation is disabled by default. Set `SPECIAL_WEBHOOK_TEST_ENABLED=1`,
 then POST JSON containing `raw_text` and optional `restaurant_id`, `sender_email`, `sender_phone`,

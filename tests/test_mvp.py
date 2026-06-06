@@ -220,11 +220,11 @@ def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
 
     default_page = client.get("/")
     assert b"Fresh from nearby kitchens" in default_page.data
-    assert b"Discover what's good nearby tonight" in default_page.data
-    assert b"Skagit Valley preview - sample posts below" in default_page.data
+    assert b"Discover what restaurants are serving right now." in default_page.data
+    assert b"Today's specials" in default_page.data
     assert b"Sample special" not in default_page.data
     assert b"Updated daily" in default_page.data
-    assert b"Don't miss tonight's special" in default_page.data
+    assert b"Get local special alerts." in default_page.data
     assert b"Skagit Valley launch preview" not in default_page.data
     assert b'value="Skagit Valley, WA"' in default_page.data
 
@@ -233,8 +233,8 @@ def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
     assert b'<option selected>Mount Vernon</option>' in city_page.data
 
     waitlist_page = client.get("/?location=Seattle")
-    assert b"We're not in Seattle yet." in waitlist_page.data
-    assert b"Join waitlist" in waitlist_page.data
+    assert b"Get restaurant specials near Seattle." in waitlist_page.data
+    assert b"Get notifications" in waitlist_page.data
 
 
 def test_demo_special_seed_is_idempotent(client):

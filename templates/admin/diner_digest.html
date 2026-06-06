@@ -17,8 +17,8 @@
 </div>
 
 <div class="my-5 flex flex-wrap gap-3">
-  <form method="post"><input type="hidden" name="action" value="test"><button class="button-secondary">Send test to {{ test_recipient }}</button></form>
-  <form method="post" onsubmit="return confirm('Send this digest to all opted-in Skagit subscribers?');"><input type="hidden" name="action" value="production"><button class="button-primary">Send production digest</button></form>
+  <form method="post"><input type="hidden" name="action" value="test"><button class="button-secondary" data-testid="send-test-digest">Send test to {{ test_recipient }}</button></form>
+  <form method="post" onsubmit="return confirm('Send this digest to all opted-in Skagit subscribers?');"><input type="hidden" name="action" value="production"><button class="button-primary" data-testid="send-production-digest">Send production digest</button></form>
 </div>
 
 <div class="grid gap-5 lg:grid-cols-2">

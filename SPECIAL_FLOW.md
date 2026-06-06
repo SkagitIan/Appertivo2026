@@ -28,7 +28,7 @@ Use `/submit-special` when you do not know the restaurant yet or want a general 
 
 1. Restaurant opens `/submit/<token>`.
 2. The token identifies the restaurant.
-3. Restaurant submits title, description, price, date/time, and optional image.
+3. Restaurant submits title, description, price, date/time, optional image, and optionally an email for the approval link.
 4. The app creates `RawSpecialSubmission`.
 5. `special_pipeline.generate_draft_from_submission()` creates `SpecialDraft`.
 6. If `Restaurant.direct_publish_enabled` is true, the app approves and publishes immediately.
@@ -63,6 +63,9 @@ Use `/submit-special` when you do not know the restaurant yet or want a general 
 5. Admin publishes approved drafts from `/admin/special-drafts`.
 6. Published specials appear in `/admin/specials` and public `/specials/<public_id>`.
 7. Distribution tools live at `/admin/specials/<id>/distribution`.
+
+The local Playwright suite covers public form, private-token, trusted direct-publish,
+admin publish, digest, outreach, and captured email/Loops behavior.
 
 ## AI Enhancement Target
 

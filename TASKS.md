@@ -198,11 +198,17 @@ Use this window only for launch blockers, real content, and verification.
 
 ```powershell
 py -m pytest -q
+npm run test:e2e
+npm run test:prod-smoke
+npm run test:launch
 py -m flask --app app db upgrade
 py -m flask --app app seed-demo-specials
 railway status
 railway logs --latest --lines 120
 ```
+
+`npm run test:e2e` uses an isolated local database and captured email/Loops records.
+`npm run test:prod-smoke` is read-only against `E2E_PROD_BASE_URL` or the Railway URL.
 
 Factory Console:
 

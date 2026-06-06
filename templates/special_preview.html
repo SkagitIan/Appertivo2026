@@ -10,7 +10,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         {% if draft.status in ["awaiting_approval", "approved", "draft"] %}
-          <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary">Publish</button></form>
+          <form method="post" action="{{ url_for('publish_special_preview', approval_token=draft.approval_token) }}"><button class="button-primary" data-testid="preview-publish">Publish</button></form>
           <a href="mailto:specials@appertivo.com?subject=Edit special draft {{ draft.id }}" class="button-quiet">Edit</a>
         {% endif %}
       </div>

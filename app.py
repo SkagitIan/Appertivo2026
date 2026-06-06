@@ -95,6 +95,7 @@ app.config.update(
     APP_BASE_URL=os.environ.get("APP_BASE_URL", "http://127.0.0.1:5000"),
     EMAIL_TEST_ENABLED=os.environ.get("EMAIL_TEST_ENABLED") == "1",
     EMAIL_TEST_RECIPIENT=os.environ.get("EMAIL_TEST_RECIPIENT", "ian.larsen.1976@gmail.com"),
+    EMAIL_CAPTURE_PATH=os.environ.get("EMAIL_CAPTURE_PATH"),
     RESEND_WEBHOOK_SECRET=os.environ.get("RESEND_WEBHOOK_SECRET"),
     OPENAI_API_KEY=os.environ.get("OPENAI_API_KEY"),
     OPENAI_OUTREACH_MODEL=os.environ.get("OPENAI_OUTREACH_MODEL", "gpt-5.4-mini"),
@@ -700,6 +701,7 @@ def structured_draft_from_form(source_channel, restaurant_id, enhance=True):
         raw_text=raw_text,
         raw_image_url=image_url,
         raw_image_path=image_path,
+        sender_email=request.form.get("sender_email", "").strip().lower() or None,
     )
     draft = generate_draft_from_submission(submission.id)
     if not enhance:
