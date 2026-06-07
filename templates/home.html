@@ -40,7 +40,6 @@
               <p>{{ special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}</p>
               <div class="special-card-meta">
                 {% if special.price %}<strong class="special-card-price">{{ special.price }}</strong>{% endif %}
-                {% if special.value_text %}<span class="special-value-text">{{ special.value_text }}</span>{% endif %}
               </div>
             </div>
             <div class="featured-special-side">
@@ -48,7 +47,7 @@
                 <div class="special-add-on">
                   <span class="special-add-on-label">Add-on</span>
                   <strong>{{ special.add_on_name }}</strong>
-                  <span>{% if special.add_on_price %}{{ special.add_on_price }}{% endif %}{% if special.add_on_value_text %} <small>({{ special.add_on_value_text }})</small>{% endif %}</span>
+                  {% if special.add_on_price %}<span>{{ special.add_on_price }}</span>{% endif %}
                 </div>
               {% endif %}
               <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary w-full" data-testid="special-card-action">View Special</a>
