@@ -113,7 +113,9 @@ test("private links, trusted publishing, admin publishing, distribution, and out
   await page.getByLabel("Date").fill("2099-06-05");
   await page.getByRole("button", { name: "Send special" }).click();
   await expect(page.getByText("It's live now.")).toBeVisible();
-  expect((await capturedEmails(request)).some((email) => email.to === "trusted@example.com")).toBeFalsy();
+  const trustedEmails = (await capturedEmails(request)).filter((email) => email.to === "trusted@example.com");
+  expect(trustedEmails.some((email) => email.subject === "We received your special")).toBeFalsy();
+  expect(trustedEmails.some((email) => email.subject === "Next time you run a special.")).toBeTruthy();
 
   await page.goto("/admin/specials/new");
   await page.locator('select[name="restaurant_id"]').selectOption({ label: "E2E Test Kitchen" });

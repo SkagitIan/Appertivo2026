@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">Admin</p>
     <h1 class="display-md mt-2">Enhance restaurants</h1>
-    <p class="mt-2 max-w-3xl text-sm text-stone-600">Each enhance action sends one billable Google Places Details request using the website tier and lower. Exclude venues that should not be in Appertivo before enhancing.</p>
+    <p class="mt-2 max-w-3xl text-sm text-stone-600">Each enhance action sends one billable Google Places Details request using the website tier and lower. Restaurants without a Google place ID need a match attached from their edit page first.</p>
   </div>
   <a href="{{ url_for('admin_restaurants') }}" class="button-secondary">Restaurants</a>
 </div>
@@ -32,18 +32,19 @@
     <tbody class="divide-y divide-stone-200">
       {% for restaurant in restaurants %}
         <tr>
-          <td class="p-3"><input type="checkbox" class="restaurant-selection" name="restaurant_ids" value="{{ restaurant.id }}"></td>
+          <td class="p-3"><input type="checkbox" class="restaurant-selection" name="restaurant_ids" value="{{ restaurant.id }}" {% if not restaurant.place_id %}disabled{% endif %}></td>
           <td class="p-3">
             <div class="font-semibold">{{ restaurant.name }}</div>
             {% if restaurant.site %}<a href="{{ restaurant.site }}" rel="nofollow" class="mt-1 block truncate text-xs font-semibold text-[#176f70]">Website</a>{% endif %}
+            {% if not restaurant.place_id %}<a href="{{ url_for('admin_edit_restaurant', restaurant_id=restaurant.id) }}" class="mt-1 block text-xs font-semibold text-rose-700">Attach Google Places match</a>{% endif %}
             <div class="mt-1 text-xs text-stone-500 md:hidden">{{ restaurant.primary_type_label or restaurant.category or restaurant.type or "Venue" }}</div>
           </td>
           <td class="hidden p-3 md:table-cell">{{ restaurant.primary_type_label or restaurant.category or restaurant.type or "Venue" }}</td>
           <td class="p-3">{{ restaurant.city }}</td>
-          <td class="hidden p-3 font-mono text-xs text-stone-600 lg:table-cell">{{ restaurant.place_id }}</td>
+          <td class="hidden p-3 font-mono text-xs text-stone-600 lg:table-cell">{{ restaurant.place_id or "Needs match" }}</td>
         </tr>
       {% else %}
-        <tr><td colspan="5" class="p-6 text-center text-stone-600">Every restaurant with a place ID has been enhanced.</td></tr>
+        <tr><td colspan="5" class="p-6 text-center text-stone-600">Every included restaurant has been enhanced.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -54,10 +55,11 @@
   const selectedCount = document.getElementById("selected-restaurant-count");
   function updateSelectionCount() {
     if (selectedCount) selectedCount.textContent = selections.filter(input => input.checked).length;
-    if (selectAll) selectAll.checked = selections.length > 0 && selections.every(input => input.checked);
+    const selectable = selections.filter(input => !input.disabled);
+    if (selectAll) selectAll.checked = selectable.length > 0 && selectable.every(input => input.checked);
   }
   if (selectAll) selectAll.addEventListener("change", () => {
-    selections.forEach(input => input.checked = selectAll.checked);
+    selections.forEach(input => { if (!input.disabled) input.checked = selectAll.checked; });
     updateSelectionCount();
   });
   selections.forEach(input => input.addEventListener("change", updateSelectionCount));

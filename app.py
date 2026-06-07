@@ -28,7 +28,7 @@ from sqlalchemy import func, or_
 from werkzeug.exceptions import BadRequest
 
 from email_system.email_service import send_special_received_email
-from markets import SKAGIT_VALLEY, resolve_market
+from markets import SKAGIT_VALLEY, normalize_location, resolve_market
 from models import (
     DistributionLog,
     OutreachCampaign,
@@ -51,6 +51,7 @@ from special_pipeline import (
     generate_draft_from_submission,
     publish_draft,
     reject_draft,
+    schedule_first_special_followup_if_needed,
 )
 from special_taxonomy import (
     CUISINE_TAG_KEYS,
@@ -73,6 +74,9 @@ METRIC_TYPES = {"view", "directions", "call", "website", "share", "save"}
 CHANNELS = ["facebook_page", "facebook_group", "instagram", "email", "other"]
 LEAD_STATUSES = {"new", "contacted", "converted", "closed"}
 PLACES_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+CITY_ALIASES = {
+    "Sedro Woolley": "Sedro-Woolley",
+}
 
 
 def normalize_database_url(database_url):
@@ -166,6 +170,7 @@ def seed_launch_data_command():
             "user_signup",
             "notification",
             "special_received",
+            "first_special_followup",
             "restaurant_welcome",
             "sales_outreach",
             "diner_digest",
@@ -284,6 +289,28 @@ def selected_tag_key(value):
     return key if tag_label(key) else ""
 
 
+def canonical_market_city(city):
+    normalized = normalize_location(city or "")
+    city_lookup = {normalize_location(value): value for value in SKAGIT_VALLEY["cities"]}
+    alias_lookup = {normalize_location(alias): canonical for alias, canonical in CITY_ALIASES.items()}
+    return city_lookup.get(normalized) or alias_lookup.get(normalized) or (city or "").strip()
+
+
+def market_city_variants(city):
+    canonical = canonical_market_city(city)
+    variants = {canonical}
+    variants.update(alias for alias, target in CITY_ALIASES.items() if target == canonical)
+    return [value for value in variants if value]
+
+
+def market_city_filter(market):
+    cities = list((market or SKAGIT_VALLEY)["cities"])
+    variants = set(cities)
+    for city in cities:
+        variants.update(market_city_variants(city))
+    return or_(*(Restaurant.city.ilike(city) for city in sorted(variants)))
+
+
 def restaurant_search_filter(search_term):
     pattern = f"%{search_term}%"
     return or_(
@@ -394,7 +421,7 @@ def google_places_restaurant_lookup(term, limit=6):
         if not name:
             continue
         address = place.get("formattedAddress", "")
-        city = city_from_address(address)
+        city = canonical_market_city(city_from_address(address))
         status = "google_place" if city in SKAGIT_VALLEY["cities"] else "coming_soon"
         results.append(
             {
@@ -453,7 +480,7 @@ def restaurant_from_get_started_form():
             restaurant.contact_email = email
         return restaurant
     place_id = request.form.get("place_id", "").strip() or None
-    submitted_city = (
+    submitted_city = canonical_market_city(
         request.form.get("restaurant_city", "").strip()
         or city_from_address(request.form.get("restaurant_address", ""))
     )
@@ -508,15 +535,18 @@ def valid_unsubscribe_token(email, token):
 
 
 def skagit_specials_query():
-    return active_specials_query().filter(Restaurant.city.in_(SKAGIT_VALLEY["cities"]))
+    return active_specials_query().filter(market_city_filter(SKAGIT_VALLEY))
 
 
 def skagit_subscribers_query():
     location_filters = [Subscriber.location.ilike("%Skagit%")]
     location_filters.extend(Subscriber.location.ilike(f"%{city}%") for city in SKAGIT_VALLEY["cities"])
+    city_filters = [Subscriber.city.ilike(city) for city in SKAGIT_VALLEY["cities"]]
+    for alias in CITY_ALIASES:
+        city_filters.append(Subscriber.city.ilike(alias))
     return Subscriber.query.filter(
         Subscriber.is_subscribed.is_(True),
-        or_(Subscriber.city.in_(SKAGIT_VALLEY["cities"]), *location_filters),
+        or_(*city_filters, *location_filters),
     )
 
 
@@ -917,22 +947,40 @@ def operational_outreach_message_or_404(message_id):
 
 
 def restaurant_from_form(restaurant=None):
+    is_new = restaurant is None
     restaurant = restaurant or Restaurant()
+    place_id = request.form.get("place_id", "").strip()
+    if is_new and not place_id:
+        abort(400, "Choose a Google Places match before adding a restaurant.")
+    if place_id:
+        duplicate_query = Restaurant.query.filter_by(place_id=place_id)
+        if restaurant.id:
+            duplicate_query = duplicate_query.filter(Restaurant.id != restaurant.id)
+        if duplicate_query.first():
+            abort(400, "That Google Places restaurant is already in Appertivo.")
     restaurant.name = request.form["name"].strip()
-    restaurant.slug = slugify(request.form.get("slug") or restaurant.name)
-    restaurant.city = request.form["city"].strip()
+    restaurant.city = canonical_market_city(request.form["city"].strip())
+    if is_new and restaurant.city not in SKAGIT_VALLEY["cities"]:
+        abort(400, "Appertivo is coming soon for that restaurant.")
+    restaurant.slug = unique_restaurant_slug(request.form.get("slug") or restaurant.name, restaurant.id)
     restaurant.address = request.form.get("address", "").strip()
     restaurant.postal_code = request.form.get("postal_code", "").strip()
     restaurant.us_state = request.form.get("us_state", "").strip()
     restaurant.phone = request.form.get("phone", "").strip()
     restaurant.contact_email = request.form.get("contact_email", "").strip().lower()
     restaurant.website = request.form.get("website", "").strip()
+    if place_id:
+        restaurant.place_id = place_id
     restaurant.category = request.form.get("category", "").strip()
     restaurant.subtypes = request.form.get("subtypes", "").strip()
     cuisine_tags = serialize_tag_keys(request.form.getlist("cuisine_tags"), allowed=CUISINE_TAG_KEYS)
     restaurant.cuisine_tags = cuisine_tags or serialize_tag_keys(infer_restaurant_cuisine_tags(restaurant), allowed=CUISINE_TAG_KEYS)
     restaurant.claimed = request.form.get("claimed") == "on"
     restaurant.direct_publish_enabled = request.form.get("direct_publish_enabled") == "on"
+    if is_new:
+        restaurant.catalog_status = "included"
+        restaurant.catalog_reason = "admin Google Places add"
+        restaurant.catalog_reviewed_at = utc_now()
     return restaurant
 
 
@@ -1009,9 +1057,9 @@ def render_specials_feed():
     if not city and matched_city:
         city = matched_city
     if market:
-        query = active_specials_query().filter(Restaurant.city.in_(market["cities"]))
+        query = active_specials_query().filter(market_city_filter(market))
         if city:
-            query = query.filter(Restaurant.city.ilike(city))
+            query = query.filter(or_(*(Restaurant.city.ilike(value) for value in market_city_variants(city))))
         if active_tag:
             query = query.filter(special_tag_filter(active_tag))
         all_specials = query.order_by(Special.published_at.desc(), Special.created_at.desc()).all()
@@ -1133,7 +1181,7 @@ def restaurants():
     search_term = request.args.get("q", "").strip()
     query = Restaurant.query.filter_by(catalog_status="included")
     if city:
-        query = query.filter(Restaurant.city.ilike(city))
+        query = query.filter(or_(*(Restaurant.city.ilike(value) for value in market_city_variants(city))))
     if search_term:
         query = query.filter(restaurant_search_filter(search_term))
     items = query.order_by(Restaurant.name).all()
@@ -1191,6 +1239,7 @@ def submit_restaurant_suggestions():
 @app.get("/api/restaurant-lookup")
 def restaurant_lookup():
     term = request.args.get("q", "").strip()
+    include_google_duplicates = request.args.get("include_google_duplicates") == "1"
     if len(term) < 2:
         return jsonify([])
     local_restaurants = (
@@ -1201,8 +1250,9 @@ def restaurant_lookup():
         .all()
     )
     results = [restaurant_submit_result(restaurant, status="included") for restaurant in local_restaurants]
-    seen = {restaurant.name.lower() for restaurant in local_restaurants}
-    for suggestion in google_places_restaurant_lookup(term, limit=max(0, 8 - len(results))):
+    seen = set() if include_google_duplicates else {restaurant.name.lower() for restaurant in local_restaurants}
+    google_limit = 8 if include_google_duplicates else max(0, 8 - len(results))
+    for suggestion in google_places_restaurant_lookup(term, limit=google_limit):
         if suggestion["name"].lower() not in seen:
             results.append(suggestion)
     return jsonify(results)
@@ -1475,11 +1525,9 @@ def admin_tools():
         },
         {
             "title": "Enhance restaurants",
-            "description": "Pull Google Places details for included restaurants that still need enrichment.",
+            "description": "Attach or pull Google Places details for included restaurants that still need enrichment.",
             "url": url_for("admin_restaurant_enrichment"),
             "count": Restaurant.query.filter(
-                Restaurant.place_id.isnot(None),
-                Restaurant.place_id != "",
                 Restaurant.google_place_refreshed_at.is_(None),
                 Restaurant.catalog_status == "included",
             ).count(),
@@ -1862,8 +1910,6 @@ def admin_restaurant_catalog_bulk_action(status):
 def admin_restaurant_enrichment():
     restaurants = (
         Restaurant.query.filter(
-            Restaurant.place_id.isnot(None),
-            Restaurant.place_id != "",
             Restaurant.google_place_refreshed_at.is_(None),
             Restaurant.catalog_status == "included",
         )
@@ -2202,11 +2248,15 @@ def admin_new_special():
 def admin_edit_special(special_id):
     special = included_special_or_404(special_id)
     if request.method == "POST":
+        was_published = bool(special.published_at)
         try:
             special_from_form(special)
             db.session.commit()
         except UploadError as error:
             flash(str(error))
+        else:
+            if special.status == "published" and special.published_at and not was_published:
+                schedule_first_special_followup_if_needed(special)
         return redirect(url_for("admin_edit_special", special_id=special.id))
     return render_template("admin/special_form.html", restaurants=included_restaurants_query().order_by(Restaurant.name), special=special)
 
@@ -2216,6 +2266,7 @@ def admin_edit_special(special_id):
 def admin_special_action(special_id, action):
     special = included_special_or_404(special_id)
     if action == "approve":
+        was_published = bool(special.published_at)
         special.status = "published"
         special.published_at = special.published_at or utc_now()
     elif action == "expire":
@@ -2226,6 +2277,8 @@ def admin_special_action(special_id, action):
     else:
         abort(404)
     db.session.commit()
+    if action == "approve" and not was_published:
+        schedule_first_special_followup_if_needed(special)
     return redirect(request.referrer or url_for("admin_specials"))
 
 

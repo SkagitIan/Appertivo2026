@@ -1,7 +1,23 @@
-<form method="post" class="grid gap-4 md:grid-cols-2">
+{% set is_new_restaurant = not restaurant %}
+<form method="post" class="grid gap-4 md:grid-cols-2" data-admin-restaurant-form data-require-google-place="{{ 'true' if is_new_restaurant else 'false' }}" data-include-google-duplicates="{{ 'false' if is_new_restaurant else 'true' }}">
+  <input type="hidden" name="place_id" value="{{ restaurant.place_id if restaurant else '' }}" data-admin-place-id>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700" for="admin-restaurant-search-{{ 'new' if is_new_restaurant else restaurant.id }}">Google Places match</label>
+    <input id="admin-restaurant-search-{{ 'new' if is_new_restaurant else restaurant.id }}" autocomplete="off" placeholder="Search Google Places" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2" data-admin-restaurant-search>
+    <div class="mt-2 hidden rounded-lg border bg-white shadow-sm" data-admin-restaurant-results></div>
+    <p class="mt-2 text-sm text-stone-500" data-admin-restaurant-message>
+      {% if is_new_restaurant %}
+        Choose a Google Places match before saving.
+      {% elif restaurant.place_id %}
+        Google place ID attached: {{ restaurant.place_id }}
+      {% else %}
+        Search to attach a Google place ID for enrichment.
+      {% endif %}
+    </p>
+  </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">Name</label>
-    <input name="name" required value="{{ restaurant.name if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    <input name="name" required value="{{ restaurant.name if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2" data-admin-restaurant-name {% if is_new_restaurant %}readonly{% endif %}>
   </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">Slug</label>
@@ -9,11 +25,11 @@
   </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">City</label>
-    <input name="city" required value="{{ restaurant.city if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    <input name="city" required value="{{ restaurant.city if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2" data-admin-restaurant-city {% if is_new_restaurant %}readonly{% endif %}>
   </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">Phone</label>
-    <input name="phone" value="{{ restaurant.phone if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    <input name="phone" value="{{ restaurant.phone if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2" data-admin-restaurant-phone {% if is_new_restaurant %}readonly{% endif %}>
   </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">Contact email</label>
@@ -21,7 +37,7 @@
   </div>
   <div class="md:col-span-2">
     <label class="block text-sm font-semibold text-stone-700">Address</label>
-    <input name="address" value="{{ restaurant.address if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    <input name="address" value="{{ restaurant.address if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2" data-admin-restaurant-address {% if is_new_restaurant %}readonly{% endif %}>
   </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">State</label>
@@ -33,7 +49,7 @@
   </div>
   <div class="md:col-span-2">
     <label class="block text-sm font-semibold text-stone-700">Website</label>
-    <input name="website" value="{{ restaurant.website if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    <input name="website" value="{{ restaurant.website if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2" data-admin-restaurant-website {% if is_new_restaurant %}readonly{% endif %}>
   </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">Category</label>
@@ -70,3 +86,103 @@
     {% endif %}
   </div>
 </form>
+<script>
+(() => {
+  document.querySelectorAll("[data-admin-restaurant-form]").forEach((form) => {
+    if (form.dataset.lookupReady) return;
+    form.dataset.lookupReady = "true";
+    const search = form.querySelector("[data-admin-restaurant-search]");
+    const results = form.querySelector("[data-admin-restaurant-results]");
+    const message = form.querySelector("[data-admin-restaurant-message]");
+    const requireGooglePlace = form.dataset.requireGooglePlace === "true";
+    const includeGoogleDuplicates = form.dataset.includeGoogleDuplicates === "true";
+    const fields = {
+      place_id: form.querySelector("[data-admin-place-id]"),
+      name: form.querySelector("[data-admin-restaurant-name]"),
+      city: form.querySelector("[data-admin-restaurant-city]"),
+      address: form.querySelector("[data-admin-restaurant-address]"),
+      phone: form.querySelector("[data-admin-restaurant-phone]"),
+      website: form.querySelector("[data-admin-restaurant-website]"),
+    };
+    let controller;
+
+    const setMessage = (text) => { message.textContent = text; };
+    const hideResults = () => { results.classList.add("hidden"); results.innerHTML = ""; };
+    const clearNewSelection = () => {
+      if (!requireGooglePlace) return;
+      fields.place_id.value = "";
+      ["name", "city", "address", "phone", "website"].forEach((key) => { fields[key].value = ""; });
+    };
+    const setSelection = (item) => {
+      fields.place_id.value = item.place_id || "";
+      fields.name.value = item.name || "";
+      fields.city.value = item.city || "";
+      fields.address.value = item.address || "";
+      fields.phone.value = item.phone || "";
+      fields.website.value = item.website || "";
+      search.value = item.name || "";
+      setMessage(`${item.name} selected for Google Places enrichment.`);
+      hideResults();
+    };
+
+    const renderResults = (items) => {
+      results.innerHTML = "";
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "p-3 text-sm text-stone-600";
+        empty.textContent = "No Google Places match yet. Keep typing the restaurant name.";
+        results.appendChild(empty);
+      }
+      items.forEach((item) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "block w-full border-b px-3 py-2 text-left text-sm";
+        const details = item.city || item.address || "Skagit Valley";
+        if (item.status === "included" && requireGooglePlace) {
+          button.textContent = `${item.name} - ${details} (already in Appertivo)`;
+          button.disabled = true;
+          button.classList.add("text-stone-500");
+        } else if (item.status === "coming_soon") {
+          button.textContent = `${item.name} - ${details} (outside the pilot area)`;
+          button.disabled = true;
+          button.classList.add("text-stone-500");
+        } else if (!item.place_id) {
+          button.textContent = `${item.name} - ${details}`;
+          button.disabled = true;
+          button.classList.add("text-stone-500");
+        } else {
+          button.textContent = `${item.name} - ${details}`;
+          button.addEventListener("click", () => setSelection(item));
+        }
+        results.appendChild(button);
+      });
+      results.classList.remove("hidden");
+    };
+
+    search.addEventListener("input", async () => {
+      const term = search.value.trim();
+      clearNewSelection();
+      if (controller) controller.abort();
+      if (term.length < 2) {
+        hideResults();
+        setMessage(requireGooglePlace ? "Choose a Google Places match before saving." : "Search to attach a Google place ID for enrichment.");
+        return;
+      }
+      controller = new AbortController();
+      const params = new URLSearchParams({ q: term });
+      if (includeGoogleDuplicates) params.set("include_google_duplicates", "1");
+      const response = await fetch(`/api/restaurant-lookup?${params.toString()}`, { signal: controller.signal }).catch(() => null);
+      if (!response) return;
+      renderResults(await response.json());
+    });
+
+    form.addEventListener("submit", (event) => {
+      if (requireGooglePlace && !fields.place_id.value) {
+        event.preventDefault();
+        setMessage("Select a Google Places match before saving.");
+        search.focus();
+      }
+    });
+  });
+})();
+</script>

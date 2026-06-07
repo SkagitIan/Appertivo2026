@@ -1,0 +1,13 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<p style="margin:0 0 14px;line-height:1.5;">Nice work{% if restaurant_name %}, {{ restaurant_name }}{% endif %}. Your first Appertivo special is live.</p>
+<p style="margin:0 0 14px;line-height:1.5;">Next time you run a special, you do not need to start from scratch. Send the details to <a href="mailto:{{ specials_email }}" style="color:#176f70;font-weight:bold;">{{ specials_email }}</a> and we can turn it into a clean card for diners.</p>
+<p style="margin:0 0 18px;line-height:1.5;">We are also setting up simple retention tools for restaurants that post regularly: weekly reminder emails, an easy repeat-special flow, and a scheduled call where a diner-style AI voice asks what special you want to run that week.</p>
+{% if schedule_call_url %}
+  <p style="margin:0 0 18px;"><a href="{{ schedule_call_url }}" style="display:inline-block;background:#ed4b0b;color:#ffffff;text-decoration:none;font-weight:bold;border-radius:8px;padding:12px 18px;">Schedule a time to call</a></p>
+{% endif %}
+{% if restaurant_url %}
+  <p style="margin:0 0 14px;line-height:1.5;"><a href="{{ restaurant_url }}" style="color:#176f70;font-weight:bold;">View your restaurant page</a></p>
+{% endif %}
+<p style="margin:0;color:#70675f;font-size:13px;line-height:1.5;">The call tool is a preview workflow for now. Emailing {{ specials_email }} is the fastest way to send the next special today.</p>
+{% endblock %}

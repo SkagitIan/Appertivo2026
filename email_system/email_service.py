@@ -9,6 +9,7 @@ SUBJECTS = {
     "user_signup": "Welcome to Appertivo",
     "notification": "Appertivo notification",
     "special_received": "We received your special",
+    "first_special_followup": "Next time you run a special.",
     "restaurant_welcome": "Welcome to Appertivo",
     "sales_outreach": "Get your restaurant special in front of local diners",
     "diner_digest": "What's good today in Skagit Valley",
@@ -46,16 +47,18 @@ def send_transactional_email(
     from_email=None,
     reply_to=None,
     tags=None,
+    scheduled_at=None,
 ):
     rendered = render_email_template(template_name, context)
-    return send_rendered_email(
+    return resend_client.send_email(
         to=to,
         subject=subject,
         html=rendered["html"],
         text=rendered["text"],
-        from_email=from_email,
+        from_email=from_email or current_app.config["EMAIL_FROM_NOREPLY"],
         reply_to=reply_to,
         tags=tags,
+        scheduled_at=scheduled_at,
     )
 
 
@@ -107,6 +110,33 @@ def send_special_received_email(
     )
 
 
+def send_first_special_followup_email(
+    to,
+    restaurant_name=None,
+    restaurant_url=None,
+    schedule_call_url=None,
+    scheduled_at="in 5 minutes",
+):
+    base_url = current_app.config["APP_BASE_URL"].rstrip("/")
+    return send_transactional_email(
+        to,
+        SUBJECTS["first_special_followup"],
+        "first_special_followup",
+        {
+            "restaurant_name": restaurant_name,
+            "restaurant_url": restaurant_url,
+            "schedule_call_url": schedule_call_url
+            or f"mailto:{current_app.config['EMAIL_REPLY_TO_SPECIALS']}?subject=Schedule%20a%20weekly%20specials%20call",
+            "specials_email": current_app.config["EMAIL_REPLY_TO_SPECIALS"],
+            "get_started_url": f"{base_url}/get-started",
+        },
+        from_email=current_app.config["EMAIL_FROM_SPECIALS"],
+        reply_to=current_app.config["EMAIL_REPLY_TO_SPECIALS"],
+        tags=[{"name": "event", "value": "first_special_followup"}],
+        scheduled_at=scheduled_at,
+    )
+
+
 def send_restaurant_welcome_email(to, restaurant_name=None):
     return send_transactional_email(
         to,
@@ -152,6 +182,12 @@ def send_test_email(to, template_name):
             to, SUBJECTS["notification"], "This is an Appertivo email system test."
         ),
         "special_received": lambda: send_special_received_email(to, "Example Cafe", "Friday Fish Tacos"),
+        "first_special_followup": lambda: send_first_special_followup_email(
+            to,
+            "Example Cafe",
+            restaurant_url=f"{base_url}/restaurants/example-cafe",
+            schedule_call_url=f"mailto:specials@appertivo.com?subject=Schedule%20a%20weekly%20specials%20call",
+        ),
         "restaurant_welcome": lambda: send_restaurant_welcome_email(to, "Example Cafe"),
         "sales_outreach": lambda: send_sales_outreach_email(
             to,
@@ -189,6 +225,10 @@ def render_test_email(template_name):
             "message": "This is an Appertivo email system test.",
             "restaurant_name": "Example Cafe",
             "special_title": "Friday Fish Tacos",
+            "restaurant_url": f"{base_url}/restaurants/example-cafe",
+            "schedule_call_url": f"mailto:specials@appertivo.com?subject=Schedule%20a%20weekly%20specials%20call",
+            "specials_email": "specials@appertivo.com",
+            "get_started_url": f"{base_url}/get-started",
             "contact_name": "Restaurant Owner",
             "custom_message": "We would like to help share your specials with local diners.",
             "show_unsubscribe_placeholder": template_name in {"sales_outreach", "diner_digest"},

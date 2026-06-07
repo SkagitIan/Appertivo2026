@@ -89,6 +89,7 @@ def test_resend_wrapper_normalizes_success_and_missing_key(monkeypatch):
             from_email="noreply@example.com",
             reply_to="reply@example.com",
             tags=[{"name": "kind", "value": "test"}],
+            scheduled_at="in 5 minutes",
         )
         app.config["RESEND_API_KEY"] = None
         missing_key = resend_client.send_email(
@@ -102,6 +103,7 @@ def test_resend_wrapper_normalizes_success_and_missing_key(monkeypatch):
     assert result == {"success": True, "provider": "resend", "message_id": "resend-1", "error": None}
     assert sent["reply_to"] == "reply@example.com"
     assert sent["tags"] == [{"name": "kind", "value": "test"}]
+    assert sent["scheduled_at"] == "in 5 minutes"
     assert missing_key["success"] is False
     assert "RESEND_API_KEY" in missing_key["error"]
 
@@ -146,6 +148,7 @@ def test_email_and_loops_capture_backend(tmp_path):
                 from_email="specials@example.com",
                 reply_to="reply@example.com",
                 tags=[{"name": "channel", "value": "test"}],
+                scheduled_at="in 5 minutes",
             )
             contact = loops_client.create_or_update_contact("owner@example.com", {"source": "test"})
             event = loops_client.send_event("owner@example.com", "restaurantSpecialReceived", {"draft": "1"})
@@ -164,6 +167,7 @@ def test_email_and_loops_capture_backend(tmp_path):
     assert [record["kind"] for record in records] == ["email", "loops_contact", "loops_event"]
     assert records[0]["to"] == "owner@example.com"
     assert records[0]["tags"] == [{"name": "channel", "value": "test"}]
+    assert records[0]["scheduled_at"] == "in 5 minutes"
     assert records[1]["properties"] == {"source": "test"}
     assert records[2]["event_name"] == "restaurantSpecialReceived"
 
@@ -203,4 +207,4 @@ def test_send_all_test_emails_sends_each_template(monkeypatch):
     with app.app_context():
         results = send_all_test_emails("ian.larsen.1976@gmail.com")
     assert list(results) == list(SUBJECTS)
-    assert len(sent) == 8
+    assert len(sent) == 9

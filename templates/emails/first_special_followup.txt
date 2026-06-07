@@ -1,0 +1,16 @@
+{% extends "emails/base.txt" %}
+{% block content %}
+Nice work{% if restaurant_name %}, {{ restaurant_name }}{% endif %}. Your first Appertivo special is live.
+
+Next time you run a special, send the details to {{ specials_email }} and we can turn it into a clean card for diners.
+
+We are also setting up simple retention tools for restaurants that post regularly: weekly reminder emails, an easy repeat-special flow, and a scheduled call where a diner-style AI voice asks what special you want to run that week.
+
+{% if schedule_call_url %}Schedule a time to call:
+{{ schedule_call_url }}
+{% endif %}
+{% if restaurant_url %}View your restaurant page:
+{{ restaurant_url }}
+{% endif %}
+The call tool is a preview workflow for now. Emailing {{ specials_email }} is the fastest way to send the next special today.
+{% endblock %}

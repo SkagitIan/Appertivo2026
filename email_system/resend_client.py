@@ -24,7 +24,7 @@ def _message_id(response):
     return getattr(response, "id", None)
 
 
-def send_email(to, subject, html, text, from_email, reply_to=None, tags=None):
+def send_email(to, subject, html, text, from_email, reply_to=None, tags=None, scheduled_at=None):
     capture_id = write_capture(
         {
             "kind": "email",
@@ -36,6 +36,7 @@ def send_email(to, subject, html, text, from_email, reply_to=None, tags=None):
             "from_email": from_email,
             "reply_to": reply_to,
             "tags": tags or [],
+            "scheduled_at": scheduled_at,
         }
     )
     if capture_id:
@@ -58,6 +59,8 @@ def send_email(to, subject, html, text, from_email, reply_to=None, tags=None):
         payload["reply_to"] = reply_to
     if tags:
         payload["tags"] = tags
+    if scheduled_at:
+        payload["scheduled_at"] = scheduled_at
 
     try:
         resend.api_key = api_key

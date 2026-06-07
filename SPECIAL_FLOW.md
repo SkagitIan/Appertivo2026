@@ -63,6 +63,8 @@ Use `/submit-special` when you do not know the restaurant yet or want a general 
 5. Admin publishes approved drafts from `/admin/special-drafts`.
 6. Published specials appear in `/admin/specials` and public `/specials/<public_id>`.
 7. Distribution tools live at `/admin/specials/<id>/distribution`.
+8. The first published special for a restaurant schedules a Resend follow-up email
+   5 minutes later when the submission or restaurant has an email address.
 
 The local Playwright suite covers public form, private-token, trusted direct-publish,
 admin publish, digest, outreach, and captured email/Loops behavior.

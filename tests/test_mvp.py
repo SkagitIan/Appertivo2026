@@ -238,6 +238,32 @@ def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
     assert b"Get Local Specials" in waitlist_page.data
 
 
+def test_skagit_feed_includes_sedro_woolley_city_variant(client):
+    with app.app_context():
+        restaurant = Restaurant(
+            name="Bullpen Bar and Grill",
+            slug="bullpen-bar-and-grill",
+            city="Sedro Woolley",
+        )
+        db.session.add(restaurant)
+        db.session.flush()
+        db.session.add(
+            Special(
+                restaurant_id=restaurant.id,
+                title="Game Day Burger",
+                description="Burger and fries.",
+                status="published",
+                source="manual",
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.session.commit()
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b"Game Day Burger" in response.data
+
+
 def test_specials_feed_filters_featured_and_saved_flow(client):
     with app.app_context():
         db.session.add_all(
@@ -670,6 +696,38 @@ def test_public_preview_publish_button_publishes_special(client):
     with app.app_context():
         assert Special.query.one().status == "expired"
     assert client.get(f"/specials/{public_id}").status_code == 404
+
+
+def test_first_public_publish_schedules_one_operator_followup(client, monkeypatch):
+    sent = []
+
+    def fake_send_email(**kwargs):
+        sent.append(kwargs)
+        return {"success": True, "provider": "resend", "message_id": f"email-{len(sent)}", "error": None}
+
+    monkeypatch.setattr("email_system.resend_client.send_email", fake_send_email)
+
+    for raw_text in ["Dinner special today $20", "Lunch special today $12"]:
+        client.post(
+            "/submit-special",
+            data={
+                "csrf_token": csrf(client),
+                "restaurant_id": "1",
+                "raw_text": raw_text,
+                "sender_email": "owner@example.com",
+            },
+        )
+        with app.app_context():
+            token = SpecialDraft.query.order_by(SpecialDraft.created_at.desc()).first().approval_token
+        response = client.post(f"/specials/preview/{token}/publish", data={"csrf_token": csrf(client)})
+        assert response.status_code == 302
+
+    followups = [email for email in sent if email["subject"] == "Next time you run a special."]
+    assert len(followups) == 1
+    assert followups[0]["to"] == "owner@example.com"
+    assert followups[0]["scheduled_at"] == "in 5 minutes"
+    assert followups[0]["from_email"] == app.config["EMAIL_FROM_SPECIALS"]
+    assert "specials@appertivo.com" in followups[0]["text"]
 
 
 def test_published_preview_link_redirects_to_live_special_and_grants_tools(client):

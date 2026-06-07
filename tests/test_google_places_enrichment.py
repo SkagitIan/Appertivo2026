@@ -158,6 +158,86 @@ def test_admin_enrichment_queue_enhances_one_confirmed_restaurant(monkeypatch):
         db.drop_all()
 
 
+def test_admin_add_restaurant_requires_google_place_and_queues_enrichment():
+    app.config.update(
+        TESTING=True,
+        SECRET_KEY="test-secret",
+        ADMIN_PASSWORD="test-password",
+    )
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+
+    with app.test_client() as client:
+        login(client)
+        freehand = client.post(
+            "/admin/restaurants",
+            data={
+                "csrf_token": csrf(client),
+                "name": "Freehand Cafe",
+                "city": "Mount Vernon",
+            },
+        )
+        assert freehand.status_code == 400
+
+        response = client.post(
+            "/admin/restaurants",
+            data={
+                "csrf_token": csrf(client),
+                "place_id": "places/bullpen",
+                "name": "Bullpen Bar and Grill",
+                "city": "Sedro Woolley",
+                "address": "123 Metcalf St, Sedro-Woolley, WA 98284, USA",
+                "phone": "(360) 555-0100",
+                "website": "https://bullpen.example",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert b"Restaurant added" in response.data
+
+        enrichment_page = client.get("/admin/restaurant-enrichment")
+        assert b"Bullpen Bar and Grill" in enrichment_page.data
+        assert b"places/bullpen" in enrichment_page.data
+
+    with app.app_context():
+        restaurant = Restaurant.query.one()
+        assert restaurant.place_id == "places/bullpen"
+        assert restaurant.city == "Sedro-Woolley"
+        db.session.remove()
+        db.drop_all()
+
+
+def test_enrichment_queue_shows_restaurants_missing_google_place_id():
+    app.config.update(
+        TESTING=True,
+        SECRET_KEY="test-secret",
+        ADMIN_PASSWORD="test-password",
+    )
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+        db.session.add(
+            Restaurant(
+                name="Manual Bullpen",
+                slug="manual-bullpen",
+                city="Sedro Woolley",
+            )
+        )
+        db.session.commit()
+
+    with app.test_client() as client:
+        login(client)
+        page = client.get("/admin/restaurant-enrichment")
+        assert b"Manual Bullpen" in page.data
+        assert b"Needs match" in page.data
+        assert b"Attach Google Places match" in page.data
+
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
 def test_admin_enrichment_queue_bulk_enhances_selected_restaurants(monkeypatch):
     app.config.update(
         TESTING=True,
@@ -216,7 +296,7 @@ def test_admin_enrichment_queue_bulk_enhances_selected_restaurants(monkeypatch):
         )
         assert response.status_code == 200
         assert b"Enhanced 2 restaurants" in response.data
-        assert b"Every restaurant with a place ID has been enhanced" in response.data
+        assert b"Every included restaurant has been enhanced" in response.data
     assert calls == [(1, "places-key"), (2, "places-key")]
 
     with app.app_context():

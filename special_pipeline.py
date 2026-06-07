@@ -246,6 +246,34 @@ def reject_draft(token):
     return draft
 
 
+def schedule_first_special_followup_if_needed(special, recipient_email=None):
+    recipient = (recipient_email or getattr(special.restaurant, "contact_email", "") or "").strip().lower()
+    if not recipient:
+        return None
+    previous_special = (
+        Special.query.filter(
+            Special.restaurant_id == special.restaurant_id,
+            Special.id != special.id,
+            Special.published_at.isnot(None),
+        )
+        .order_by(Special.published_at.asc())
+        .first()
+    )
+    if previous_special:
+        return None
+
+    from email_system.email_service import send_first_special_followup_email
+
+    base_url = current_app.config["APP_BASE_URL"].rstrip("/")
+    restaurant_url = f"{base_url}/restaurants/{special.restaurant.slug}" if special.restaurant else None
+    return send_first_special_followup_email(
+        recipient,
+        restaurant_name=special.restaurant.name if special.restaurant else None,
+        restaurant_url=restaurant_url,
+        scheduled_at="in 5 minutes",
+    )
+
+
 def publish_draft(draft_id):
     draft = db.session.get(SpecialDraft, draft_id)
     if not draft:
@@ -256,6 +284,10 @@ def publish_draft(draft_id):
         raise ValueError("Approve this draft before publishing it.")
     if not draft.restaurant_id:
         raise ValueError("Assign a restaurant before publishing this draft.")
+    first_published_special = not Special.query.filter(
+        Special.restaurant_id == draft.restaurant_id,
+        Special.published_at.isnot(None),
+    ).first()
     special = Special(
         draft_id=draft.id,
         restaurant_id=draft.restaurant_id,
@@ -285,4 +317,6 @@ def publish_draft(draft_id):
     draft.raw_submission.status = "published"
     db.session.add(special)
     db.session.commit()
+    if first_published_special:
+        schedule_first_special_followup_if_needed(special, draft.raw_submission.sender_email)
     return special

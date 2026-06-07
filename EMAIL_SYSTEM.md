@@ -4,6 +4,8 @@
 
 - Resend sends transactional email: sign-in links, verification, signup confirmations,
   app notifications, special confirmations, and system notices.
+- Resend scheduled sends handle the first-special restaurant follow-up 5 minutes after
+  a restaurant publishes its first special.
 - Loops stores marketing contacts and receives lifecycle or outreach events. Campaigns,
   sequences, and newsletters are configured later.
 - `specials@appertivo.com` is the monitored restaurant-specials inbox.
@@ -88,7 +90,7 @@ send_marketing_event("owner@example.com", "restaurantLeadCreated", {"city": "Ana
 | Purpose | Sender | Reply-to |
 | --- | --- | --- |
 | Sign-in, verification, signup, notices | `EMAIL_FROM_NOREPLY` | None |
-| Restaurant specials and onboarding | `EMAIL_FROM_SPECIALS` | `EMAIL_REPLY_TO_SPECIALS` |
+| Restaurant specials, onboarding, first-special follow-up | `EMAIL_FROM_SPECIALS` | `EMAIL_REPLY_TO_SPECIALS` |
 | Founder sales outreach | `EMAIL_FROM_SALES` | `EMAIL_REPLY_TO_SALES` |
 
 ## Test Sending
