@@ -33,6 +33,7 @@ from models import (
     DistributionLog,
     OutreachCampaign,
     OutreachMessage,
+    OutreachTemplate,
     Restaurant,
     RestaurantLead,
     RawSpecialSubmission,
@@ -1605,187 +1606,134 @@ def admin_email_tools():
     return render_template("admin/email_tools.html", previews=previews, recipient=recipient)
 
 
+def rotate_restaurant_submission_url(restaurant):
+    token = secrets.token_urlsafe(24)
+    restaurant.submission_token_hash = hash_token(token)
+    db.session.commit()
+    return url_for("submit_special", token=token, _external=True)
+
+
 @app.route("/admin/outreach", methods=["GET", "POST"])
 @admin_required
 def admin_outreach():
-    from email_system.outreach_service import create_campaign_for_restaurant
+    from email_system.outreach_service import ensure_default_outreach_templates
 
     if request.method == "POST":
-        restaurant = included_restaurant_or_404(included_restaurant_id_from_form())
-        try:
-            campaign = create_campaign_for_restaurant(restaurant)
-        except ValueError as error:
-            flash(str(error))
-            return redirect(url_for("admin_outreach"))
-        return redirect(url_for("admin_outreach_campaign", campaign_id=campaign.id))
-    view = request.args.get("view", "due")
-    now = utc_now()
-    campaigns_query = operational_outreach_campaigns_query().filter(OutreachCampaign.archived.is_(False))
-    if view == "drafts":
-        campaigns_query = campaigns_query.filter(OutreachCampaign.status == "drafting")
-    elif view == "replies":
-        campaigns_query = campaigns_query.filter(OutreachCampaign.status == "replied")
-    elif view == "active":
-        campaigns_query = campaigns_query.filter(OutreachCampaign.status == "active")
-    elif view == "converted":
-        campaigns_query = campaigns_query.filter(OutreachCampaign.status.in_(["converted", "special_received"]))
-    elif view == "opted-out":
-        campaigns_query = campaigns_query.filter(OutreachCampaign.status == "opted_out")
-    elif view == "archived":
-        campaigns_query = operational_outreach_campaigns_query().filter(OutreachCampaign.archived.is_(True))
-    else:
-        campaigns_query = campaigns_query.filter(
-            OutreachCampaign.paused.is_(False),
-            or_(OutreachCampaign.next_follow_up_at.is_(None), OutreachCampaign.next_follow_up_at <= now),
-            OutreachCampaign.status.in_(["drafting", "active"]),
-        )
-    campaigns = campaigns_query.order_by(
-        OutreachCampaign.next_follow_up_at.is_(None),
-        OutreachCampaign.next_follow_up_at.asc(),
-        OutreachCampaign.updated_at.desc(),
-    ).all()
-    enrolled_restaurant_ids = [
-        row[0]
-        for row in db.session.query(OutreachCampaign.restaurant_id)
+        return redirect(url_for("admin_outreach"))
+    ensure_default_outreach_templates()
+    campaigns = (
+        operational_outreach_campaigns_query()
         .filter(OutreachCampaign.archived.is_(False))
+        .order_by(OutreachCampaign.updated_at.desc(), OutreachCampaign.last_sent_at.desc())
         .all()
-    ]
-    eligible_restaurants = (
+    )
+    selected_campaign = None
+    selected_id = request.args.get("conversation", type=int)
+    if selected_id:
+        selected_campaign = (
+            operational_outreach_campaigns_query()
+            .filter(OutreachCampaign.id == selected_id, OutreachCampaign.archived.is_(False))
+            .first()
+        )
+    if not selected_campaign and campaigns:
+        selected_campaign = campaigns[0]
+    restaurants = (
         included_restaurants_query()
-        .filter(Restaurant.contact_email != "", Restaurant.id.notin_(enrolled_restaurant_ids or [0]))
+        .filter(Restaurant.contact_email.isnot(None), Restaurant.contact_email != "")
         .order_by(Restaurant.city, Restaurant.name)
         .all()
     )
+    templates = OutreachTemplate.query.filter_by(is_active=True).order_by(OutreachTemplate.name).all()
     return render_template(
         "admin/outreach.html",
         campaigns=campaigns,
-        eligible_restaurants=eligible_restaurants,
-        view=view,
+        selected_campaign=selected_campaign,
+        restaurants=restaurants,
+        templates=templates,
     )
 
 
-@app.route("/admin/outreach/<int:campaign_id>", methods=["GET", "POST"])
+@app.post("/admin/outreach/send")
 @admin_required
-def admin_outreach_campaign(campaign_id):
-    campaign = operational_outreach_campaign_or_404(campaign_id)
-    draft_id = request.form.get("draft_id") if request.method == "POST" else None
-    if request.method == "POST" and draft_id:
-        message = (
-            OutreachMessage.query.filter_by(id=int(draft_id), campaign_id=campaign.id, direction="outbound")
-            .filter(OutreachMessage.status.in_(["draft", "failed", "blocked"]))
-            .first_or_404()
+def admin_outreach_send_direct():
+    from email_system.outreach_service import render_outreach_text, send_direct_outreach
+
+    restaurant = included_restaurant_or_404(included_restaurant_id_from_form())
+    subject = request.form.get("subject", "").strip()
+    body_text = request.form.get("body_text", "").strip()
+    if not subject or not body_text:
+        flash("Add a subject and message before sending.")
+        return redirect(url_for("admin_outreach"))
+    submission_url = request.form.get("submission_url", "").strip()
+    if "{{ submission_url" in subject or "{{ submission_url" in body_text:
+        submission_url = submission_url or rotate_restaurant_submission_url(restaurant)
+    subject = render_outreach_text(subject, restaurant, submission_url)
+    body_text = render_outreach_text(body_text, restaurant, submission_url)
+    template_id = request.form.get("template_id", "").strip() or None
+    try:
+        message, result = send_direct_outreach(
+            restaurant,
+            subject,
+            body_text,
+            recipient_email=restaurant.contact_email,
+            template_key=template_id,
         )
-        message.recipient_email = request.form["recipient_email"].strip().lower()
-        campaign.recipient_email = message.recipient_email
-        message.subject = request.form["subject"].strip()
-        message.body_text = request.form["body_text"].strip()
-        message.tags = request.form.get("tags", "").strip()
-        message.reviewed = request.form.get("reviewed") == "on"
-        campaign.contact_name = request.form.get("contact_name", "").strip()
-        campaign.personalized_observation = request.form.get("personalized_observation", "").strip()
-        campaign.example_special = request.form.get("example_special", "").strip()
-        campaign.personalized_reason = request.form.get("personalized_reason", "").strip()
-        campaign.notes = request.form.get("notes", "").strip()
-        db.session.commit()
-        flash("Draft saved.")
-        return redirect(url_for("admin_outreach_campaign", campaign_id=campaign.id))
-    draft = (
-        OutreachMessage.query.filter_by(campaign_id=campaign.id, direction="outbound")
-        .filter(OutreachMessage.status.in_(["draft", "failed", "blocked"]))
-        .order_by(OutreachMessage.sequence_step.desc(), OutreachMessage.created_at.desc())
-        .first()
-    )
-    return render_template("admin/outreach_message.html", campaign=campaign, draft=draft)
-
-
-@app.post("/admin/outreach/<int:campaign_id>/generate")
-@admin_required
-def admin_outreach_generate(campaign_id):
-    from email_system.outreach_service import create_sequence_draft
-    from email_system.openai_client import generate_outreach_draft
-
-    campaign = operational_outreach_campaign_or_404(campaign_id)
-    step = int(request.form.get("sequence_step") or min(campaign.current_step + 1, 4))
-    message = (
-        OutreachMessage.query.filter_by(
-            campaign_id=campaign.id,
-            direction="outbound",
-            status="draft",
-            sequence_step=step,
-        )
-        .order_by(OutreachMessage.created_at.desc())
-        .first()
-        or create_sequence_draft(campaign, step)
-    )
-    personalization = {
-        "contact_name": campaign.contact_name,
-        "personalized_observation": campaign.personalized_observation,
-        "example_special": campaign.example_special,
-        "personalized_reason": campaign.personalized_reason,
-        "notes": campaign.notes,
-    }
-    result = generate_outreach_draft(
-        campaign.restaurant,
-        request.form.get("instruction", "").strip(),
-        sequence_step=step,
-        personalization=personalization,
-    )
-    if result["success"]:
-        message.body_text = result["text"]
-        db.session.commit()
-        flash("OpenAI draft generated. Review it before sending.")
-    else:
-        flash(f"Draft generation failed: {result['error']}")
-    return redirect(url_for("admin_outreach_campaign", campaign_id=campaign.id))
-
-
-@app.post("/admin/outreach/<int:campaign_id>/messages/<int:message_id>/send")
-@admin_required
-def admin_outreach_send(campaign_id, message_id):
-    from email_system.outreach_service import send_outreach_message
-
-    campaign = operational_outreach_campaign_or_404(campaign_id)
-    message = OutreachMessage.query.filter_by(id=message_id, campaign_id=campaign.id).first_or_404()
-    if message.direction != "outbound" or message.status not in {"draft", "failed"}:
-        abort(400)
-    if app.config["OUTREACH_REQUIRE_APPROVAL"] and not message.reviewed:
-        flash("Review and save this draft before sending.")
-        return redirect(url_for("admin_outreach_campaign", campaign_id=campaign.id))
-    result = send_outreach_message(message)
+    except ValueError as error:
+        flash(str(error))
+        return redirect(url_for("admin_outreach"))
     flash("Outreach email sent." if result["success"] else f"Send failed: {result['error']}")
-    return redirect(url_for("admin_outreach_campaign", campaign_id=campaign.id))
+    return redirect(url_for("admin_outreach", conversation=message.campaign_id))
 
 
-@app.post("/admin/outreach/<int:campaign_id>/<action>")
+@app.post("/admin/outreach/restaurants/<int:restaurant_id>/submission-link")
 @admin_required
-def admin_outreach_action(campaign_id, action):
-    from email_system import loops_client
-    from email_system.outreach_service import suppress_email
+def admin_outreach_submission_link(restaurant_id):
+    restaurant = included_restaurant_or_404(restaurant_id)
+    if not restaurant.contact_email:
+        abort(400, "Choose a restaurant with a contact email.")
+    return jsonify({"submission_url": rotate_restaurant_submission_url(restaurant)})
 
-    campaign = operational_outreach_campaign_or_404(campaign_id)
-    if action == "archive":
-        campaign.archived = True
-    elif action == "pause":
-        campaign.paused = not campaign.paused
-    elif action == "converted":
-        campaign.status = "converted"
-        campaign.paused = True
-        campaign.next_follow_up_at = None
-        loops_client.send_event(campaign.recipient_email, "restaurantOutreachConverted", {"outreachId": str(campaign.id)})
-    elif action == "close":
-        campaign.status = "closed"
-        campaign.paused = True
-        campaign.next_follow_up_at = None
-    elif action == "opt-out":
-        suppress_email(campaign.recipient_email, reason="opt_out", source="admin")
-        campaign.status = "opted_out"
-        campaign.paused = True
-        campaign.next_follow_up_at = None
-        loops_client.send_event(campaign.recipient_email, "restaurantOutreachOptedOut", {"source": "admin"})
-    else:
-        abort(404)
+
+@app.post("/admin/outreach/templates")
+@admin_required
+def admin_outreach_create_template():
+    template = OutreachTemplate(
+        name=request.form.get("name", "").strip(),
+        subject=request.form.get("subject", "").strip(),
+        body_text=request.form.get("body_text", "").strip(),
+        is_active=True,
+    )
+    if not template.name or not template.subject or not template.body_text:
+        flash("Template name, subject, and body are required.")
+        return redirect(url_for("admin_outreach"))
+    db.session.add(template)
+    try:
+        db.session.commit()
+        flash("Template saved.")
+    except Exception:
+        db.session.rollback()
+        flash("Template names must be unique.")
+    return redirect(url_for("admin_outreach"))
+
+
+@app.post("/admin/outreach/templates/<int:template_id>")
+@admin_required
+def admin_outreach_update_template(template_id):
+    template = OutreachTemplate.query.get_or_404(template_id)
+    if request.form.get("action") == "deactivate":
+        template.is_active = False
+        db.session.commit()
+        flash("Template archived.")
+        return redirect(url_for("admin_outreach"))
+    template.name = request.form.get("name", "").strip()
+    template.subject = request.form.get("subject", "").strip()
+    template.body_text = request.form.get("body_text", "").strip()
+    if not template.name or not template.subject or not template.body_text:
+        flash("Template name, subject, and body are required.")
+        return redirect(url_for("admin_outreach"))
     db.session.commit()
-    return redirect(request.referrer or url_for("admin_outreach"))
+    flash("Template updated.")
+    return redirect(url_for("admin_outreach"))
 
 
 @app.post("/api/webhooks/resend")

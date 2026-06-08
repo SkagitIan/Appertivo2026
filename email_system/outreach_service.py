@@ -8,7 +8,7 @@ from flask import current_app, render_template
 
 from email_system import loops_client, resend_client
 from email_system.email_service import send_special_received_email
-from models import OutreachCampaign, OutreachMessage, OutreachSuppression, Restaurant, db, utc_now
+from models import OutreachCampaign, OutreachMessage, OutreachSuppression, OutreachTemplate, Restaurant, db, utc_now
 from special_pipeline import create_raw_submission, generate_draft_from_submission
 
 
@@ -90,6 +90,37 @@ If not, no problem - I won't keep following up.
 Ian""",
     },
 }
+OUTREACH_OPT_OUT_FOOTER = 'Reply "no thanks" and I will stop emailing you.'
+DEFAULT_OUTREACH_TEMPLATES = [
+    {
+        "name": "First hello",
+        "subject": "Quick Appertivo link for {{ restaurant_name }}",
+        "body_text": """Hi {{ restaurant_name }},
+
+I'm Ian at Appertivo. I'm getting local Skagit restaurants set up so you can send one special and have it turned into a clean listing for diners.
+
+You can use this private link whenever you have something to share:
+
+{{ submission_url }}
+
+No account setup needed. Just send the special and I'll help polish it before it goes live.
+
+Ian""",
+    },
+    {
+        "name": "Reply follow-up",
+        "subject": "Can I help get {{ restaurant_name }} set up?",
+        "body_text": """Hi {{ restaurant_name }},
+
+Wanted to make this easy: if you have a lunch special, happy hour item, dinner feature, or slow-night promo, send it here:
+
+{{ submission_url }}
+
+You can also just reply to this email with the details.
+
+Ian""",
+    },
+]
 
 
 def normalize_email(email):
@@ -109,6 +140,86 @@ def suppress_email(email, reason="opt_out", source="admin"):
         suppression = OutreachSuppression(email=normalized, reason=reason, source=source)
         db.session.add(suppression)
     return suppression
+
+
+def append_opt_out_footer(body_text):
+    body = (body_text or "").strip()
+    if OUTREACH_OPT_OUT_FOOTER.lower() in body.lower():
+        return body
+    return f"{body}\n\n--\n{OUTREACH_OPT_OUT_FOOTER}" if body else OUTREACH_OPT_OUT_FOOTER
+
+
+def render_outreach_text(text, restaurant, submission_url=""):
+    values = {
+        "restaurant_name": restaurant.name if restaurant else "",
+        "city": restaurant.city if restaurant else "",
+        "contact_email": restaurant.contact_email if restaurant else "",
+        "submission_url": submission_url or "",
+    }
+    rendered = text or ""
+    for key, value in values.items():
+        rendered = rendered.replace("{{ " + key + " }}", value)
+        rendered = rendered.replace("{{" + key + "}}", value)
+    return rendered
+
+
+def ensure_default_outreach_templates():
+    existing = {template.name for template in OutreachTemplate.query.all()}
+    created = []
+    for item in DEFAULT_OUTREACH_TEMPLATES:
+        if item["name"] not in existing:
+            template = OutreachTemplate(
+                name=item["name"],
+                subject=item["subject"],
+                body_text=item["body_text"],
+                is_active=True,
+            )
+            db.session.add(template)
+            created.append(template)
+    if created:
+        db.session.commit()
+    return created
+
+
+def conversation_for_restaurant(restaurant, recipient_email=None):
+    if not restaurant_is_eligible(restaurant):
+        raise ValueError("Choose an included restaurant with a contact email.")
+    recipient = normalize_email(recipient_email or restaurant.contact_email)
+    if is_suppressed(recipient):
+        raise ValueError("This email address has opted out.")
+    campaign = OutreachCampaign.query.filter_by(restaurant_id=restaurant.id, recipient_email=recipient).first()
+    if campaign:
+        return campaign
+    campaign = OutreachCampaign(
+        restaurant_id=restaurant.id,
+        recipient_email=recipient,
+        status="conversation",
+        paused=True,
+        next_follow_up_at=None,
+    )
+    db.session.add(campaign)
+    db.session.commit()
+    return campaign
+
+
+def send_direct_outreach(restaurant, subject, body_text, recipient_email=None, template_key=None):
+    campaign = conversation_for_restaurant(restaurant, recipient_email)
+    message = OutreachMessage(
+        campaign_id=campaign.id,
+        restaurant_id=restaurant.id,
+        direction="outbound",
+        status="draft",
+        sender_email=current_app.config["EMAIL_FROM_SALES"],
+        recipient_email=campaign.recipient_email,
+        subject=(subject or "").strip(),
+        body_text=append_opt_out_footer(body_text),
+        template_key=template_key,
+        reviewed=True,
+    )
+    db.session.add(message)
+    db.session.flush()
+    result = send_outreach_message(message)
+    return message, result
 
 
 def restaurant_is_eligible(restaurant):
@@ -225,7 +336,7 @@ def send_outreach_message(message):
     message.status = "sent" if result["success"] else "failed"
     message.sent_at = utc_now() if result["success"] else None
     message.reviewed = True if result["success"] else message.reviewed
-    if result["success"] and message.campaign:
+    if result["success"] and message.campaign and message.sequence_step:
         campaign = message.campaign
         campaign.current_step = max(campaign.current_step, message.sequence_step or 0)
         campaign.last_sent_at = message.sent_at
@@ -236,6 +347,12 @@ def send_outreach_message(message):
             if campaign.current_step < 4
             else None
         )
+    elif result["success"] and message.campaign:
+        campaign = message.campaign
+        campaign.last_sent_at = message.sent_at
+        campaign.status = "conversation"
+        campaign.paused = True
+        campaign.next_follow_up_at = None
     db.session.commit()
     if result["success"]:
         loops_client.create_or_update_contact(
@@ -312,6 +429,8 @@ def receive_resend_email(payload, headers):
     campaign = OutreachCampaign.query.filter_by(recipient_email=sender).order_by(
         OutreachCampaign.updated_at.desc()
     ).first()
+    if not campaign and restaurant and restaurant_is_eligible(restaurant) and not is_suppressed(sender):
+        campaign = conversation_for_restaurant(restaurant, sender)
     body_text = _value(received, "text", "") or ""
     received_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00")).replace(tzinfo=None)
     if normalize_email(current_app.config["EMAIL_FROM_SPECIALS"]) in recipients:

@@ -10,8 +10,16 @@ os.environ["DATABASE_URL"] = "sqlite://"
 from app import app
 from email_system import loops_client, resend_client
 from email_system.openai_client import generate_outreach_draft
-from email_system.outreach_service import create_campaign_for_restaurant, receive_resend_email, send_outreach_message, suppress_email
-from models import OutreachCampaign, OutreachMessage, OutreachSuppression, RawSpecialSubmission, Restaurant, db
+from email_system.outreach_service import (
+    OUTREACH_OPT_OUT_FOOTER,
+    create_campaign_for_restaurant,
+    receive_resend_email,
+    render_outreach_text,
+    send_direct_outreach,
+    send_outreach_message,
+    suppress_email,
+)
+from models import OutreachCampaign, OutreachMessage, OutreachSuppression, OutreachTemplate, RawSpecialSubmission, Restaurant, db
 
 
 @pytest.fixture()
@@ -132,6 +140,34 @@ def test_inbound_resend_reply_is_stored(outreach_app, monkeypatch):
         assert campaign.paused is True
 
 
+def test_inbound_known_restaurant_creates_visible_conversation(outreach_app, monkeypatch):
+    monkeypatch.setattr("email_system.outreach_service.resend.Webhooks.verify", lambda options: None)
+    monkeypatch.setattr(
+        "email_system.outreach_service.resend.Emails.Receiving.get",
+        lambda email_id: {"text": "Can I send you our Friday special?"},
+    )
+    payload = json.dumps(
+        {
+            "type": "email.received",
+            "data": {
+                "email_id": "received-visible-1",
+                "from": "owner@example.com",
+                "to": ["ian@appertivo.com"],
+                "subject": "Question",
+                "created_at": "2026-06-01T12:00:00.000Z",
+                "message_id": "<visible@example.com>",
+            },
+        }
+    )
+    with app.app_context():
+        receive_resend_email(payload, {"id": "1", "timestamp": "1", "signature": "v1,test"})
+        campaign = OutreachCampaign.query.one()
+        message = OutreachMessage.query.filter_by(direction="inbound").one()
+        assert campaign.status == "replied"
+        assert message.campaign_id == campaign.id
+        assert message.restaurant_id == Restaurant.query.one().id
+
+
 def test_opt_out_blocks_outreach_send(outreach_app, monkeypatch):
     monkeypatch.setattr(
         resend_client,
@@ -223,50 +259,92 @@ def test_inbound_special_email_routes_to_special_pipeline(outreach_app, monkeypa
     assert "Publish special" in sent["html"]
 
 
-def test_admin_outreach_enroll_generate_send_and_email_tool_guard(outreach_app, monkeypatch):
+def test_direct_outreach_send_creates_conversation_and_footer(outreach_app, monkeypatch):
+    sent = {}
+    monkeypatch.setattr(
+        resend_client,
+        "send_email",
+        lambda **kwargs: sent.update(kwargs)
+        or {"success": True, "provider": "resend", "message_id": "email-1", "error": None},
+    )
+    monkeypatch.setattr(loops_client, "create_or_update_contact", lambda *args, **kwargs: None)
+    monkeypatch.setattr(loops_client, "send_event", lambda *args, **kwargs: None)
+    with app.app_context():
+        restaurant = Restaurant.query.one()
+        message, result = send_direct_outreach(
+            restaurant,
+            "Hello {{ restaurant_name }}",
+            render_outreach_text("Use {{ submission_url }}", restaurant, "https://appertivo.test/submit/token"),
+        )
+        assert result["success"] is True
+        assert message.status == "sent"
+        assert message.sequence_step is None
+        assert message.campaign.status == "conversation"
+        assert message.campaign.next_follow_up_at is None
+        assert OUTREACH_OPT_OUT_FOOTER in message.body_text
+    assert sent["to"] == "owner@example.com"
+    assert OUTREACH_OPT_OUT_FOOTER in sent["text"]
+    assert "https://appertivo.test/submit/token" in sent["text"]
+
+
+def test_admin_outreach_inbox_templates_send_and_email_tool_guard(outreach_app, monkeypatch):
+    sent = {}
+    monkeypatch.setattr(
+        resend_client,
+        "send_email",
+        lambda **kwargs: sent.update(kwargs)
+        or {"success": True, "provider": "resend", "message_id": "email-1", "error": None},
+    )
+    monkeypatch.setattr(loops_client, "create_or_update_contact", lambda *args, **kwargs: None)
+    monkeypatch.setattr(loops_client, "send_event", lambda *args, **kwargs: None)
     with app.test_client() as client:
         login(client)
+        response = client.get("/admin/outreach")
+        assert b"Outreach inbox" in response.data
+        assert b"Enroll" not in response.data
+        assert b"Due" not in response.data
         response = client.post(
-            "/admin/outreach",
+            "/admin/outreach/templates",
+            data={
+                "csrf_token": csrf(client),
+                "name": "Setup note",
+                "subject": "Hello {{ restaurant_name }}",
+                "body_text": "Use {{ submission_url }}",
+            },
+            follow_redirects=True,
+        )
+        assert b"Template saved." in response.data
+        with app.app_context():
+            template = OutreachTemplate.query.filter_by(name="Setup note").one()
+        response = client.post(
+            "/admin/outreach/restaurants/1/submission-link",
+            data={"csrf_token": csrf(client)},
+        )
+        assert response.status_code == 200
+        submission_url = response.get_json()["submission_url"]
+        assert "/submit/" in submission_url
+        response = client.post(
+            "/admin/outreach/send",
             data={
                 "csrf_token": csrf(client),
                 "restaurant_id": "1",
+                "template_id": str(template.id),
+                "submission_url": submission_url,
+                "subject": "Hello {{ restaurant_name }}",
+                "body_text": "Use {{ submission_url }}",
             },
+            follow_redirects=True,
         )
-        assert response.status_code == 302
-        response = client.get("/admin/outreach")
-        assert b"Outreach inbox" in response.data
-        response = client.get("/admin/outreach/1")
-        assert b"Personalization" in response.data
-        monkeypatch.setattr(
-            "email_system.openai_client.generate_outreach_draft",
-            lambda restaurant, instruction, sequence_step=None, personalization=None: {
-                "success": True,
-                "text": "Generated",
-                "error": None,
-            },
-        )
-        response = client.post("/admin/outreach/1/generate", data={"csrf_token": csrf(client)})
-        assert response.status_code == 302
-        with app.app_context():
-            campaign = OutreachCampaign.query.one()
-            draft = OutreachMessage.query.filter_by(campaign_id=campaign.id, body_text="Generated").one()
-        response = client.post(
-            "/admin/outreach/1",
-            data={
-                "csrf_token": csrf(client),
-                "draft_id": str(draft.id),
-                "recipient_email": "owner@example.com",
-                "subject": "Hello",
-                "body_text": "Reviewed",
-                "tags": "test",
-                "reviewed": "on",
-            },
-        )
-        assert response.status_code == 302
+        assert b"Outreach email sent." in response.data
+        assert b"Use" in response.data
         app.config["EMAIL_TEST_ENABLED"] = False
         response = client.post("/admin/email-tools", data={"csrf_token": csrf(client)}, follow_redirects=True)
         assert b"Email test sending is disabled" in response.data
     with app.app_context():
-        assert OutreachCampaign.query.one().status == "drafting"
-        assert OutreachMessage.query.filter_by(body_text="Reviewed", reviewed=True).one()
+        campaign = OutreachCampaign.query.one()
+        assert campaign.status == "conversation"
+        message = OutreachMessage.query.filter_by(direction="outbound", reviewed=True).one()
+        assert "Test Kitchen" in message.subject
+        assert submission_url in message.body_text
+        assert OUTREACH_OPT_OUT_FOOTER in message.body_text
+    assert sent["to"] == "owner@example.com"

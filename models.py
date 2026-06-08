@@ -348,6 +348,16 @@ class OutreachSuppression(db.Model):
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
 
+class OutreachTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, unique=True, index=True)
+    subject = db.Column(db.String(240), nullable=False, default="")
+    body_text = db.Column(db.Text, nullable=False, default="")
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
 class OutreachMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     campaign_id = db.Column(db.Integer, db.ForeignKey("outreach_campaign.id"), nullable=True, index=True)

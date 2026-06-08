@@ -137,15 +137,13 @@ test("private links, trusted publishing, admin publishing, distribution, and out
   await expect(page.getByText("Launch browser test")).toBeVisible();
 
   await page.goto("/admin/outreach");
-  await page.getByRole("row", { name: /Outreach Bistro/ }).getByRole("button", { name: "Enroll" }).click();
-  await expect(page.getByRole("heading", { name: "Outreach Bistro", exact: true })).toBeVisible();
+  const outreachOption = await page.locator('#outreach-restaurant option', { hasText: "Outreach Bistro" }).first().getAttribute("value");
+  await page.getByLabel("To").selectOption(outreachOption);
+  await page.getByLabel("Template").selectOption({ label: "First hello" });
   await page.getByLabel("Subject").fill("Browser outreach");
-  await page.getByLabel("Body").fill("Reviewed outreach from the browser.");
-  await page.getByLabel("Reviewed and ready to send").check();
-  await page.getByRole("button", { name: "Save draft" }).click();
-  await expect(page.getByText("Draft saved.")).toBeVisible();
-  page.on("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Send reviewed email" }).click();
+  await expect(page.getByLabel("Body")).toHaveValue(/\/submit\//);
+  await expect(page.getByLabel("Body")).toHaveValue(/no thanks/);
+  await page.getByRole("button", { name: "Send email" }).click();
   await expect(page.getByText(/outbound.*sent/i)).toBeVisible();
 
   const records = await capturedRecords(request);
