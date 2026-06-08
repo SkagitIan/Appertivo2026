@@ -3,7 +3,7 @@
 {% block description %}See today's specials, hours, contact details, and alerts for {{ restaurant.name }} in {{ restaurant.city }}.{% endblock %}
 {% block head %}
 <link rel="canonical" href="{{ url_for('restaurant_detail', slug=restaurant.slug, _external=True) }}">
-<script type="application/ld+json">{{ {"@context": "https://schema.org", "@type": "Restaurant", "name": restaurant.name, "url": url_for("restaurant_detail", slug=restaurant.slug, _external=True), "telephone": restaurant.phone or none, "address": restaurant.address or none, "geo": {"@type": "GeoCoordinates", "latitude": restaurant.latitude, "longitude": restaurant.longitude} if restaurant.latitude is not none and restaurant.longitude is not none else none}|tojson }}</script>
+<script type="application/ld+json">{{ restaurant_graph|tojson }}</script>
 {% endblock %}
 {% block content %}
 <section class="page-width section-space">

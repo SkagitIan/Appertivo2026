@@ -1,7 +1,9 @@
 import io
+import json
 import os
+import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -9,7 +11,7 @@ import pytest
 # Flask-SQLAlchemy binds its engine while importing the app.
 os.environ["DATABASE_URL"] = "sqlite://"
 
-from app import app, hash_token, normalize_database_url, smart_image_url, special_timing_badge
+from app import SITEMAP_CACHE, app, hash_token, normalize_database_url, smart_image_url, special_timing_badge
 from demo_data import seed_demo_specials
 from models import (
     DistributionLog,
@@ -100,6 +102,13 @@ def submit(client, token, **overrides):
     }
     data.update(overrides)
     return client.post(f"/submit/{token}", data=data)
+
+
+def page_json_ld(response):
+    body = response.get_data(as_text=True)
+    match = re.search(r'<script type="application/ld\+json">(.*?)</script>', body, flags=re.S)
+    assert match
+    return json.loads(match.group(1))
 
 
 def test_admin_requires_login_and_csrf(client):
@@ -235,6 +244,134 @@ def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
     waitlist_page = client.get("/?location=Seattle")
     assert b"Get restaurant specials near Seattle." in waitlist_page.data
     assert b"Get Local Specials" in waitlist_page.data
+
+
+def test_restaurants_directory_is_indexable(client):
+    response = client.get("/restaurants")
+    assert response.status_code == 200
+    assert b"Skagit Valley restaurants" in response.data
+    assert b"/restaurants/test-kitchen" in response.data
+    assert b'<link rel="canonical" href="http://localhost/restaurants">' in response.data
+
+
+def test_special_hub_routes_render_canonical_filtered_content(client):
+    with app.app_context():
+        db.session.add(
+            Special(
+                restaurant_id=1,
+                title="Happy Hour Oysters",
+                description="Fresh oysters at the bar.",
+                price="$12",
+                status="published",
+                tag_keys="happy_hour,seafood",
+                primary_tag="happy_hour",
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.session.commit()
+
+    today = client.get("/specials/today")
+    assert today.status_code == 200
+    assert b"Skagit Valley specials" in today.data
+    assert b'<link rel="canonical" href="http://localhost/specials/today">' in today.data
+
+    happy_hour = client.get("/specials/happy-hour")
+    assert happy_hour.status_code == 200
+    assert b"Happy hour specials" in happy_hour.data
+    assert b"Happy Hour Oysters" in happy_hour.data
+    assert b'<link rel="canonical" href="http://localhost/specials/happy-hour">' in happy_hour.data
+
+
+def test_empty_city_hub_has_fallback_nearby_specials(client):
+    with app.app_context():
+        db.session.add(
+            Special(
+                restaurant_id=1,
+                title="Mount Vernon Pasta",
+                description="Nearby dinner special.",
+                price="$18",
+                status="published",
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.session.commit()
+
+    response = client.get("/specials/concrete")
+    assert response.status_code == 200
+    assert b"No specials today in Concrete" in response.data
+    assert b"Mount Vernon Pasta" in response.data
+    assert b"/specials/today" in response.data
+    assert b"/restaurants" in response.data
+
+    assert client.get("/specials/not-a-skagit-city").status_code == 404
+
+
+def test_restaurant_schema_graph_includes_offer_requirements(client):
+    with app.app_context():
+        restaurant = Restaurant.query.one()
+        restaurant.full_address = "101 Test Ave"
+        restaurant.postal_code = "98273"
+        restaurant.cuisine_tags = "american"
+        special = Special(
+            restaurant_id=1,
+            title="Taco Tuesday",
+            description="Two tacos.",
+            price="$12",
+            status="published",
+            expires_at=datetime(2099, 1, 2, 4, 0),
+            tag_keys="tacos,mexican",
+            primary_tag="tacos",
+        )
+        db.session.add(special)
+        db.session.commit()
+
+    response = client.get("/restaurants/test-kitchen")
+    schema = page_json_ld(response)
+    restaurant_schema = schema["@graph"][0]
+    offer = next(item for item in schema["@graph"] if item["@type"] == "Offer")
+    assert restaurant_schema["@type"] == ["Restaurant", "FoodEstablishment"]
+    assert offer["availability"] == "https://schema.org/InStock"
+    assert offer["priceCurrency"] == "USD"
+    assert offer["price"] == "12.00"
+    assert offer["itemOffered"]["@type"] == "MenuItem"
+    assert offer["itemOffered"]["name"] == "Taco Tuesday"
+    assert b'<time datetime="' in response.data
+
+
+def test_sitemap_and_robots_include_cached_seo_urls(client):
+    SITEMAP_CACHE.update(generated_at=None, body=None)
+    with app.app_context():
+        db.session.add(
+            Special(
+                restaurant_id=1,
+                title="Daily Burger",
+                description="Fresh burger.",
+                price="$15",
+                status="published",
+                updated_at=datetime.utcnow() - timedelta(days=1),
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.session.commit()
+
+    first = client.get("/sitemap.xml")
+    assert first.status_code == 200
+    body = first.get_data(as_text=True)
+    assert "<loc>http://localhost/specials/today</loc>" in body
+    assert "<loc>http://localhost/specials/happy-hour</loc>" in body
+    assert "<loc>http://localhost/restaurants</loc>" in body
+    assert "<changefreq>weekly</changefreq>" in body
+    assert "<priority>0.8</priority>" in body
+    assert "<loc>http://localhost/restaurants/test-kitchen</loc>" in body
+    generated_at = SITEMAP_CACHE["generated_at"]
+
+    second = client.get("/sitemap.xml")
+    assert second.get_data(as_text=True) == body
+    assert SITEMAP_CACHE["generated_at"] == generated_at
+
+    robots = client.get("/robots.txt")
+    assert robots.status_code == 200
+    assert b"Sitemap: http://localhost/sitemap.xml" in robots.data
 
 
 def test_skagit_feed_includes_sedro_woolley_city_variant(client):

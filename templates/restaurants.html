@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Skagit restaurants | Appertivo{% endblock %}
+{% block description %}Browse independent Skagit Valley restaurants, cuisine tags, contact details, and today's local specials.{% endblock %}
+{% block head %}<link rel="canonical" href="{{ url_for('restaurants', _external=True) }}">{% endblock %}
 {% block content %}
 <section class="page-width section-space">
   <p class="eyebrow">Local food &middot; real community</p><h1 class="display-md mt-3">Skagit Valley restaurants</h1><p class="mt-3 text-stone-600">Browse {{ restaurants|length }} independent places and find out what's good today.</p>

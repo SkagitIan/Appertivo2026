@@ -88,7 +88,11 @@ def test_catalog_status_hides_nonincluded_venues_from_normal_admin_workflows():
         db.session.commit()
 
     with app.test_client() as client:
-        assert client.get("/restaurants").status_code == 302
+        public_directory = client.get("/restaurants")
+        assert public_directory.status_code == 200
+        assert b"Included Cafe" in public_directory.data
+        assert b"Hidden Market" not in public_directory.data
+        assert b"Pending Bakery" not in public_directory.data
         assert client.get("/restaurants/hidden-market").status_code == 404
         assert b"Included Cafe" in client.get("/restaurants/included-cafe").data
         login(client)

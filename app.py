@@ -682,7 +682,13 @@ def local_iso(value):
 
 
 def special_timestamp(special):
-    return special.starts_at or special.published_at or special.updated_at or special.created_at or special.expires_at
+    return (
+        getattr(special, "starts_at", None)
+        or getattr(special, "published_at", None)
+        or getattr(special, "updated_at", None)
+        or getattr(special, "created_at", None)
+        or getattr(special, "expires_at", None)
+    )
 
 
 def special_timestamp_iso(special):
