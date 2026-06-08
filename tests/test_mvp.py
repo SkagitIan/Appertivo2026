@@ -96,10 +96,7 @@ def generate_token(client):
 def submit(client, token, **overrides):
     data = {
         "csrf_token": csrf(client),
-        "title": "Prime Rib Friday",
-        "description": "Limited plates.",
-        "price": "$24",
-        "special_date": "2026-06-05",
+        "raw_text": "Prime Rib Friday. Limited plates for $24.",
     }
     data.update(overrides)
     return client.post(f"/submit/{token}", data=data)
@@ -125,7 +122,8 @@ def test_private_token_rotation_and_reviewed_submission(client):
     with app.app_context():
         draft = SpecialDraft.query.one()
         assert draft.status == "awaiting_approval"
-        assert draft.expires_at == datetime(2026, 6, 6, 6, 59)
+        assert draft.title == "Prime Rib Friday"
+        assert draft.price_text == "$24"
         assert Special.query.count() == 0
         assert Restaurant.query.one().submission_token_hash == hash_token(token)
 
@@ -135,18 +133,19 @@ def test_private_token_rotation_and_reviewed_submission(client):
     assert client.get(f"/submit/{rotated_token}").status_code == 200
 
 
-def test_trusted_submission_publishes_and_future_special_is_hidden(client):
+def test_trusted_submission_publishes_rough_private_link_special(client):
     token = generate_token(client)
     with app.app_context():
         restaurant = Restaurant.query.one()
         restaurant.direct_publish_enabled = True
         db.session.commit()
-    submit(client, token, special_date="2099-06-05", start_time="17:00")
+    submit(client, token, raw_text="Trusted Taco Lunch. Fast-published tacos for $12.")
     with app.app_context():
         special = Special.query.one()
         assert special.status == "published"
+        assert special.title == "Trusted Taco Lunch"
+        assert special.price == "$12"
         assert special.published_at is not None
-    assert b"Prime Rib Friday" not in client.get("/").data
 
 
 def test_local_photo_upload_and_validation(client):
@@ -536,6 +535,8 @@ def test_special_pipeline_parser_and_missing_image():
     assert parsed["cta_text"] == "View Special"
     assert parsed["tag_keys"] == "seafood,tacos,mexican"
     assert parsed["primary_tag"] == "seafood"
+    assert polish_special_text("Taco Tuesday three tacos for $10")["recurrence_rule"] == "FREQ=WEEKLY;BYDAY=TU"
+    assert polish_special_text("Tonight only oysters for $12")["recurrence_rule"] is None
     assert create_or_prepare_image(SimpleNamespace(raw_image_url=None, raw_image_path=None)) == {
         "image_url": None,
         "image_path": None,
@@ -567,6 +568,9 @@ def test_special_pipeline_uses_openai_polished_fields(client, monkeypatch):
                 "add_on_name": "House Margarita",
                 "add_on_price": "$6",
                 "add_on_value_text": "$9 value",
+                "recurrence_rule": "FREQ=WEEKLY;BYDAY=TU",
+                "recurrence_label": "Every Tuesday",
+                "recurrence_confidence": "high",
             },
             "error": None,
         },
@@ -592,6 +596,7 @@ def test_special_pipeline_uses_openai_polished_fields(client, monkeypatch):
         assert generated.tag_keys == "tacos,mexican"
         assert generated.primary_tag == "tacos"
         assert generated.add_on_name == "House Margarita"
+        assert generated.recurrence_label == "Every Tuesday"
         from special_pipeline import approve_draft, publish_draft
 
         approve_draft(generated.approval_token)
@@ -599,6 +604,7 @@ def test_special_pipeline_uses_openai_polished_fields(client, monkeypatch):
         assert published.tag_keys == "tacos,mexican"
         assert published.value_text == "$18 value"
         assert published.add_on_price == "$6"
+        assert published.recurrence_rule == "FREQ=WEEKLY;BYDAY=TU"
 
 
 def test_special_pipeline_uses_cloudinary_enhanced_image(client, monkeypatch):
@@ -980,6 +986,9 @@ def test_admin_special_form_saves_taxonomy_add_on_and_featured_rank(client):
             "add_on_name": "House Margarita",
             "add_on_price": "$7",
             "add_on_value_text": "$10 value",
+            "recurrence_rule": "FREQ=WEEKLY;BYDAY=FR",
+            "recurrence_label": "Every Friday",
+            "recurrence_confidence": "medium",
             "featured_rank": "2",
         },
     )
@@ -992,6 +1001,9 @@ def test_admin_special_form_saves_taxonomy_add_on_and_featured_rank(client):
         assert special.add_on_name == "House Margarita"
         assert special.add_on_price == "$7"
         assert special.add_on_value_text == "$10 value"
+        assert special.recurrence_rule == "FREQ=WEEKLY;BYDAY=FR"
+        assert special.recurrence_label == "Every Friday"
+        assert special.recurrence_confidence == "medium"
         assert special.featured_rank == 2
 
 

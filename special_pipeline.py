@@ -10,6 +10,28 @@ from special_taxonomy import infer_tags_from_text, primary_tag_from, serialize_t
 
 
 AVAILABILITY_PHRASES = ("happy hour", "this week", "weekend", "tonight", "today")
+WEEKDAY_RULES = {
+    "monday": ("MO", "Monday"),
+    "tuesday": ("TU", "Tuesday"),
+    "wednesday": ("WE", "Wednesday"),
+    "thursday": ("TH", "Thursday"),
+    "friday": ("FR", "Friday"),
+    "saturday": ("SA", "Saturday"),
+    "sunday": ("SU", "Sunday"),
+}
+WEEKDAY_ALIASES = {
+    "mon": "monday",
+    "tue": "tuesday",
+    "tues": "tuesday",
+    "wed": "wednesday",
+    "thu": "thursday",
+    "thur": "thursday",
+    "thurs": "thursday",
+    "fri": "friday",
+    "sat": "saturday",
+    "sun": "sunday",
+}
+RECURRENCE_CONFIDENCE_VALUES = {"high", "medium", "low"}
 
 
 def parse_iso_datetime(value):
@@ -60,6 +82,49 @@ def extract_add_on_fields(text):
     }
 
 
+def clean_recurrence_fields(fields):
+    rule = str(fields.get("recurrence_rule") or "").strip().upper()
+    label = str(fields.get("recurrence_label") or "").strip()
+    confidence = str(fields.get("recurrence_confidence") or "").strip().lower()
+    if not rule.startswith("FREQ=") or "WEEKLY" not in rule:
+        rule = ""
+    if confidence not in RECURRENCE_CONFIDENCE_VALUES:
+        confidence = ""
+    if not rule:
+        return {"recurrence_rule": None, "recurrence_label": None, "recurrence_confidence": None}
+    return {
+        "recurrence_rule": rule[:120],
+        "recurrence_label": (label or rule)[:120],
+        "recurrence_confidence": confidence or "medium",
+    }
+
+
+def infer_recurrence_from_text(text):
+    normalized = " ".join((text or "").lower().split())
+    if not normalized:
+        return {"recurrence_rule": None, "recurrence_label": None, "recurrence_confidence": None}
+    if re.search(r"\b(today|tonight|one night|one day|only)\s+only\b", normalized):
+        return {"recurrence_rule": None, "recurrence_label": None, "recurrence_confidence": None}
+    if re.search(r"\bweekdays?\b", normalized):
+        return {
+            "recurrence_rule": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+            "recurrence_label": "Every weekday",
+            "recurrence_confidence": "high",
+        }
+    for key, (byday, label) in WEEKDAY_RULES.items():
+        aliases = [key, *(alias for alias, canonical in WEEKDAY_ALIASES.items() if canonical == key)]
+        phrase_pattern = "|".join(re.escape(alias) for alias in aliases)
+        if re.search(rf"\b(every|each)\s+({phrase_pattern})\b", normalized) or re.search(
+            rf"\b({phrase_pattern})s?\b", normalized
+        ):
+            return {
+                "recurrence_rule": f"FREQ=WEEKLY;BYDAY={byday}",
+                "recurrence_label": f"Every {label}",
+                "recurrence_confidence": "high" if re.search(rf"\b(every|each)\s+({phrase_pattern})\b", normalized) else "medium",
+            }
+    return {"recurrence_rule": None, "recurrence_label": None, "recurrence_confidence": None}
+
+
 def finalize_special_fields(fields, raw_text, restaurant=None):
     fields = dict(fields or {})
     tags = serialize_tag_keys(fields.get("tag_keys") or [])
@@ -82,6 +147,10 @@ def finalize_special_fields(fields, raw_text, restaurant=None):
     add_on_fields = extract_add_on_fields(raw_text)
     for key, value in add_on_fields.items():
         fields[key] = fields.get(key) or value
+    recurrence_fields = clean_recurrence_fields(fields)
+    if not recurrence_fields["recurrence_rule"]:
+        recurrence_fields = infer_recurrence_from_text(raw_text)
+    fields.update(recurrence_fields)
     fields["starts_at"] = parse_iso_datetime(fields.get("starts_at"))
     fields["expires_at"] = parse_iso_datetime(fields.get("expires_at"))
     return fields
@@ -111,6 +180,7 @@ def polish_special_text(raw_text):
         "tag_keys": serialize_tag_keys(infer_tags_from_text(raw_text)),
         "primary_tag": None,
         **extract_add_on_fields(raw_text),
+        **infer_recurrence_from_text(raw_text),
         "starts_at": None,
         "expires_at": None,
     }
@@ -302,6 +372,9 @@ def publish_draft(draft_id):
         add_on_name=draft.add_on_name,
         add_on_price=draft.add_on_price,
         add_on_value_text=draft.add_on_value_text,
+        recurrence_rule=draft.recurrence_rule,
+        recurrence_label=draft.recurrence_label,
+        recurrence_confidence=draft.recurrence_confidence,
         featured_rank=draft.featured_rank,
         starts_at=draft.starts_at,
         expires_at=draft.expires_at,

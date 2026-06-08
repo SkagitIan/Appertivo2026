@@ -1,5 +1,59 @@
 {% extends "base.html" %}
 {% block title %}Send today's special | Appertivo{% endblock %}
 {% block content %}
-<section class="page-width section-space"><div class="mx-auto max-w-xl"><p class="eyebrow">Restaurant submission</p><h1 class="display-md mt-2">What's special today?</h1><p class="mt-3 text-stone-600">Send a fresh special for {{ restaurant.name }}. {% if restaurant.direct_publish_enabled %}It will publish immediately.{% else %}We'll review and polish it before publishing.{% endif %}</p><form method="post" enctype="multipart/form-data" class="card mt-6 grid gap-4 p-5"><label class="text-sm font-bold">Title<input required name="title" placeholder="Prime rib Friday" class="mt-1 w-full rounded-lg border px-3 py-2"></label><label class="text-sm font-bold">Description<textarea name="description" rows="4" placeholder="What diners should know" class="mt-1 w-full rounded-lg border px-3 py-2"></textarea></label><label class="text-sm font-bold">Price<input name="price" placeholder="$24" class="mt-1 w-full rounded-lg border px-3 py-2"></label><label class="text-sm font-bold">Email <span class="font-normal text-stone-500">(optional)</span><input type="email" name="sender_email" placeholder="owner@example.com" class="mt-1 w-full rounded-lg border px-3 py-2"><span class="mt-1 block text-sm font-normal text-stone-500">Use this if you want the approval link sent back to you.</span></label><label class="text-sm font-bold">Date<input required type="date" name="special_date" class="mt-1 w-full rounded-lg border px-3 py-2"></label><div class="grid grid-cols-2 gap-3"><label class="text-sm font-bold">Starts at<input type="time" name="start_time" class="mt-1 w-full rounded-lg border px-3 py-2"></label><label class="text-sm font-bold">Ends at<input type="time" name="end_time" class="mt-1 w-full rounded-lg border px-3 py-2"></label></div><label class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span><input type="file" accept="image/jpeg,image/png,image/webp" name="photo" class="mt-1 block w-full text-sm"></label><button class="button-primary">Send special</button></form></div></section>
+<section class="page-width section-space"><div class="mx-auto max-w-xl">
+  <p class="eyebrow">Restaurant submission</p><h1 class="display-md mt-2">Send today's special</h1>
+  <p class="mt-3 text-stone-600">Send a fresh special for {{ restaurant.name }}. {% if restaurant.direct_publish_enabled %}It can publish immediately after we clean up the details.{% else %}We'll clean it up into a draft before publishing.{% endif %}</p>
+  <form method="post" enctype="multipart/form-data" class="card mt-6 grid gap-4 p-5" data-submit-special-form>
+    <label class="text-sm font-bold">Special details<textarea required name="raw_text" rows="6" placeholder="Paste or type the messy version. Example: Tonight only, fish tacos, two plates for $14.99, 4-8pm. Repeats every Friday." class="mt-1 w-full rounded-lg border px-3 py-2"></textarea><span class="mt-1 block text-sm font-normal text-stone-500">Include the item, price, day or time, whether it repeats, and anything diners should know. We can parse rough notes, menu copy, or text from a flyer.</span></label>
+    <div class="submit-photo-field">
+      <div>
+        <label class="text-sm font-bold" for="special-photo">Photo <span class="font-normal text-stone-500">(optional)</span></label>
+        <p class="mt-1 text-sm text-stone-500">A menu photo, flyer, or plate shot helps us make the special card feel real.</p>
+      </div>
+      <div class="submit-photo-control">
+        <input id="special-photo" type="file" accept="image/jpeg,image/png,image/webp" name="photo" class="sr-only" data-photo-input>
+        <button type="button" class="button-secondary" data-photo-button>Choose photo</button>
+        <span class="submit-photo-name" data-photo-name>No file chosen</span>
+      </div>
+    </div>
+    <button class="button-primary">Send special</button>
+  </form>
+  <section class="submit-next mt-6">
+    <div>
+      <p class="eyebrow">What happens next</p>
+      <h2 class="mt-2 text-2xl">Send it over. We'll take it from here.</h2>
+    </div>
+    <div class="submit-next-grid">
+      <article class="submit-next-step">
+        <span class="submit-next-icon note-icon" aria-hidden="true"></span>
+        <h3>We clean up the details</h3>
+        <p>Paste rough notes, menu copy, or a flyer. We turn it into a polished special draft.</p>
+      </article>
+      <article class="submit-next-step">
+        <span class="submit-next-icon photo-icon" aria-hidden="true"></span>
+        <h3>We prep the card</h3>
+        <p>If you add a photo, we format it with the special so diners can scan it fast.</p>
+      </article>
+      <article class="submit-next-step">
+        <span class="submit-next-icon inbox-icon" aria-hidden="true"></span>
+        <h3>We keep it reviewable</h3>
+        <p>Detected prices, timing, and repeat patterns stay attached to the draft before it goes live.</p>
+      </article>
+    </div>
+  </section>
+</div></section>
+<script>
+(() => {
+  const form = document.querySelector("[data-submit-special-form]");
+  if (!form) return;
+  const photoInput = form.querySelector("[data-photo-input]");
+  const photoButton = form.querySelector("[data-photo-button]");
+  const photoName = form.querySelector("[data-photo-name]");
+  photoButton.addEventListener("click", () => photoInput.click());
+  photoInput.addEventListener("change", () => {
+    photoName.textContent = photoInput.files.length ? photoInput.files[0].name : "No file chosen";
+  });
+})();
+</script>
 {% endblock %}

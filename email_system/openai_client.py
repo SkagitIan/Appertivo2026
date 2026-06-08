@@ -30,6 +30,13 @@ def _clean_field(value):
     return str(value or "").strip()
 
 
+def _clean_recurrence_rule(value):
+    rule = _clean_field(value).upper()
+    if not rule.startswith("FREQ=") or "WEEKLY" not in rule:
+        return None
+    return rule[:120]
+
+
 def generate_outreach_draft(restaurant, instruction=None, sequence_step=None, personalization=None):
     api_key = current_app.config.get("OPENAI_API_KEY")
     if not api_key:
@@ -98,9 +105,14 @@ def polish_special_copy(raw_text, restaurant=None):
         "happy_hour, pizza, burgers, seafood, date_night, brunch, cocktails, pasta, tacos, sushi, steak, dessert, "
         "italian, mexican, japanese, american, bbq, bakery, coffee. "
         "Do not use LTO or limited time offer language. "
+        "Detect recurring specials only when clearly stated or strongly implied by a named weekday pattern. "
+        "Examples: Taco Tuesday means FREQ=WEEKLY;BYDAY=TU, every Friday means FREQ=WEEKLY;BYDAY=FR, "
+        "weekdays means FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR. Today only, tonight only, this weekend, or one-time dates are not recurring. "
         "If a field is unknown, return null or an empty string. Return only JSON with these flat keys: "
         "title, description, price_text, value_text, availability_text, cta_text, tag_keys, primary_tag, "
-        "add_on_name, add_on_price, add_on_value_text, starts_at, expires_at. "
+        "add_on_name, add_on_price, add_on_value_text, recurrence_rule, recurrence_label, recurrence_confidence, starts_at, expires_at. "
+        "Return recurrence_rule as a simple RRULE string only for recurring specials, recurrence_label as plain English, "
+        "and recurrence_confidence as high, medium, or low. "
         "Return starts_at and expires_at only as ISO 8601 strings when the raw submission clearly states them.\n\n"
         f"Restaurant context: {restaurant_context}\n"
         f"Raw special submission:\n{raw_text or ''}"
@@ -135,6 +147,13 @@ def polish_special_copy(raw_text, restaurant=None):
             "add_on_name": _clean_field(parsed.get("add_on_name"))[:120] or None,
             "add_on_price": _clean_field(parsed.get("add_on_price")) or None,
             "add_on_value_text": _clean_field(parsed.get("add_on_value_text")) or None,
+            "recurrence_rule": _clean_recurrence_rule(parsed.get("recurrence_rule")),
+            "recurrence_label": _clean_field(parsed.get("recurrence_label"))[:120] or None,
+            "recurrence_confidence": (
+                _clean_field(parsed.get("recurrence_confidence")).lower()
+                if _clean_field(parsed.get("recurrence_confidence")).lower() in {"high", "medium", "low"}
+                else None
+            ),
             "starts_at": _clean_field(parsed.get("starts_at")) or None,
             "expires_at": _clean_field(parsed.get("expires_at")) or None,
         }

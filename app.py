@@ -751,6 +751,9 @@ def draft_as_preview_special(draft):
         add_on_name=draft.add_on_name,
         add_on_price=draft.add_on_price,
         add_on_value_text=draft.add_on_value_text,
+        recurrence_rule=draft.recurrence_rule,
+        recurrence_label=draft.recurrence_label,
+        recurrence_confidence=draft.recurrence_confidence,
         featured_rank=draft.featured_rank,
         starts_at=draft.starts_at,
         expires_at=draft.expires_at,
@@ -817,6 +820,13 @@ def set_special_taxonomy_fields(item):
     item.featured_rank = optional_int_from_form("featured_rank")
 
 
+def set_special_recurrence_fields(item):
+    item.recurrence_rule = request.form.get("recurrence_rule", "").strip() or None
+    item.recurrence_label = request.form.get("recurrence_label", "").strip() or None
+    confidence = request.form.get("recurrence_confidence", "").strip().lower()
+    item.recurrence_confidence = confidence if confidence in {"high", "medium", "low"} else None
+
+
 def has_special_taxonomy_overrides():
     if request.form.getlist("tag_keys") or request.form.get("tag_keys_text", "").strip():
         return True
@@ -863,6 +873,7 @@ def structured_draft_from_form(source_channel, restaurant_id, enhance=True):
         set_special_taxonomy_fields(draft)
     draft.starts_at, draft.expires_at, availability_text = schedule_window_from_form()
     draft.availability_text = availability_text
+    set_special_recurrence_fields(draft)
     if enhance and has_special_taxonomy_overrides():
         set_special_taxonomy_fields(draft)
     db.session.commit()
@@ -880,6 +891,7 @@ def special_from_form(special=None):
     special.status = request.form.get("status", "draft")
     special.source = request.form.get("source", "manual")
     special.raw_text = request.form.get("raw_text", "").strip() or None
+    set_special_recurrence_fields(special)
     if special.status == "published" and not special.published_at:
         special.published_at = utc_now()
     save_photo_if_present(special)
@@ -896,6 +908,7 @@ def draft_from_form(draft):
     draft.availability_text = availability_text
     draft.status = request.form.get("status", draft.status)
     set_special_taxonomy_fields(draft)
+    set_special_recurrence_fields(draft)
     image_path, image_url = save_submitted_photo()
     if image_url or image_path:
         draft.image_path = image_path
@@ -1281,11 +1294,23 @@ def restaurant_detail(slug):
 def submit_special(token):
     restaurant = included_restaurants_query().filter_by(submission_token_hash=hash_token(token)).first_or_404()
     if request.method == "POST":
+        raw_text = request.form.get("raw_text", "").strip()
+        if not raw_text:
+            flash("Special details are required.")
+            return render_template("submit.html", restaurant=restaurant), 400
         try:
-            draft = structured_draft_from_form("public_form", restaurant.id)
+            image_path, image_url = save_submitted_photo()
         except UploadError as error:
             flash(str(error))
             return render_template("submit.html", restaurant=restaurant), 400
+        submission = create_raw_submission(
+            source_channel="public_form",
+            restaurant_id=restaurant.id,
+            raw_text=raw_text,
+            raw_image_url=image_url,
+            raw_image_path=image_path,
+        )
+        draft = generate_draft_from_submission(submission.id)
         special = None
         if restaurant.direct_publish_enabled:
             approve_draft(draft.approval_token)

@@ -61,6 +61,23 @@
     <label class="block text-sm font-semibold text-stone-700">Availability note</label>
     <input name="availability_text" value="{{ draft.availability_text or '' }}" placeholder="Optional, for custom timing" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
   </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Repeat rule</label>
+    <input name="recurrence_rule" value="{{ draft.recurrence_rule or '' }}" placeholder="FREQ=WEEKLY;BYDAY=TU" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Repeat label</label>
+    <input name="recurrence_label" value="{{ draft.recurrence_label or '' }}" placeholder="Every Tuesday" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Repeat confidence</label>
+    <select name="recurrence_confidence" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+      <option value="">None</option>
+      {% for option in ["high", "medium", "low"] %}
+        <option value="{{ option }}" {% if draft.recurrence_confidence == option %}selected{% endif %}>{{ option|title }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <div class="md:col-span-2">
     <label class="block text-sm font-semibold text-stone-700">Curated tags</label>
     <input type="hidden" name="tag_keys_present" value="1">

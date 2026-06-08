@@ -89,28 +89,20 @@ test("private links, trusted publishing, admin publishing, distribution, and out
   await page.getByRole("button", { name: "Generate link" }).click();
   const privateUrl = await page.locator("input[readonly]").inputValue();
   await page.goto(new URL(privateUrl).pathname);
-  await page.getByLabel("Title").fill("Private Link Pasta");
-  await page.getByLabel("Description").fill("Handmade pasta from the browser flow.");
-  await page.getByLabel("Price").fill("$19");
-  await page.getByLabel(/Email/).fill("owner@example.com");
-  await page.getByLabel("Date").fill("2099-06-05");
+  await page.getByLabel("Special details").fill("Private Link Pasta. Handmade pasta from the browser flow for $19.");
   await page.getByRole("button", { name: "Send special" }).click();
   await expect(page.getByRole("heading", { name: /Special received/i })).toBeVisible();
 
   await page.goto("/admin/special-drafts");
-  await page.getByTestId("draft-card").filter({ hasText: "Private Link Pasta" }).getByTestId("send-publish-email").click();
-  await expect(page.getByText(/Publish email sent/)).toBeVisible();
-  const publishEmail = (await capturedEmails(request)).find((email) => email.to === "owner@example.com");
-  expect(publishEmail?.text).toContain("/specials/preview/");
+  await page.getByTestId("draft-card").filter({ hasText: "Private Link Pasta" }).getByTestId("draft-preview-link").click();
+  await page.getByTestId("preview-publish").click();
+  await expect(page.getByText("Operator tools")).toBeVisible();
 
   await page.goto("/admin/restaurants/2/edit");
   await page.getByRole("button", { name: "Generate link" }).click();
   const trustedUrl = await page.locator("input[readonly]").inputValue();
   await page.goto(new URL(trustedUrl).pathname);
-  await page.getByLabel("Title").fill("Trusted Taco Lunch");
-  await page.getByLabel("Description").fill("Fast-published tacos.");
-  await page.getByLabel("Price").fill("$12");
-  await page.getByLabel("Date").fill("2099-06-05");
+  await page.getByLabel("Special details").fill("Trusted Taco Lunch. Fast-published tacos for $12.");
   await page.getByRole("button", { name: "Send special" }).click();
   await expect(page.getByText("It's live now.")).toBeVisible();
   const trustedEmails = (await capturedEmails(request)).filter((email) => email.to === "trusted@example.com");
@@ -138,11 +130,11 @@ test("private links, trusted publishing, admin publishing, distribution, and out
 
   await page.goto("/admin/outreach");
   const outreachOption = await page.locator('#outreach-restaurant option', { hasText: "Outreach Bistro" }).first().getAttribute("value");
-  await page.getByLabel("To").selectOption(outreachOption);
-  await page.getByLabel("Template").selectOption({ label: "First hello" });
-  await page.getByLabel("Subject").fill("Browser outreach");
-  await expect(page.getByLabel("Body")).toHaveValue(/\/submit\//);
-  await expect(page.getByLabel("Body")).toHaveValue(/no thanks/);
+  await page.locator("#outreach-restaurant").selectOption(outreachOption);
+  await expect(page.locator("#outreach-submission-url")).toHaveValue(/\/submit\//);
+  const submissionUrl = await page.locator("#outreach-submission-url").inputValue();
+  await page.locator("#outreach-subject").fill("Browser outreach");
+  await page.locator("#outreach-body").fill(`Use ${submissionUrl}\n\n--\nReply "no thanks" and I will stop emailing you.`);
   await page.getByRole("button", { name: "Send email" }).click();
   await expect(page.getByText(/outbound.*sent/i)).toBeVisible();
 
