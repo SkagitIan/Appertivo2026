@@ -222,6 +222,17 @@ def csrf_token():
 app.jinja_env.globals["csrf_token"] = csrf_token
 
 
+def static_asset_version(filename):
+    path = Path(app.static_folder) / filename
+    try:
+        return int(path.stat().st_mtime)
+    except OSError:
+        return "1"
+
+
+app.jinja_env.globals["static_asset_version"] = static_asset_version
+
+
 def require_csrf():
     expected = session.get("csrf_token", "")
     supplied = request.form.get("csrf_token", "")
