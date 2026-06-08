@@ -1,11 +1,13 @@
 import hashlib
 import hmac
 import os
+import re
 import secrets
 from datetime import UTC, datetime, timedelta, time
 from functools import wraps
 from types import SimpleNamespace
 from pathlib import Path
+from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 
 import click
@@ -16,6 +18,7 @@ from flask import (
     abort,
     flash,
     jsonify,
+    Response,
     redirect,
     render_template,
     request,
@@ -128,9 +131,11 @@ app.config.update(
     CLOUDINARY_API_SECRET=os.environ.get("CLOUDINARY_API_SECRET"),
     CLOUDINARY_FOLDER=os.environ.get("CLOUDINARY_FOLDER", "appertivo/specials"),
     SPECIAL_WEBHOOK_TEST_ENABLED=os.environ.get("SPECIAL_WEBHOOK_TEST_ENABLED") == "1",
+    SITEMAP_CACHE_SECONDS=int(os.environ.get("SITEMAP_CACHE_SECONDS", 4 * 60 * 60)),
 )
 db.init_app(app)
 migrate = Migrate(app, db)
+SITEMAP_CACHE = {"generated_at": None, "body": None}
 
 
 @app.cli.command("seed-demo-specials")
@@ -321,6 +326,15 @@ def market_city_filter(market):
     for city in cities:
         variants.update(market_city_variants(city))
     return or_(*(Restaurant.city.ilike(city) for city in sorted(variants)))
+
+
+def city_hub_slug(city):
+    return slugify(canonical_market_city(city))
+
+
+def city_from_hub_slug(slug):
+    lookup = {city_hub_slug(city): city for city in SKAGIT_VALLEY["cities"]}
+    return lookup.get(slugify(slug))
 
 
 def restaurant_search_filter(search_term):
@@ -651,6 +665,129 @@ def special_time_value(moment):
 app.jinja_env.globals["special_time_value"] = special_time_value
 
 
+def smart_image_url(url, width=900, height=620):
+    if not url or "/upload/" not in url or "res.cloudinary.com" not in url:
+        return url
+    transformation = f"c_fill,g_auto,w_{int(width)},h_{int(height)}/e_improve/q_auto/f_auto"
+    return url.replace("/upload/", f"/upload/{transformation}/", 1)
+
+
+app.jinja_env.globals["smart_image_url"] = smart_image_url
+
+
+def local_iso(value):
+    if not value:
+        return ""
+    return value.replace(tzinfo=UTC).astimezone(LOCAL_TZ).isoformat()
+
+
+def special_timestamp(special):
+    return special.starts_at or special.published_at or special.updated_at or special.created_at or special.expires_at
+
+
+def special_timestamp_iso(special):
+    return local_iso(special_timestamp(special))
+
+
+app.jinja_env.globals["special_timestamp_iso"] = special_timestamp_iso
+
+
+def clean_schema(value):
+    if isinstance(value, dict):
+        cleaned = {key: clean_schema(item) for key, item in value.items()}
+        return {key: item for key, item in cleaned.items() if item not in (None, "", [], {})}
+    if isinstance(value, list):
+        return [clean_schema(item) for item in value if item not in (None, "", [], {})]
+    return value
+
+
+def parse_price_amount(price):
+    match = re.search(r"\$?\s*(\d+(?:\.\d{1,2})?)", price or "")
+    return f"{float(match.group(1)):.2f}" if match else None
+
+
+def restaurant_schema(restaurant):
+    address = None
+    if restaurant.address or restaurant.city or restaurant.postal_code:
+        address = {
+            "@type": "PostalAddress",
+            "streetAddress": restaurant.address,
+            "addressLocality": restaurant.city,
+            "addressRegion": restaurant.us_state or "WA",
+            "postalCode": restaurant.postal_code,
+            "addressCountry": restaurant.country or "US",
+        }
+    opening_hours = []
+    for day, hours in (restaurant.working_hours or {}).items():
+        formatted = format_hours_value(hours)
+        if formatted:
+            opening_hours.append(f"{day} {formatted}")
+    return clean_schema(
+        {
+            "@context": "https://schema.org",
+            "@type": ["Restaurant", "FoodEstablishment"],
+            "@id": url_for("restaurant_detail", slug=restaurant.slug, _external=True) + "#restaurant",
+            "name": restaurant.name,
+            "url": url_for("restaurant_detail", slug=restaurant.slug, _external=True),
+            "telephone": restaurant.phone,
+            "address": address,
+            "geo": {
+                "@type": "GeoCoordinates",
+                "latitude": restaurant.latitude,
+                "longitude": restaurant.longitude,
+            }
+            if restaurant.latitude is not None and restaurant.longitude is not None
+            else None,
+            "servesCuisine": tag_labels(restaurant.cuisine_tags) or restaurant.category,
+            "sameAs": restaurant.site,
+            "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": restaurant.rating,
+                "reviewCount": restaurant.reviews,
+            }
+            if restaurant.rating
+            else None,
+            "openingHours": opening_hours,
+        }
+    )
+
+
+def offer_schema(special):
+    amount = parse_price_amount(special.price)
+    schema = {
+        "@type": "Offer",
+        "@id": url_for("special_detail", public_id=special.public_id, _external=True) + "#offer",
+        "name": special.title,
+        "description": special.description,
+        "url": url_for("special_detail", public_id=special.public_id, _external=True),
+        "validFrom": local_iso(special.starts_at or special.published_at or special.created_at),
+        "validThrough": local_iso(special.expires_at),
+        "price": amount,
+        "priceCurrency": "USD" if amount else None,
+        "availability": "https://schema.org/InStock",
+        "offeredBy": {
+            "@type": "Restaurant",
+            "@id": url_for("restaurant_detail", slug=special.restaurant.slug, _external=True) + "#restaurant",
+            "name": special.restaurant.name,
+        },
+        "itemOffered": {
+            "@type": "MenuItem",
+            "name": special.title,
+            "description": special.description,
+            "menuAddOn": special.add_on_name,
+            "category": special_tag_labels(special),
+        },
+    }
+    pickup_text = " ".join([special.cta_text or "", special.raw_text or "", special.description or ""]).casefold()
+    if "pickup" in pickup_text or "order" in pickup_text or "takeout" in pickup_text:
+        schema["availableDeliveryMethod"] = "https://schema.org/OnSitePickup"
+    return clean_schema(schema)
+
+
+def restaurant_graph_schema(restaurant, specials):
+    return {"@context": "https://schema.org", "@graph": [restaurant_schema(restaurant), *[offer_schema(special) for special in specials]]}
+
+
 def special_display_date(special):
     moment = special.starts_at or special.expires_at or special.created_at or utc_now()
     local_moment = moment.replace(tzinfo=UTC).astimezone(LOCAL_TZ)
@@ -674,6 +811,8 @@ app.jinja_env.globals["special_is_today"] = special_is_today
 def special_timing_badge(special):
     if special.availability_text:
         return special.availability_text
+    if special.recurrence_label:
+        return special.recurrence_label
     if special.expires_at and special.expires_at.replace(tzinfo=UTC).astimezone(LOCAL_TZ).date() == datetime.now(LOCAL_TZ).date():
         return "Ends Today"
     if special.starts_at or special.expires_at:
@@ -1059,12 +1198,31 @@ def select_featured_special(specials):
     return next((special for special in specials if special.photo_url), None) or (specials[0] if specials else None)
 
 
-def render_specials_feed():
+def nearby_specials_for_city(city, limit=6):
+    return (
+        active_specials_query()
+        .filter(market_city_filter(SKAGIT_VALLEY))
+        .filter(~or_(*(Restaurant.city.ilike(value) for value in market_city_variants(city))))
+        .order_by(Special.published_at.desc(), Special.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def render_specials_feed(
+    forced_city=None,
+    forced_tag=None,
+    page_title=None,
+    page_description=None,
+    canonical_url=None,
+    hub_label=None,
+    hub_heading=None,
+):
     if request.method == "POST":
         email = request.form["email"].strip().lower()
-        location = request.form.get("location", "").strip()
-        city = request.form.get("city", "").strip()
-        tag = selected_tag_key(request.form.get("tag", ""))
+        location = request.form.get("location", "").strip() or SKAGIT_VALLEY["label"]
+        city = forced_city or request.form.get("city", "").strip()
+        tag = forced_tag or selected_tag_key(request.form.get("tag", ""))
         market, _ = resolve_market(location)
         if email:
             favorite_tag = f"special_tag:{tag}" if tag else None
@@ -1076,8 +1234,8 @@ def render_specials_feed():
         return redirect(url_for(request.endpoint, **feed_url_args(location=location, city=city, tag=tag)))
     location = request.args.get("location", "").strip()
     market, matched_city = resolve_market(location)
-    city = request.args.get("city", "").strip()
-    active_tag = selected_tag_key(request.args.get("tag", ""))
+    city = forced_city or request.args.get("city", "").strip()
+    active_tag = forced_tag or selected_tag_key(request.args.get("tag", ""))
     view = "map" if request.args.get("view") == "map" else "list"
     if not city and matched_city:
         city = matched_city
@@ -1094,11 +1252,13 @@ def render_specials_feed():
         cities = []
     featured_special = select_featured_special(all_specials)
     specials = [special for special in all_specials if not featured_special or special.id != featured_special.id]
+    nearby_specials = nearby_specials_for_city(city) if forced_city and not all_specials else []
     return render_template(
         "home.html",
         specials=specials,
         all_specials=all_specials,
         featured_special=featured_special,
+        nearby_specials=nearby_specials,
         cities=cities,
         city=city,
         location=location or SKAGIT_VALLEY["label"],
@@ -1110,6 +1270,12 @@ def render_specials_feed():
         map_zoom=(market or SKAGIT_VALLEY)["zoom"],
         map_specials=special_map_data(all_specials),
         saved_count=len(saved_special_ids()),
+        page_title=page_title,
+        page_description=page_description,
+        canonical_url=canonical_url,
+        hub_label=hub_label,
+        hub_heading=hub_heading,
+        forced_hub=bool(forced_city or forced_tag or hub_label),
     )
 
 
@@ -1121,6 +1287,29 @@ def home():
 @app.route("/specials", methods=["GET", "POST"])
 def specials_feed():
     return render_specials_feed()
+
+
+@app.route("/specials/today", methods=["GET", "POST"])
+def specials_today():
+    return render_specials_feed(
+        page_title="Today's Skagit Valley restaurant specials | Appertivo",
+        page_description="Browse today's active restaurant specials across Skagit Valley, WA.",
+        canonical_url=url_for("specials_today", _external=True),
+        hub_label="Skagit Valley - Updated daily",
+        hub_heading="Today's Skagit Valley specials",
+    )
+
+
+@app.route("/specials/happy-hour", methods=["GET", "POST"])
+def specials_happy_hour():
+    return render_specials_feed(
+        forced_tag="happy_hour",
+        page_title="Happy hour specials in Skagit Valley | Appertivo",
+        page_description="Find active happy hour specials from local Skagit Valley restaurants.",
+        canonical_url=url_for("specials_happy_hour", _external=True),
+        hub_label="Happy Hour - Updated daily",
+        hub_heading="Happy hour specials",
+    )
 
 
 @app.get("/how-it-works")
@@ -1298,7 +1487,12 @@ def restaurant_detail(slug):
             flash(f"You're following {restaurant.name}. Alerts are coming soon.")
         return redirect(url_for("restaurant_detail", slug=slug))
     specials = active_specials_query().filter(Restaurant.id == restaurant.id).all()
-    return render_template("restaurant.html", restaurant=restaurant, specials=specials)
+    return render_template(
+        "restaurant.html",
+        restaurant=restaurant,
+        specials=specials,
+        restaurant_graph=restaurant_graph_schema(restaurant, specials),
+    )
 
 
 @app.route("/submit/<token>", methods=["GET", "POST"])
@@ -1432,6 +1626,116 @@ def active_special_by_public_id(public_id):
     )
 
 
+def latest_special_timestamp_expression():
+    return func.max(func.coalesce(Special.updated_at, Special.published_at, Special.starts_at, Special.expires_at, Special.created_at))
+
+
+def date_lastmod(value=None):
+    moment = value or utc_now()
+    return moment.replace(tzinfo=UTC).astimezone(LOCAL_TZ).date().isoformat()
+
+
+def sitemap_url(loc, lastmod=None, changefreq="weekly", priority="0.6"):
+    return (
+        "  <url>\n"
+        f"    <loc>{escape(loc)}</loc>\n"
+        f"    <lastmod>{date_lastmod(lastmod)}</lastmod>\n"
+        f"    <changefreq>{changefreq}</changefreq>\n"
+        f"    <priority>{priority}</priority>\n"
+        "  </url>"
+    )
+
+
+def latest_special_timestamp_for(query):
+    row = query.with_entities(latest_special_timestamp_expression()).first()
+    return row[0] if row else None
+
+
+def city_hub_has_content(city):
+    own_count = (
+        active_specials_query()
+        .filter(or_(*(Restaurant.city.ilike(value) for value in market_city_variants(city))))
+        .count()
+    )
+    return own_count > 0 or bool(nearby_specials_for_city(city, limit=1))
+
+
+def build_sitemap_xml():
+    now = utc_now()
+    urls = [
+        sitemap_url(url_for("home", _external=True), now, "daily", "0.8"),
+        sitemap_url(url_for("specials_feed", _external=True), now, "daily", "0.8"),
+        sitemap_url(url_for("specials_today", _external=True), now, "daily", "0.8"),
+        sitemap_url(url_for("specials_happy_hour", _external=True), now, "daily", "0.8"),
+        sitemap_url(url_for("restaurants", _external=True), now, "weekly", "0.6"),
+    ]
+    happy_hour_lastmod = latest_special_timestamp_for(skagit_specials_query().filter(special_tag_filter("happy_hour")))
+    if happy_hour_lastmod:
+        urls[3] = sitemap_url(url_for("specials_happy_hour", _external=True), happy_hour_lastmod, "daily", "0.8")
+
+    for city in SKAGIT_VALLEY["cities"]:
+        if not city_hub_has_content(city):
+            continue
+        city_query = skagit_specials_query().filter(
+            or_(*(Restaurant.city.ilike(value) for value in market_city_variants(city)))
+        )
+        urls.append(
+            sitemap_url(
+                url_for("special_detail", public_id=city_hub_slug(city), _external=True),
+                latest_special_timestamp_for(city_query) or now,
+                "daily",
+                "0.8",
+            )
+        )
+
+    special_updates = dict(
+        db.session.query(
+            Special.restaurant_id,
+            latest_special_timestamp_expression(),
+        )
+        .join(Restaurant)
+        .filter(Special.status == "published", Restaurant.catalog_status == "included")
+        .group_by(Special.restaurant_id)
+        .all()
+    )
+    restaurants = included_restaurants_query().order_by(Restaurant.slug).all()
+    for restaurant in restaurants:
+        timestamps = [
+            restaurant.catalog_reviewed_at,
+            restaurant.created_at,
+            special_updates.get(restaurant.id),
+        ]
+        lastmod = max((value for value in timestamps if value), default=now)
+        changefreq = "daily" if special_updates.get(restaurant.id) else "weekly"
+        urls.append(
+            sitemap_url(
+                url_for("restaurant_detail", slug=restaurant.slug, _external=True),
+                lastmod,
+                changefreq,
+                "0.8",
+            )
+        )
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + "\n".join(urls) + "\n</urlset>\n"
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    cache_seconds = app.config["SITEMAP_CACHE_SECONDS"]
+    generated_at = SITEMAP_CACHE.get("generated_at")
+    if SITEMAP_CACHE.get("body") and generated_at and (utc_now() - generated_at).total_seconds() < cache_seconds:
+        body = SITEMAP_CACHE["body"]
+    else:
+        body = build_sitemap_xml()
+        SITEMAP_CACHE.update(generated_at=utc_now(), body=body)
+    return Response(body, mimetype="application/xml")
+
+
+@app.get("/robots.txt")
+def robots_txt():
+    body = f"User-agent: *\nAllow: /\nSitemap: {url_for('sitemap_xml', _external=True)}\n"
+    return Response(body, mimetype="text/plain")
+
+
 @app.get("/saved")
 def saved_specials():
     ids = saved_special_ids()
@@ -1448,6 +1752,16 @@ def saved_specials():
 
 @app.get("/specials/<public_id>")
 def special_detail(public_id):
+    city = city_from_hub_slug(public_id)
+    if city:
+        return render_specials_feed(
+            forced_city=city,
+            page_title=f"{city} restaurant specials | Appertivo",
+            page_description=f"Find active restaurant specials in {city}, WA, plus nearby Skagit Valley spots when today's board is quiet.",
+            canonical_url=url_for("special_detail", public_id=city_hub_slug(city), _external=True),
+            hub_label=f"{city} - Updated daily",
+            hub_heading=f"{city} restaurant specials",
+        )
     special = active_special_by_public_id(public_id)
     record_metric(special, "view", request.args.get("channel"))
     return render_template("special.html", special=special, can_manage=can_manage_special(special))

@@ -48,6 +48,54 @@ Follow these preferences:
 - Prefer explicit code over magic.
 - Add comments only when they explain why something exists, not what obvious code does.
 
+## Railway CLI Access
+
+The Railway CLI is installed, authenticated, and linked from this repository to the
+production application service.
+
+- Workspace: `skagitian's Projects`
+- Project: `gleaming-energy`
+- Environment: `production`
+- Application service: `Appertivo2026`
+- PostgreSQL service: `Postgres`
+- Public URL: `https://appertivo2026-production.up.railway.app`
+
+Use Railway CLI commands from this repository root. Start with:
+
+```powershell
+railway whoami
+railway status
+railway logs --latest --lines 120
+```
+
+The application deploys automatically when `main` is pushed to GitHub. Verify a
+deployment by checking Railway status and logs, then request:
+
+```text
+https://appertivo2026-production.up.railway.app/health
+```
+
+Agents may use the Railway CLI without additional approval to:
+
+- Inspect authentication, project linkage, deployment status, and recent logs.
+- Link this local repository to the existing `gleaming-energy` project and
+  `Appertivo2026` production service if the local Railway link is missing.
+- Verify the public homepage and `/health` endpoint.
+- Trigger or inspect a deployment when the user has asked to deploy, redeploy,
+  commit and push a deployment fix, or diagnose a failed deployment.
+
+Ask the user before using Railway CLI commands that:
+
+- Add, change, print, or remove production environment variables or secrets.
+- Add or remove custom domains.
+- Create, remove, or modify services, databases, or volumes.
+- Run one-off production database writes outside the checked-in migration and
+  `seed-launch-data` deployment flow.
+- Delete deployments or perform any other destructive action.
+
+Never print secret values into chat, logs, commits, or documentation. Prefer
+`railway.toml` and committed migrations for repeatable deployment changes.
+
 ## Product Style
 
 Keep the user experience simple:

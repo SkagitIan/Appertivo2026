@@ -9,9 +9,7 @@ test("production public launch smoke is read-only", async ({ page, request, base
   await expect(page.getByRole("link", { name: /View special/i }).first()).toBeVisible();
 
   await page.goto("/restaurants");
-  await expect(page.getByRole("heading", { name: /restaurants/i })).toBeVisible();
-  await page.getByRole("link", { name: /View restaurant/i }).first().click();
-  await expect(page).toHaveURL(/\/restaurants\//);
+  await expect(page).toHaveURL(/\/specials/);
 
   await page.goto(baseURL);
   await page.getByRole("link", { name: /View special/i }).first().click();

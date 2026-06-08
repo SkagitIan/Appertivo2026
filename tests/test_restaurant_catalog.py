@@ -88,9 +88,9 @@ def test_catalog_status_hides_nonincluded_venues_from_normal_admin_workflows():
         db.session.commit()
 
     with app.test_client() as client:
-        assert b"Included Cafe" in client.get("/restaurants").data
-        assert b"Hidden Market" not in client.get("/restaurants").data
+        assert client.get("/restaurants").status_code == 302
         assert client.get("/restaurants/hidden-market").status_code == 404
+        assert b"Included Cafe" in client.get("/restaurants/included-cafe").data
         login(client)
         restaurants_page = client.get("/admin/restaurants")
         assert b"Included Cafe" in restaurants_page.data
@@ -116,7 +116,7 @@ def test_catalog_status_hides_nonincluded_venues_from_normal_admin_workflows():
         )
         assert response.status_code == 200
         assert b"Pending Bakery marked included" in response.data
-        assert b"Pending Bakery" in client.get("/restaurants").data
+        assert b"Pending Bakery" in client.get("/restaurants/pending-bakery").data
 
         with app.app_context():
             db.session.add(

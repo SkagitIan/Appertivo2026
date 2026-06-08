@@ -9,7 +9,7 @@ import pytest
 # Flask-SQLAlchemy binds its engine while importing the app.
 os.environ["DATABASE_URL"] = "sqlite://"
 
-from app import app, hash_token, normalize_database_url
+from app import app, hash_token, normalize_database_url, smart_image_url, special_timing_badge
 from demo_data import seed_demo_specials
 from models import (
     DistributionLog,
@@ -219,8 +219,8 @@ def test_location_search_defaults_to_skagit_and_waitlists_other_markets(client):
         db.session.commit()
 
     default_page = client.get("/")
-    assert b"Tonight" in default_page.data
-    assert b"Best Specials" in default_page.data
+    assert b"Skip the usual" in default_page.data
+    assert b"find something special." in default_page.data
     assert b"Today's specials" in default_page.data
     assert b"Sample special" not in default_page.data
     assert b"Updated daily" in default_page.data
@@ -321,6 +321,28 @@ def test_specials_feed_filters_featured_and_saved_flow(client):
     with app.app_context():
         assert SpecialMetric.query.filter_by(event_type="save", special_id=pasta.id).count() == 1
         assert Special.query.filter_by(public_id=burger_public_id).one().featured_rank == 1
+
+
+def test_cloudinary_images_use_smart_fill_transform():
+    assert (
+        smart_image_url("https://res.cloudinary.com/demo/image/upload/v1/appertivo/photo.jpg", 320, 240)
+        == "https://res.cloudinary.com/demo/image/upload/c_fill,g_auto,w_320,h_240/e_improve/q_auto/f_auto/v1/appertivo/photo.jpg"
+    )
+    assert smart_image_url("https://cdn.example.com/photo.jpg") == "https://cdn.example.com/photo.jpg"
+
+
+def test_recurring_special_badge_does_not_say_ends_today(client):
+    with app.app_context():
+        special = Special(
+            restaurant_id=1,
+            title="Monthly Burger",
+            description="Available this month.",
+            status="published",
+            recurrence_rule="FREQ=DAILY",
+            recurrence_label="All Month",
+            expires_at=datetime.now().replace(hour=23, minute=59, second=0, microsecond=0),
+        )
+        assert special_timing_badge(special) == "All Month"
 
 
 def test_demo_special_seed_is_idempotent(client):

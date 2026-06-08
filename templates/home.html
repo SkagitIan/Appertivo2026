@@ -1,17 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Tonight's best local restaurant specials | Appertivo{% endblock %}
+{% block title %}{{ page_title or "Tonight's best local restaurant specials | Appertivo" }}{% endblock %}
+{% block description %}{{ page_description or "Find today's specials and independent restaurants near you with Appertivo." }}{% endblock %}
+{% block head %}{% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}{% endblock %}
 {% block content %}
 <section class="feed-hero">
   <div class="page-width feed-hero-grid">
     <div class="feed-hero-copy">
       <p class="eyebrow feed-eyebrow">Fresh specials. Local flavor.</p>
-      <h1 class="display-xl">Tonight's<br><span>Best Specials</span></h1>
-      <p class="feed-hero-text">Handpicked local specials from restaurants near you.</p>
-      <a href="#specials" class="button-plum">View All Specials</a>
+      <h1 class="display-xl">Skip the usual -<br><span>find something special.</span></h1>
+      <p class="feed-hero-text">{{ page_description or "Handpicked local specials from restaurants near you." }}</p>
       <div class="feed-trust-row" aria-label="Appertivo highlights">
-        <div><span class="feed-trust-icon icon-curated" aria-hidden="true"></span><strong>Curated Daily</strong><small>Fresh posts every day</small></div>
-        <div><span class="feed-trust-icon icon-local" aria-hidden="true"></span><strong>Local & Loved</strong><small>Independent spots</small></div>
-        <div><span class="feed-trust-icon icon-go" aria-hidden="true"></span><strong>Book & Go</strong><small>Act from each card</small></div>
+        <div><span class="feed-trust-icon icon-curated" aria-hidden="true"></span><strong>Fresh Finds</strong><small>Updated daily</small></div>
+        <div><span class="feed-trust-icon icon-local" aria-hidden="true"></span><strong>Local Favorites</strong><small>Independent spots</small></div>
+        <div><span class="feed-trust-icon icon-save" aria-hidden="true"></span><strong>Save for Later</strong><small>Heart what looks good</small></div>
       </div>
     </div>
     <aside class="featured-special-panel">
@@ -21,7 +22,7 @@
           <div data-testid="special-card" data-special-title="{{ special.title }}">
           <div class="featured-special-media">
             {% if special.photo_url %}
-              <img src="{{ special.photo_url }}" alt="{{ special.title }} at {{ special.restaurant.name }}">
+              <img src="{{ smart_image_url(special.photo_url, 1100, 760) }}" alt="{{ special.title }} at {{ special.restaurant.name }}">
             {% else %}
               <div class="special-no-image">
                 <p class="special-no-image-kicker">{{ special.restaurant.name }}</p>
@@ -32,6 +33,12 @@
               <span class="special-badge-primary">{{ tag_label(special.primary_tag) or "Fresh Special" }}</span>
               <span class="special-badge-time">{{ special_timing_badge(special) }}</span>
             </div>
+            <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form save-special-media-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="save-special-heart {% if is_special_saved(special) %}is-saved{% endif %}" data-testid="featured-save-special" aria-label="{{ 'Remove saved special' if is_special_saved(special) else 'Save special' }}">
+                <span class="heart-icon" aria-hidden="true"></span>
+              </button>
+            </form>
           </div>
           <div class="featured-special-body">
             <div>
@@ -40,6 +47,7 @@
               <p>{{ special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}</p>
               <div class="special-card-meta">
                 {% if special.price %}<strong class="special-card-price">{{ special.price }}</strong>{% endif %}
+                {% if special_timestamp_iso(special) %}<time datetime="{{ special_timestamp_iso(special) }}" class="text-xs font-bold text-stone-500">Updated {{ special_display_date(special) }}</time>{% endif %}
               </div>
             </div>
             <div class="featured-special-side">
@@ -51,10 +59,6 @@
                 </div>
               {% endif %}
               <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary w-full" data-testid="special-card-action">View Special</a>
-              <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="button-quiet save-special-button w-full" data-testid="featured-save-special">{{ "Saved" if is_special_saved(special) else "Save Special" }}</button>
-              </form>
             </div>
           </div>
           </div>
@@ -74,8 +78,8 @@
 <section id="specials" class="page-width feed-section">
   <div class="feed-toolbar">
     <div>
-      <p class="eyebrow">{{ market.name }} - Updated daily</p>
-      <h2 class="display-md mt-2">Today's specials</h2>
+      <p class="eyebrow">{{ hub_label or (market.name ~ " - Updated daily") }}</p>
+      <h2 class="display-md mt-2">{{ hub_heading or "Today's specials" }}</h2>
     </div>
     <div class="feed-toolbar-actions">
       <form method="get" action="{{ url_for('specials_feed') }}">
@@ -113,14 +117,41 @@
             <h3 class="text-2xl">The featured special matches this view.</h3>
             <p class="mt-2 text-stone-600">Try another filter to discover more.</p>
           {% else %}
-            <h3 class="text-2xl">No specials match this view.</h3>
-            <p class="mt-2 text-stone-600">Try another city or filter.</p>
+            {% if forced_hub and city and nearby_specials %}
+              <h3 class="text-2xl">No specials today in {{ city }}.</h3>
+              <p class="mt-2 text-stone-600">The board is quiet here right now, but nearby Skagit Valley restaurants have fresh specials worth checking.</p>
+              <div class="mt-5 grid gap-3 text-left">
+                {% for nearby in nearby_specials %}
+                  <a href="{{ url_for('restaurant_detail', slug=nearby.restaurant.slug) }}" class="rounded-lg border bg-white p-4">
+                    <p class="eyebrow">{{ nearby.restaurant.city }}</p>
+                    <strong>{{ nearby.title }}</strong>
+                    <span class="block text-sm text-stone-600">{{ nearby.restaurant.name }}</span>
+                  </a>
+                {% endfor %}
+              </div>
+              <div class="mt-5 flex flex-wrap justify-center gap-3">
+                <a href="{{ url_for('specials_today') }}" class="button-secondary">Today's specials</a>
+                <a href="{{ url_for('specials_happy_hour') }}" class="button-secondary">Happy hour</a>
+                <a href="{{ url_for('restaurants') }}" class="button-secondary">Restaurants</a>
+              </div>
+            {% elif forced_hub and city %}
+              <h3 class="text-2xl">No specials today in {{ city }}.</h3>
+              <p class="mt-2 text-stone-600">{{ city }} is part of Appertivo's Skagit Valley dining guide. Check back as local restaurants post new specials, or browse the full restaurant directory.</p>
+              <div class="mt-5 flex flex-wrap justify-center gap-3">
+                <a href="{{ url_for('specials_today') }}" class="button-secondary">Today's specials</a>
+                <a href="{{ url_for('specials_happy_hour') }}" class="button-secondary">Happy hour</a>
+                <a href="{{ url_for('restaurants') }}" class="button-secondary">Restaurants</a>
+              </div>
+            {% else %}
+              <h3 class="text-2xl">No specials match this view.</h3>
+              <p class="mt-2 text-stone-600">Try another city or filter.</p>
+            {% endif %}
           {% endif %}
         </div>
       {% endfor %}
     </div>
 
-    <form id="early-list" method="post" class="newsletter-band">
+    <form id="early-list" method="post" action="{{ url_for('specials_feed') }}" class="newsletter-band">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="city" value="{{ city }}">
       <input type="hidden" name="location" value="{{ location }}">
@@ -163,7 +194,7 @@
     <p class="eyebrow">Alerts</p>
     <h2 class="display-md mt-3">Get restaurant specials near {{ location }}.</h2>
     <p class="mx-auto mt-4 max-w-xl text-stone-600">Tell us where to send local specials and restaurant updates for your area.</p>
-    <form method="post" class="mx-auto mt-6 flex max-w-lg flex-wrap gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="location" value="{{ location }}"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg border px-4 py-3"><button class="button-primary">Get Local Specials</button></form>
+    <form method="post" action="{{ url_for('specials_feed') }}" class="mx-auto mt-6 flex max-w-lg flex-wrap gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="location" value="{{ location }}"><input required type="email" name="email" placeholder="you@example.com" class="min-w-[230px] flex-1 rounded-lg border px-4 py-3"><button class="button-primary">Get Local Specials</button></form>
     <a href="{{ url_for('specials_feed', location='Skagit Valley, WA') }}" class="mt-5 inline-block text-sm font-black text-[#176f70]">See Skagit Valley specials</a>
   </div>
 </section>

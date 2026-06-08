@@ -1,7 +1,7 @@
 <article class="special-card" data-testid="special-card" data-special-title="{{ special.title }}">
   <div class="special-media">
     {% if special.photo_url %}
-      <img src="{{ special.photo_url }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo">
+      <img src="{{ smart_image_url(special.photo_url, 900, 620) }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo">
     {% else %}
       <div class="special-no-image">
         <p class="special-no-image-kicker">{{ special.restaurant.name }}</p>
@@ -12,6 +12,14 @@
       <span class="special-badge-primary">{{ tag_label(special.primary_tag) or "Fresh Special" }}</span>
       <span class="special-badge-time">{{ special_timing_badge(special) }}</span>
     </div>
+    {% if special.public_id %}
+      <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form save-special-media-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="save-special-heart {% if is_special_saved(special) %}is-saved{% endif %}" data-testid="save-special-button" aria-label="{{ 'Remove saved special' if is_special_saved(special) else 'Save special' }}">
+          <span class="heart-icon" aria-hidden="true"></span>
+        </button>
+      </form>
+    {% endif %}
   </div>
   <div class="special-card-body">
     <p class="eyebrow">{{ special.restaurant.name }} <span class="text-stone-500">- {{ special.restaurant.city }}</span></p>
@@ -26,6 +34,7 @@
     {% endif %}
     <div class="special-card-meta">
       {% if special.price %}<strong class="special-card-price">{{ special.price }}</strong>{% endif %}
+      {% if special_timestamp_iso(special) %}<time datetime="{{ special_timestamp_iso(special) }}" class="text-xs font-bold text-stone-500">Updated {{ special_display_date(special) }}</time>{% endif %}
     </div>
     {% if special.add_on_name %}
       <div class="special-add-on">
@@ -39,12 +48,6 @@
         <a href="{{ special_card_url }}" class="button-primary" data-testid="special-card-action">{{ special_card_action_label|default("View Special") }}</a>
       {% elif special.public_id %}
         <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary" data-testid="special-card-action">View Special</a>
-      {% endif %}
-      {% if special.public_id %}
-        <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="button-quiet save-special-button" data-testid="save-special-button">{{ "Saved" if is_special_saved(special) else "Save Special" }}</button>
-        </form>
       {% endif %}
     </div>
     {% if show_operator_tools|default(false) %}
