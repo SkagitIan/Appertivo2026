@@ -16,7 +16,7 @@
       <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form save-special-media-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="save-special-heart {% if is_special_saved(special) %}is-saved{% endif %}" data-testid="save-special-button" aria-label="{{ 'Remove saved special' if is_special_saved(special) else 'Save special' }}">
-          <span class="heart-icon" aria-hidden="true"></span>
+          <i class="fa-solid fa-heart" aria-hidden="true"></i>
         </button>
       </form>
     {% endif %}

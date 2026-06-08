@@ -1405,6 +1405,20 @@ def restaurants():
     if search_term:
         query = query.filter(restaurant_search_filter(search_term))
     items = query.order_by(Restaurant.name).all()
+    now = utc_now()
+    active_counts = dict(
+        db.session.query(Special.restaurant_id, func.count(Special.id))
+        .filter(
+            Special.status == "published",
+            or_(Special.starts_at.is_(None), Special.starts_at <= now),
+            or_(Special.expires_at.is_(None), Special.expires_at >= now),
+        )
+        .group_by(Special.restaurant_id)
+        .all()
+    )
+    for r in items:
+        r.active_special_count = active_counts.get(r.id, 0)
+    items.sort(key=lambda r: (-r.active_special_count, r.name))
     cities = [
         row[0]
         for row in db.session.query(Restaurant.city)
@@ -1493,10 +1507,20 @@ def restaurant_detail(slug):
             flash(f"You're following {restaurant.name}. Alerts are coming soon.")
         return redirect(url_for("restaurant_detail", slug=slug))
     specials = active_specials_query().filter(Restaurant.id == restaurant.id).all()
+    past_specials = (
+        Special.query.filter(
+            Special.restaurant_id == restaurant.id,
+            Special.status == "expired",
+        )
+        .order_by(Special.expires_at.desc())
+        .limit(8)
+        .all()
+    )
     return render_template(
         "restaurant.html",
         restaurant=restaurant,
         specials=specials,
+        past_specials=past_specials,
         restaurant_graph=restaurant_graph_schema(restaurant, specials),
     )
 

@@ -143,7 +143,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .save-special-heart { align-items: center; background: rgba(255, 255, 255, .94); border: 1px solid rgba(61, 23, 48, .14); border-radius: 50%; box-shadow: 0 10px 24px rgba(44, 17, 37, .22); color: var(--plum); cursor: pointer; display: inline-flex; height: 2.9rem; justify-content: center; padding: 0; transition: background-color .2s ease, color .2s ease, transform .2s ease; width: 2.9rem; }
 .save-special-heart:hover { background: white; color: var(--orange); transform: translateY(-1px); }
 .save-special-heart.is-saved { background: var(--orange); border-color: var(--orange); color: white; }
-.save-special-heart .heart-icon { height: 1.35rem; width: 1.35rem; }
+.save-special-heart i { font-size: 1.1rem; line-height: 1; }
 .newsletter-band { align-items: center; background: var(--plum); border-radius: .75rem; color: white; display: grid; gap: 1.25rem; grid-template-columns: auto minmax(0, .85fr) minmax(18rem, 1fr); margin-top: 2rem; padding: 1.7rem; }
 .newsletter-band h2 { color: white; font-size: 2rem; line-height: 1; }
 .newsletter-band p { color: #ffedd5; font-size: .95rem; margin-top: .45rem; }
@@ -166,6 +166,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .heart-icon::after { right: .25rem; transform: rotate(45deg); transform-origin: 100% 100%; }
 .alert-icon::before { border: 2px solid currentColor; border-radius: 50% 50% .35rem .35rem; content: ""; height: .95rem; left: .28rem; position: absolute; top: .15rem; width: .8rem; }
 .alert-icon::after { background: currentColor; border-radius: 50%; bottom: .05rem; content: ""; height: .18rem; left: .58rem; position: absolute; width: .18rem; }
+.restaurant-card { display: flex; flex-direction: column; }
+.restaurant-card-header { align-items: center; display: flex; gap: .6rem; justify-content: space-between; }
+.restaurant-card-name { font-size: 1.25rem; font-weight: 800; line-height: 1.2; }
+.restaurant-specials-badge { background: var(--teal); border-radius: 999px; color: white; flex-shrink: 0; font-size: .72rem; font-weight: 700; letter-spacing: .02em; padding: .2rem .65rem; text-transform: uppercase; white-space: nowrap; }
+.restaurant-card .button-plum { margin-top: auto; padding-top: .7rem; padding-bottom: .7rem; }
 .operator-tools { background: linear-gradient(180deg, #fff7ea, #f8ead8); border: 1px solid var(--line); border-radius: 1.25rem; box-shadow: 0 10px 28px rgba(77, 44, 29, .08); padding: 1.25rem; }
 .operator-tool-grid { display: grid; gap: .9rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .operator-tool { background: rgba(255, 255, 255, .82); border: 1px solid #ecd3bf; border-radius: 1rem; box-shadow: 0 6px 18px rgba(77, 44, 29, .05); color: var(--muted); cursor: not-allowed; display: grid; gap: .45rem; grid-template-columns: auto minmax(0, 1fr); min-height: 7rem; opacity: 1; padding: 1rem; text-align: left; }

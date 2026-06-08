@@ -36,7 +36,7 @@
       <h2 class="mt-2 text-3xl">Active specials</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
         {% for special in specials %}
-          {% set show_operator_tools = can_manage_special(special) %}
+          {% set show_operator_tools = false %}
           {% include "partials/special_card.html" %}
         {% else %}
           <div class="soft-panel p-6 text-stone-600 md:col-span-2">
@@ -75,5 +75,20 @@
       {% endif %}
     </aside>
   </div>
+  {% if past_specials %}
+    <section class="mt-12">
+      <p class="eyebrow">History</p>
+      <h2 class="mt-2 text-3xl">Past specials</h2>
+      <ul class="mt-4 divide-y divide-stone-100">
+        {% for special in past_specials %}
+          <li class="py-3">
+            <p class="font-semibold text-stone-800">{{ special.title }}</p>
+            {% if special.price %}<p class="text-sm text-stone-500">{{ special.price }}</p>{% endif %}
+            {% if special.expires_at %}<p class="text-xs text-stone-400">Ended {{ special.expires_at.strftime('%B %d, %Y') }}</p>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
 </section>
 {% endblock %}
