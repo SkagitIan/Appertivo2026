@@ -133,7 +133,21 @@ app.config.update(
     CLOUDINARY_FOLDER=os.environ.get("CLOUDINARY_FOLDER", "appertivo/specials"),
     SPECIAL_WEBHOOK_TEST_ENABLED=os.environ.get("SPECIAL_WEBHOOK_TEST_ENABLED") == "1",
     SITEMAP_CACHE_SECONDS=int(os.environ.get("SITEMAP_CACHE_SECONDS", 4 * 60 * 60)),
+    SENTRY_DSN=os.environ.get("SENTRY_DSN", ""),
 )
+
+_sentry_dsn = os.environ.get("SENTRY_DSN", "")
+if _sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        integrations=[FlaskIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0,
+        send_default_pii=False,
+    )
+
 db.init_app(app)
 migrate = Migrate(app, db)
 SITEMAP_CACHE = {"generated_at": None, "body": None}
@@ -213,6 +227,29 @@ def email_test_all(to_email):
         click.echo(f"{template_name}: {status}")
     if not all(result["success"] for result in results.values()):
         raise click.ClickException("One or more template sends failed.")
+
+
+@app.cli.command("expire-specials")
+@click.option("--dry-run", is_flag=True, default=False, help="Print what would be expired without writing.")
+def expire_specials_command(dry_run):
+    """Expire published specials whose expires_at has passed. Skip recurring specials."""
+    now = utc_now()
+    candidates = Special.query.filter(
+        Special.status == "published",
+        Special.expires_at.isnot(None),
+        Special.expires_at < now,
+        Special.recurrence_rule.is_(None),
+    ).all()
+    if not candidates:
+        click.echo("No stale specials to expire.")
+        return
+    for special in candidates:
+        click.echo(f"{'[dry-run] ' if dry_run else ''}Expiring: {special.restaurant.name} — {special.title} (expired {special.expires_at})")
+        if not dry_run:
+            special.status = "expired"
+    if not dry_run:
+        db.session.commit()
+        click.echo(f"Expired {len(candidates)} special(s).")
 
 
 def hash_token(token):
@@ -487,6 +524,13 @@ def subscribe(email, city=None, location=None, favorite_tag=None):
         tags.add(favorite_tag)
         subscriber.favorite_tags = ",".join(sorted(tags))
     db.session.commit()
+    from email_system.email_service import create_or_update_marketing_contact
+    create_or_update_marketing_contact(email, {
+        "source": "appertivo-digest",
+        "city": city or "",
+        "location": location or "",
+        "subscribed": True,
+    })
 
 
 def city_from_address(address):
@@ -2440,7 +2484,12 @@ def admin_specials():
     query = Special.query.join(Restaurant).filter(Restaurant.catalog_status == "included")
     if status in {"draft", "published", "expired"}:
         query = query.filter(Special.status == status)
-    return render_template("admin/specials.html", specials=query.order_by(Special.created_at.desc()).all(), status=status)
+    return render_template(
+        "admin/specials.html",
+        specials=query.order_by(Special.created_at.desc()).all(),
+        status=status,
+        now=utc_now(),
+    )
 
 
 @app.get("/admin/special-submissions")
