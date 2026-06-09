@@ -447,7 +447,14 @@ def receive_resend_email(payload, headers):
         campaign = conversation_for_restaurant(restaurant, sender)
     body_text = _value(received, "text", "") or ""
     received_at = datetime.fromisoformat(data["created_at"].replace("Z", "+00:00")).replace(tzinfo=None)
-    if normalize_email(current_app.config["EMAIL_FROM_SPECIALS"]) in recipients:
+    specials_email = normalize_email(current_app.config["EMAIL_FROM_SPECIALS"])
+    sales_reply_to = normalize_email(current_app.config.get("EMAIL_REPLY_TO_SALES", ""))
+    is_to_specials = specials_email in recipients
+    is_outreach_reply_with_special = bool(
+        sales_reply_to and sales_reply_to in recipients and campaign is not None
+    )
+
+    if is_to_specials or is_outreach_reply_with_special:
         logger.info("Routing received email %s into special pipeline", data["email_id"])
         image_url = first_image_attachment_url(data["email_id"])
         submission = create_raw_submission(
@@ -465,6 +472,26 @@ def receive_resend_email(payload, headers):
             campaign.paused = True
             loops_client.send_event(campaign.recipient_email, "restaurantSpecialReceived", {"outreachId": str(campaign.id)})
             db.session.commit()
+        if is_to_specials:
+            return submission
+        # Outreach reply routed to special pipeline — also log in inbox so conversation stays visible
+        logger.info("Logging outreach-reply special %s in inbox", data["email_id"])
+        inbox_message = OutreachMessage(
+            campaign_id=campaign.id,
+            restaurant_id=campaign.restaurant_id,
+            direction="inbound",
+            status="special_received",
+            sender_email=sender,
+            recipient_email=", ".join(data.get("to", [])),
+            subject=data.get("subject", ""),
+            body_text=body_text,
+            provider="resend",
+            external_email_id=data["email_id"],
+            in_reply_to=data.get("message_id"),
+            received_at=received_at,
+        )
+        db.session.add(inbox_message)
+        db.session.commit()
         return submission
     logger.info("Routing received email %s into outreach inbox", data["email_id"])
     message = OutreachMessage(

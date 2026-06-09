@@ -2049,7 +2049,8 @@ def admin_email_tools():
             flash(f"Sent {sent_count} of {len(results)} email templates to {recipient}.")
         return redirect(url_for("admin_email_tools"))
     previews = {name: render_test_email(name)["html"] for name in SUBJECTS}
-    return render_template("admin/email_tools.html", previews=previews, recipient=recipient)
+    templates = OutreachTemplate.query.filter_by(is_active=True).order_by(OutreachTemplate.name).all()
+    return render_template("admin/email_tools.html", previews=previews, recipient=recipient, templates=templates)
 
 
 def rotate_restaurant_submission_url(restaurant):
@@ -2183,7 +2184,7 @@ def admin_outreach_create_template():
     )
     if not template.name or not template.subject or not template.body_text:
         flash("Template name, subject, and body are required.")
-        return redirect(url_for("admin_outreach"))
+        return redirect(request.referrer or url_for("admin_outreach"))
     db.session.add(template)
     try:
         db.session.commit()
@@ -2191,7 +2192,7 @@ def admin_outreach_create_template():
     except Exception:
         db.session.rollback()
         flash("Template names must be unique.")
-    return redirect(url_for("admin_outreach"))
+    return redirect(request.referrer or url_for("admin_outreach"))
 
 
 @app.post("/admin/outreach/templates/<int:template_id>")
@@ -2202,16 +2203,16 @@ def admin_outreach_update_template(template_id):
         template.is_active = False
         db.session.commit()
         flash("Template archived.")
-        return redirect(url_for("admin_outreach"))
+        return redirect(request.referrer or url_for("admin_outreach"))
     template.name = request.form.get("name", "").strip()
     template.subject = request.form.get("subject", "").strip()
     template.body_text = request.form.get("body_text", "").strip()
     if not template.name or not template.subject or not template.body_text:
         flash("Template name, subject, and body are required.")
-        return redirect(url_for("admin_outreach"))
+        return redirect(request.referrer or url_for("admin_outreach"))
     db.session.commit()
     flash("Template updated.")
-    return redirect(url_for("admin_outreach"))
+    return redirect(request.referrer or url_for("admin_outreach"))
 
 
 @app.post("/api/webhooks/resend")

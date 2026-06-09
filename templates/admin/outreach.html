@@ -7,7 +7,7 @@
       <p class="eyebrow">Admin</p>
       <h1 class="display-md mt-2">Outreach inbox</h1>
     </div>
-    <span class="outreach-pill">One message at a time</span>
+    <button type="button" class="button-secondary" onclick="document.getElementById('compose-modal').showModal()">Compose</button>
   </header>
 
   <div class="outreach-grid">
@@ -30,7 +30,7 @@
             {% endif %}
           </a>
         {% else %}
-          <p class="empty-note">No conversations yet. Send the first email from Compose.</p>
+          <p class="empty-note">No conversations yet. Compose the first email.</p>
         {% endfor %}
       </div>
     </aside>
@@ -56,90 +56,85 @@
             <p class="empty-note">No messages in this conversation yet.</p>
           {% endfor %}
         {% else %}
-          <p class="empty-note">Choose a restaurant and send the first email.</p>
+          <p class="empty-note">Select a conversation or compose a new email.</p>
         {% endif %}
       </div>
     </main>
-
-    <aside class="outreach-panel outreach-compose">
-      <div class="outreach-panel-head">
-        <h2>Compose</h2>
-      </div>
-      <form method="post" action="{{ url_for('admin_outreach_send_direct') }}" class="compose-form">
-        <label>To
-          <select required name="restaurant_id" id="outreach-restaurant">
-            <option value="">Choose restaurant</option>
-            {% for restaurant in restaurants %}
-              <option
-                value="{{ restaurant.id }}"
-                data-name="{{ restaurant.name }}"
-                data-city="{{ restaurant.city }}"
-                data-email="{{ restaurant.contact_email }}"
-              >{{ restaurant.name }} - {{ restaurant.city }} - {{ restaurant.contact_email }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>Template
-          <select name="template_id" id="outreach-template">
-            <option value="">Blank message</option>
-            {% for template in templates %}
-              <option
-                value="{{ template.id }}"
-                data-subject="{{ template.subject|e }}"
-                data-body="{{ template.body_text|e }}"
-              >{{ template.name }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <input type="hidden" name="submission_url" id="outreach-submission-url">
-        <label>Subject
-          <input required name="subject" id="outreach-subject">
-        </label>
-        <label>Body
-          <textarea required name="body_text" id="outreach-body" rows="16"></textarea>
-        </label>
-        <p class="compose-footer-note">The opt-out footer is added automatically if it is missing.</p>
-        <button class="button-primary">Send email</button>
-      </form>
-    </aside>
   </div>
 
+  {% if templates %}
   <section class="outreach-panel template-manager">
     <div class="outreach-panel-head">
       <h2>Email templates</h2>
-      <span>{{ templates|length }} active</span>
+      <span>{{ templates|length }} active · <a href="{{ url_for('admin_email_tools') }}" class="text-[#176f70]">Manage in Email tools</a></span>
     </div>
     <div class="template-grid">
-      <form method="post" action="{{ url_for('admin_outreach_create_template') }}" class="template-form">
-        <h3>New template</h3>
-        <label>Name<input required name="name"></label>
-        <label>Subject<input required name="subject" placeholder="Quick note for {{ '{{ restaurant_name }}' }}"></label>
-        <label>Body<textarea required name="body_text" rows="8" placeholder="{{ '{{ submission_url }}' }}"></textarea></label>
-        <button class="button-secondary">Save template</button>
-      </form>
       {% for template in templates %}
-        <form method="post" action="{{ url_for('admin_outreach_update_template', template_id=template.id) }}" class="template-form">
+        <div class="template-card">
           <h3>{{ template.name }}</h3>
-          <label>Name<input required name="name" value="{{ template.name }}"></label>
-          <label>Subject<input required name="subject" value="{{ template.subject }}"></label>
-          <label>Body<textarea required name="body_text" rows="8">{{ template.body_text }}</textarea></label>
-          <div class="template-actions">
-            <button class="button-secondary">Update</button>
-            <button class="button-quiet" name="action" value="deactivate">Archive</button>
+          <p class="template-card-subject">{{ template.subject }}</p>
+          <div class="template-card-actions">
+            <button type="button" class="button-quiet" onclick="openComposeWithTemplate('{{ template.id }}')">Use in compose</button>
           </div>
-        </form>
+        </div>
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 </div>
+
+<!-- Compose modal -->
+<dialog id="compose-modal" class="compose-modal">
+  <div class="compose-modal-head">
+    <h2>Compose email</h2>
+    <button type="button" class="compose-modal-close" onclick="document.getElementById('compose-modal').close()" aria-label="Close">✕</button>
+  </div>
+  <form method="post" action="{{ url_for('admin_outreach_send_direct') }}" class="compose-form">
+    <label>To
+      <select required name="restaurant_id" id="outreach-restaurant">
+        <option value="">Choose restaurant</option>
+        {% for restaurant in restaurants %}
+          <option
+            value="{{ restaurant.id }}"
+            data-name="{{ restaurant.name }}"
+            data-city="{{ restaurant.city }}"
+            data-email="{{ restaurant.contact_email }}"
+          >{{ restaurant.name }} – {{ restaurant.city }} – {{ restaurant.contact_email }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Template
+      <select name="template_id" id="outreach-template">
+        <option value="">Blank message</option>
+        {% for template in templates %}
+          <option
+            value="{{ template.id }}"
+            data-subject="{{ template.subject|e }}"
+            data-body="{{ template.body_text|e }}"
+          >{{ template.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <input type="hidden" name="submission_url" id="outreach-submission-url">
+    <label>Subject
+      <input required name="subject" id="outreach-subject">
+    </label>
+    <label>Body
+      <textarea required name="body_text" id="outreach-body" rows="14"></textarea>
+    </label>
+    <p class="compose-footer-note">The opt-out footer is added automatically if it is missing.</p>
+    <button class="button-primary">Send email</button>
+  </form>
+</dialog>
 
 <script>
   const optOutFooter = 'Reply "no thanks" and I will stop emailing you.';
   const restaurantSelect = document.getElementById("outreach-restaurant");
-  const templateSelect = document.getElementById("outreach-template");
-  const subjectInput = document.getElementById("outreach-subject");
-  const bodyInput = document.getElementById("outreach-body");
-  const submissionInput = document.getElementById("outreach-submission-url");
+  const templateSelect   = document.getElementById("outreach-template");
+  const subjectInput     = document.getElementById("outreach-subject");
+  const bodyInput        = document.getElementById("outreach-body");
+  const submissionInput  = document.getElementById("outreach-submission-url");
+  const composeModal     = document.getElementById("compose-modal");
 
   function selectedRestaurant() {
     const option = restaurantSelect.options[restaurantSelect.selectedIndex];
@@ -152,16 +147,12 @@
   }
 
   function renderPlaceholders(text) {
-    const restaurant = selectedRestaurant();
+    const r = selectedRestaurant();
     return (text || "")
-      .replaceAll("{{ restaurant_name }}", restaurant.name)
-      .replaceAll("{{restaurant_name}}", restaurant.name)
-      .replaceAll("{{ city }}", restaurant.city)
-      .replaceAll("{{city}}", restaurant.city)
-      .replaceAll("{{ contact_email }}", restaurant.contact_email)
-      .replaceAll("{{contact_email}}", restaurant.contact_email)
-      .replaceAll("{{ submission_url }}", submissionInput.value)
-      .replaceAll("{{submission_url}}", submissionInput.value);
+      .replaceAll("{{ restaurant_name }}", r.name).replaceAll("{{restaurant_name}}", r.name)
+      .replaceAll("{{ city }}", r.city).replaceAll("{{city}}", r.city)
+      .replaceAll("{{ contact_email }}", r.contact_email).replaceAll("{{contact_email}}", r.contact_email)
+      .replaceAll("{{ submission_url }}", submissionInput.value).replaceAll("{{submission_url}}", submissionInput.value);
   }
 
   function applyTemplate() {
@@ -175,22 +166,21 @@
 
   async function rotateSubmissionLink() {
     const restaurant = selectedRestaurant();
-    if (!restaurant.id) {
-      submissionInput.value = "";
-      applyTemplate();
-      return;
-    }
+    if (!restaurant.id) { submissionInput.value = ""; applyTemplate(); return; }
     const form = new FormData();
     form.append("csrf_token", {{ csrf_token()|tojson }});
-    const response = await fetch(`/admin/outreach/restaurants/${restaurant.id}/submission-link`, {
-      method: "POST",
-      body: form
-    });
+    const response = await fetch(`/admin/outreach/restaurants/${restaurant.id}/submission-link`, { method: "POST", body: form });
     if (response.ok) {
       const data = await response.json();
       submissionInput.value = data.submission_url || "";
     }
     applyTemplate();
+  }
+
+  function openComposeWithTemplate(templateId) {
+    const option = Array.from(templateSelect.options).find(o => o.value === String(templateId));
+    if (option) { templateSelect.value = option.value; applyTemplate(); }
+    composeModal.showModal();
   }
 
   restaurantSelect.addEventListener("change", rotateSubmissionLink);
