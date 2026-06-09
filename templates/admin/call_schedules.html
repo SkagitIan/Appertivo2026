@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Call schedules | Appertivo admin{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+  <div>
+    <p class="text-sm font-semibold uppercase tracking-wide text-rose-700">Admin</p>
+    <h1 class="text-3xl font-black tracking-tight">Call schedules</h1>
+    <p class="mt-1 text-sm text-stone-500">
+      Weekly Julie calls. Railway fires <code>flask fire-due-calls</code> every 5 minutes.
+    </p>
+  </div>
+</div>
+
+<div class="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+  <div class="border-b border-stone-200 bg-stone-50 px-3 py-2 text-sm font-semibold text-stone-600">
+    {{ schedules|length }} schedule{{ 's' if schedules|length != 1 }}
+  </div>
+  <table class="w-full text-left text-sm">
+    <thead class="bg-stone-100 text-stone-600">
+      <tr>
+        <th class="p-3">Restaurant</th>
+        <th class="p-3">Day</th>
+        <th class="p-3">Time</th>
+        <th class="p-3">Status</th>
+        <th class="p-3">Last called</th>
+        <th class="p-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-stone-200">
+      {% for s in schedules %}
+      <tr class="{{ 'opacity-50' if not s.is_active }}">
+        <td class="p-3 font-semibold">
+          <a href="{{ url_for('admin_edit_restaurant', restaurant_id=s.restaurant.id) }}" class="hover:text-[#176f70]">
+            {{ s.restaurant.name }}
+          </a>
+          {% if s.restaurant.phone %}
+            <div class="text-xs font-normal text-stone-400">{{ s.restaurant.phone }}</div>
+          {% endif %}
+        </td>
+        <td class="p-3">{{ day_names[s.day_of_week] }}</td>
+        <td class="p-3">{{ format_call_time(s.call_time) }}</td>
+        <td class="p-3">
+          {% if s.is_active %}
+            <span class="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Active</span>
+          {% else %}
+            <span class="inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-500">Paused</span>
+          {% endif %}
+        </td>
+        <td class="p-3 text-stone-500">
+          {{ s.last_called_at.strftime("%b %d, %Y %H:%M UTC") if s.last_called_at else "Never" }}
+        </td>
+        <td class="p-3">
+          <div class="flex items-center justify-end gap-2">
+            <form method="post" action="{{ url_for('admin_call_schedule_fire', schedule_id=s.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button
+                class="rounded-md bg-[#ed4b0b] px-3 py-1 text-xs font-semibold text-white hover:bg-orange-700"
+                onclick="return confirm('Fire a call to {{ s.restaurant.name }} right now?')"
+              >Fire now</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_call_schedule_toggle', schedule_id=s.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="rounded-md border border-stone-300 px-3 py-1 text-xs font-semibold text-stone-700 hover:border-stone-500">
+                {{ "Pause" if s.is_active else "Resume" }}
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="p-6 text-center text-stone-500">
+          No call schedules yet. Restaurants set these up via their magic-link email.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

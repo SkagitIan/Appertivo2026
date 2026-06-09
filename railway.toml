@@ -12,3 +12,7 @@ restartPolicyMaxRetries = 5
 [[cronjobs]]
 schedule = "0 9 * * *"
 command = "flask --app app expire-specials"
+
+[[cronjobs]]
+schedule = "*/5 * * * *"
+command = "flask --app app fire-due-calls"

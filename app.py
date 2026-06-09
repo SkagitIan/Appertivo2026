@@ -259,6 +259,14 @@ def expire_specials_command(dry_run):
         click.echo(f"Expired {len(candidates)} special(s).")
 
 
+@app.cli.command("fire-due-calls")
+def fire_due_calls_command():
+    """Fire Vapi calls for CallSchedules due in the current 5-minute window."""
+    from call_scheduler import check_and_fire_calls
+    result = check_and_fire_calls()
+    click.echo(f"Fired: {result['fired']}, Skipped: {result['skipped']}, Errors: {result['errors']}")
+
+
 def hash_token(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -2212,7 +2220,7 @@ def admin_diner_digest():
 @app.route("/admin/email-tools", methods=["GET", "POST"])
 @admin_required
 def admin_email_tools():
-    from email_system.email_service import SUBJECTS, TEMPLATE_VARS, render_test_email, send_all_test_emails
+    from email_system.email_service import SUBJECTS, render_test_email, send_all_test_emails
 
     recipient = app.config["EMAIL_TEST_RECIPIENT"]
     if request.method == "POST":
@@ -2225,15 +2233,11 @@ def admin_email_tools():
         return redirect(url_for("admin_email_tools"))
     previews = {name: render_test_email(name)["html"] for name in SUBJECTS}
     templates = OutreachTemplate.query.filter_by(is_active=True).order_by(OutreachTemplate.name).all()
-    overrides = {t.name: t for t in SystemEmailTemplate.query.filter_by(is_active=True).all()}
     return render_template(
         "admin/email_tools.html",
         previews=previews,
         recipient=recipient,
         templates=templates,
-        system_subjects=SUBJECTS,
-        system_template_vars=TEMPLATE_VARS,
-        system_overrides=overrides,
     )
 
 
@@ -2274,6 +2278,53 @@ def rotate_restaurant_submission_url(restaurant):
     restaurant.submission_token_hash = hash_token(token)
     db.session.commit()
     return url_for("submit_special", token=token, _external=True)
+
+
+@app.get("/admin/call-schedules")
+@admin_required
+def admin_call_schedules():
+    schedules = (
+        CallSchedule.query
+        .join(Restaurant)
+        .order_by(Restaurant.name)
+        .all()
+    )
+    return render_template(
+        "admin/call_schedules.html",
+        schedules=schedules,
+        day_names=DAY_NAMES,
+        format_call_time=_format_call_time,
+    )
+
+
+@app.post("/admin/call-schedules/<int:schedule_id>/toggle")
+@admin_required
+def admin_call_schedule_toggle(schedule_id):
+    schedule = db.session.get(CallSchedule, schedule_id)
+    if not schedule:
+        abort(404)
+    schedule.is_active = not schedule.is_active
+    db.session.commit()
+    state = "resumed" if schedule.is_active else "paused"
+    flash(f"Call schedule for {schedule.restaurant.name} {state}.")
+    return redirect(url_for("admin_call_schedules"))
+
+
+@app.post("/admin/call-schedules/<int:schedule_id>/fire")
+@admin_required
+def admin_call_schedule_fire(schedule_id):
+    schedule = db.session.get(CallSchedule, schedule_id)
+    if not schedule:
+        abort(404)
+    from vapi_client import trigger_julie_call as _fire
+    result = _fire(schedule.restaurant)
+    if result["success"]:
+        schedule.last_called_at = utc_now()
+        db.session.commit()
+        flash(f"Call triggered for {schedule.restaurant.name}. Call ID: {result['call_id']}")
+    else:
+        flash(f"Call failed for {schedule.restaurant.name}: {result['error']}")
+    return redirect(url_for("admin_call_schedules"))
 
 
 @app.get("/admin/suppressions")
