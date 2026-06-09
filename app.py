@@ -967,25 +967,10 @@ def draft_as_preview_special(draft):
 
 
 def schedule_window_from_form():
-    date_value = request.form["special_date"]
-    schedule_option = request.form.get("schedule_option", "today")
+    date_value = request.form.get("special_date") or utc_now().strftime("%Y-%m-%d")
     start = parse_local_datetime(date_value, default_time=time(0, 0))
-    end_date_value = date_value
-    availability_text = None
-
-    if schedule_option == "this_weekend":
-        selected_day = datetime.strptime(date_value, "%Y-%m-%d").date()
-        days_until_sunday = (6 - selected_day.weekday()) % 7
-        weekend_end = selected_day + timedelta(days=days_until_sunday)
-        end_date_value = weekend_end.strftime("%Y-%m-%d")
-        availability_text = "This weekend"
-    elif schedule_option == "till_sold_out":
-        availability_text = "Until sold out"
-    elif schedule_option == "custom":
-        availability_text = None
-
-    end = parse_local_datetime(end_date_value, default_time=time(23, 59))
-    return start, end, availability_text
+    end = parse_local_datetime(date_value, default_time=time(23, 59))
+    return start, end, None
 
 
 def set_special_schedule(special):
@@ -1040,6 +1025,11 @@ def _recurrence_label(days):
     if len(ordered) == 1:
         return f"Every {_DAY_NAMES[ordered[0]]}"
     return "Every " + ", ".join(_DAY_NAMES[d] for d in ordered)
+
+
+def _extend_expiry_for_recurring(item):
+    if getattr(item, "recurrence_rule", None):
+        item.expires_at = datetime(2099, 12, 31, 23, 59)
 
 
 def set_special_recurrence_fields(item):
@@ -1101,6 +1091,7 @@ def structured_draft_from_form(source_channel, restaurant_id, enhance=True):
     draft.starts_at, draft.expires_at, availability_text = schedule_window_from_form()
     draft.availability_text = availability_text
     set_special_recurrence_fields(draft)
+    _extend_expiry_for_recurring(draft)
     if enhance and has_special_taxonomy_overrides():
         set_special_taxonomy_fields(draft)
     db.session.commit()
@@ -1119,6 +1110,7 @@ def special_from_form(special=None):
     special.source = special.source or "manual"
     special.raw_text = request.form.get("raw_text", "").strip() or None
     set_special_recurrence_fields(special)
+    _extend_expiry_for_recurring(special)
     if special.status == "published" and not special.published_at:
         special.published_at = utc_now()
     save_photo_if_present(special)
@@ -1136,6 +1128,7 @@ def draft_from_form(draft):
     draft.status = request.form.get("status", draft.status)
     set_special_taxonomy_fields(draft)
     set_special_recurrence_fields(draft)
+    _extend_expiry_for_recurring(draft)
     image_path, image_url = save_submitted_photo()
     if image_url or image_path:
         draft.image_path = image_path

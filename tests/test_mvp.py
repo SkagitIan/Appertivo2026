@@ -1009,9 +1009,7 @@ def test_admin_structured_special_creation_publishes_through_pipeline(client):
             "description": "Three courses.",
             "price": "$35",
             "special_date": "2099-06-05",
-            "schedule_option": "till_sold_out",
             "status": "published",
-            "source": "manual",
         },
     )
     assert response.status_code == 302
@@ -1020,7 +1018,6 @@ def test_admin_structured_special_creation_publishes_through_pipeline(client):
         assert SpecialDraft.query.one().status == "published"
         special = Special.query.one()
         assert special.title == "Chef dinner"
-        assert special.availability_text == "Until sold out"
         assert special.expires_at == datetime(2099, 6, 6, 6, 59)
 
 
