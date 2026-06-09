@@ -1,86 +1,84 @@
-<form method="post" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Restaurant</label>
-    <select name="restaurant_id" required class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-      {% for restaurant in restaurants %}
-        <option value="{{ restaurant.id }}" {% if special.restaurant_id == restaurant.id %}selected{% endif %}>{{ restaurant.name }}</option>
-      {% endfor %}
-    </select>
+<form method="post" enctype="multipart/form-data" class="space-y-5" data-recurrence-rule="{{ special.recurrence_rule or '' }}">
+  <!-- Restaurant + Price -->
+  <div class="grid gap-4 md:grid-cols-3">
+    <div class="md:col-span-2">
+      <label class="block text-sm font-semibold text-stone-700">Restaurant</label>
+      <select name="restaurant_id" required class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+        {% for r in restaurants %}
+          <option value="{{ r.id }}" {% if special.restaurant_id == r.id %}selected{% endif %}>{{ r.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Price</label>
+      <input name="price" value="{{ special.price or '' }}" placeholder="$18" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    </div>
   </div>
+
+  <!-- Title -->
   <div>
-    <label class="block text-sm font-semibold text-stone-700">Price</label>
-    <input name="price" value="{{ special.price or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Value text</label>
-    <input name="value_text" value="{{ special.value_text or '' }}" placeholder="$28 value" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div class="md:col-span-2">
     <label class="block text-sm font-semibold text-stone-700">Title</label>
     <input name="title" required value="{{ special.title or '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
   </div>
-  <div class="md:col-span-2">
+
+  <!-- Description -->
+  <div>
     <label class="block text-sm font-semibold text-stone-700">Description</label>
     <textarea name="description" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ special.description or '' }}</textarea>
   </div>
-  <div class="md:col-span-2">
+
+  <!-- When -->
+  <div>
     <label class="block text-sm font-semibold text-stone-700">When is it available?</label>
-    <div class="mt-2 grid gap-2 md:grid-cols-4">
-      {% set selected_schedule = "till_sold_out" if special.availability_text == "Until sold out" else "this_weekend" if special.availability_text == "This weekend" else "today" %}
-      {% for value, label in [("today", "Today"), ("this_weekend", "This weekend"), ("till_sold_out", "Till sold out"), ("custom", "Calendar date")] %}
+    {% if special.availability_text == "Until sold out" %}
+      {% set sel_sched = "till_sold_out" %}
+    {% elif special.availability_text == "This weekend" %}
+      {% set sel_sched = "this_weekend" %}
+    {% elif special.id and special.expires_at %}
+      {% set sel_sched = "custom" %}
+    {% else %}
+      {% set sel_sched = "today" %}
+    {% endif %}
+    <div class="mt-2 grid gap-2 sm:grid-cols-4">
+      {% for value, label in [("today", "Today"), ("this_weekend", "This weekend"), ("till_sold_out", "Until sold out"), ("custom", "Specific date")] %}
         <label class="schedule-choice">
-          <input type="radio" name="schedule_option" value="{{ value }}" {% if selected_schedule == value %}checked{% endif %}>
+          <input type="radio" name="schedule_option" value="{{ value }}" {% if sel_sched == value %}checked{% endif %} data-sched>
           <span>{{ label }}</span>
         </label>
       {% endfor %}
     </div>
+    <div class="mt-3">
+      <input name="special_date" type="date" value="{{ special_date_value(special) }}"
+             class="rounded-md border border-stone-300 px-3 py-2 text-sm"
+             id="special-date-input">
+    </div>
   </div>
+
+  <!-- Repeats -->
   <div>
-    <label class="block text-sm font-semibold text-stone-700">Calendar date</label>
-    <input required name="special_date" type="date" value="{{ special_date_value(special) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    <label class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-stone-700">
+      <input type="checkbox" id="repeats-toggle" {% if special.recurrence_rule %}checked{% endif %}>
+      Repeats weekly
+    </label>
+    <div id="repeat-days-panel" class="{{ '' if special.recurrence_rule else 'hidden' }} mt-3 space-y-2">
+      <div class="flex flex-wrap gap-2">
+        {% for code, day in [("MO","Mon"),("TU","Tue"),("WE","Wed"),("TH","Thu"),("FR","Fri"),("SA","Sat"),("SU","Sun")] %}
+          <label class="day-pill">
+            <input type="checkbox" name="recurrence_days" value="{{ code }}">
+            <span>{{ day }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <p id="repeat-preview" class="text-sm text-stone-500"></p>
+    </div>
   </div>
+
+  <!-- Tags -->
   <div>
-    <label class="block text-sm font-semibold text-stone-700">Availability note</label>
-    <input name="availability_text" value="{{ special.availability_text or '' }}" placeholder="Optional, for custom timing" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Repeat rule</label>
-    <input name="recurrence_rule" value="{{ special.recurrence_rule or '' }}" placeholder="FREQ=WEEKLY;BYDAY=TU" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Repeat label</label>
-    <input name="recurrence_label" value="{{ special.recurrence_label or '' }}" placeholder="Every Tuesday" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Repeat confidence</label>
-    <select name="recurrence_confidence" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-      <option value="">None</option>
-      {% for option in ["high", "medium", "low"] %}
-        <option value="{{ option }}" {% if special.recurrence_confidence == option %}selected{% endif %}>{{ option|title }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Status</label>
-    <select name="status" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-      {% for option in ["draft", "published", "expired"] %}
-        <option value="{{ option }}" {% if special.status == option %}selected{% endif %}>{{ option|title }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Source</label>
-    <select name="source" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-      {% for option in ["manual", "email", "ai", "social"] %}
-        <option value="{{ option }}" {% if special.source == option %}selected{% endif %}>{{ option|title }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="md:col-span-2">
     <label class="block text-sm font-semibold text-stone-700">Curated tags</label>
     <input type="hidden" name="tag_keys_present" value="1">
     {% set selected_tags = selected_tag_options(special.tag_keys or '') %}
-    <div class="mt-2 grid gap-2 md:grid-cols-4">
+    <div class="mt-2 grid gap-2 sm:grid-cols-4">
       {% for option in tag_options() %}
         <label class="schedule-choice">
           <input type="checkbox" name="tag_keys" value="{{ option.key }}" {% if option.key in selected_tags %}checked{% endif %}>
@@ -89,61 +87,110 @@
       {% endfor %}
     </div>
   </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Primary tag</label>
-    <select name="primary_tag" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-      <option value="">Auto</option>
-      {% for option in tag_options() %}
-        <option value="{{ option.key }}" {% if special.primary_tag == option.key %}selected{% endif %}>{{ option.label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Featured rank</label>
-    <input name="featured_rank" type="number" min="1" value="{{ special.featured_rank or '' }}" placeholder="1" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Add-on name</label>
-    <input name="add_on_name" value="{{ special.add_on_name or '' }}" placeholder="House Old Fashioned" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Add-on price</label>
-    <input name="add_on_price" value="{{ special.add_on_price or '' }}" placeholder="$8" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Add-on value</label>
-    <input name="add_on_value_text" value="{{ special.add_on_value_text or '' }}" placeholder="$12 value" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
-  </div>
-  <div class="md:col-span-2">
-    <label class="block text-sm font-semibold text-stone-700">Photo</label>
-    <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 w-full">
-  </div>
-  <div class="md:col-span-2">
-    <label class="block text-sm font-semibold text-stone-700">Raw text</label>
-    <textarea name="raw_text" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ special.raw_text or '' }}</textarea>
-  </div>
-  {% if not special.id %}
-    <div class="md:col-span-2 rounded-lg border bg-white p-4">
-      <label class="flex items-start gap-3 text-sm font-semibold text-stone-700">
-        <input type="checkbox" name="enhance" checked class="mt-1">
-        <span>
-          Enhance into draft before review
-          <span class="mt-1 block font-normal text-stone-500">Uses OpenAI to polish copy and Cloudinary for image enhancement when configured. The next screen is the enhanced draft preview.</span>
-        </span>
-      </label>
+
+  <!-- Add-on (optional) -->
+  <div class="grid gap-4 md:grid-cols-2">
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Add-on name <span class="font-normal text-stone-400">(optional)</span></label>
+      <input name="add_on_name" value="{{ special.add_on_name or '' }}" placeholder="House Old Fashioned" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
     </div>
-    <div class="md:col-span-2 rounded-lg border bg-white p-4">
-      <label class="flex items-start gap-3 text-sm font-semibold text-stone-700">
-        <input type="checkbox" name="notify_operator" class="mt-1">
-        <span>
-          Notify operator
-          <span class="mt-1 block font-normal text-stone-500">Send the restaurant a preview link when this draft is saved. Only sent if the restaurant has a contact email on file.</span>
-        </span>
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Add-on price</label>
+      <input name="add_on_price" value="{{ special.add_on_price or '' }}" placeholder="$8" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    </div>
+  </div>
+
+  <!-- Photo -->
+  <div>
+    <label class="block text-sm font-semibold text-stone-700">Photo</label>
+    {% if special.photo_url %}
+      <img src="{{ special.photo_url }}" alt="Current photo" class="mt-2 h-28 w-auto rounded-md object-cover">
+      <p class="mt-1 text-xs text-stone-500">Upload a new image to replace.</p>
+    {% endif %}
+    <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="mt-2 w-full text-sm">
+  </div>
+
+  <!-- Status + Featured rank -->
+  <div class="grid gap-4 md:grid-cols-2">
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Status</label>
+      <select name="status" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+        {% for option in ["draft", "published", "expired"] %}
+          <option value="{{ option }}" {% if special.status == option %}selected{% endif %}>{{ option|title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Featured rank <span class="font-normal text-stone-400">(optional)</span></label>
+      <input name="featured_rank" type="number" min="1" value="{{ special.featured_rank or '' }}" placeholder="1" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+    </div>
+  </div>
+
+  {% if not special.id %}
+    <div class="rounded-lg border border-stone-200 bg-white p-4 space-y-3">
+      <label class="flex items-start gap-3 text-sm font-semibold text-stone-700 cursor-pointer">
+        <input type="checkbox" name="enhance" checked class="mt-0.5">
+        <span>Enhance with AI <span class="block font-normal text-stone-500">Polish copy and improve photo before review.</span></span>
+      </label>
+      <label class="flex items-start gap-3 text-sm font-semibold text-stone-700 cursor-pointer">
+        <input type="checkbox" name="notify_operator" class="mt-0.5">
+        <span>Notify restaurant <span class="block font-normal text-stone-500">Send a preview link to the restaurant's contact email.</span></span>
       </label>
     </div>
   {% endif %}
-  <div class="md:col-span-2">
-    <button class="rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">{{ "Save special" if special.id else "Create enhanced draft" }}</button>
+
+  <div>
+    <button class="rounded-md bg-stone-950 px-5 py-2.5 text-sm font-semibold text-white">{{ "Save special" if special.id else "Create draft" }}</button>
     <a href="{{ url_for('admin_specials') }}" class="ml-3 text-sm font-semibold text-stone-600">Cancel</a>
   </div>
 </form>
+
+<script>
+(() => {
+  const form = document.querySelector("[data-recurrence-rule]");
+  if (!form) return;
+
+  // Day pill pre-population
+  const rule = form.dataset.recurrenceRule || "";
+  const match = rule.match(/BYDAY=([A-Z,]+)/);
+  const activeDays = new Set(match ? match[1].split(",") : []);
+  form.querySelectorAll("input[name='recurrence_days']").forEach((cb) => {
+    if (activeDays.has(cb.value)) cb.checked = true;
+  });
+
+  // Repeats toggle
+  const toggle = document.getElementById("repeats-toggle");
+  const panel = document.getElementById("repeat-days-panel");
+  const preview = document.getElementById("repeat-preview");
+  const DAY_NAMES = { MO:"Monday", TU:"Tuesday", WE:"Wednesday", TH:"Thursday", FR:"Friday", SA:"Saturday", SU:"Sunday" };
+  const ORDER = ["MO","TU","WE","TH","FR","SA","SU"];
+
+  function updatePreview() {
+    const days = ORDER.filter((d) => form.querySelector(`input[value="${d}"]`)?.checked);
+    if (!days.length) { preview.textContent = "Select at least one day."; return; }
+    if (days.join(",") === "MO,TU,WE,TH,FR") { preview.textContent = "Weekdays"; return; }
+    if (days.join(",") === "SA,SU") { preview.textContent = "Weekends"; return; }
+    if (days.length === 7) { preview.textContent = "Every day"; return; }
+    if (days.length === 1) { preview.textContent = `Every ${DAY_NAMES[days[0]]}`; return; }
+    preview.textContent = "Every " + days.map((d) => DAY_NAMES[d]).join(", ");
+  }
+
+  toggle.addEventListener("change", () => {
+    panel.classList.toggle("hidden", !toggle.checked);
+    if (toggle.checked) updatePreview();
+    else form.querySelectorAll("input[name='recurrence_days']").forEach((cb) => { cb.checked = false; });
+  });
+
+  form.querySelectorAll("input[name='recurrence_days']").forEach((cb) => cb.addEventListener("change", updatePreview));
+  if (toggle.checked) updatePreview();
+
+  // Date picker visibility hint
+  const dateInput = document.getElementById("special-date-input");
+  form.querySelectorAll("input[data-sched]").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      dateInput.style.opacity = radio.value === "custom" ? "1" : "0.45";
+    });
+    if (radio.checked) dateInput.style.opacity = radio.value === "custom" ? "1" : "0.45";
+  });
+})();
+</script>

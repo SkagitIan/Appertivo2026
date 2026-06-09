@@ -228,6 +228,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .admin-card { background: var(--paper); border: 1px solid var(--line); border-radius: .85rem; box-shadow: 0 5px 16px rgba(77, 44, 29, .06); }
 .schedule-choice { align-items: center; border: 1px solid var(--line); border-radius: .7rem; cursor: pointer; display: flex; font-size: .9rem; font-weight: 800; gap: .5rem; padding: .75rem .85rem; }
 .schedule-choice:has(input:checked) { background: var(--teal-soft); border-color: var(--teal); color: var(--teal); }
+.day-pill { cursor: pointer; display: inline-flex; }
+.day-pill input { position: absolute; opacity: 0; pointer-events: none; }
+.day-pill span { border: 1.5px solid var(--line); border-radius: 2rem; font-size: .8rem; font-weight: 800; padding: .35rem .75rem; transition: background .15s, border-color .15s, color .15s; }
+.day-pill:has(input:checked) span { background: var(--plum); border-color: var(--plum); color: white; }
 .admin-main .bg-white { background: var(--paper) !important; }
 .admin-main .bg-stone-50, .admin-main .bg-stone-100 { background: var(--cream-deep) !important; }
 .admin-main .bg-stone-950 { background: var(--plum) !important; }

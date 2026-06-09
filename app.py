@@ -982,7 +982,7 @@ def schedule_window_from_form():
     elif schedule_option == "till_sold_out":
         availability_text = "Until sold out"
     elif schedule_option == "custom":
-        availability_text = request.form.get("availability_text", "").strip() or None
+        availability_text = None
 
     end = parse_local_datetime(end_date_value, default_time=time(23, 59))
     return start, end, availability_text
@@ -1023,11 +1023,35 @@ def set_special_taxonomy_fields(item):
     item.featured_rank = optional_int_from_form("featured_rank")
 
 
+_DAY_ORDER = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+_DAY_NAMES = {"MO": "Monday", "TU": "Tuesday", "WE": "Wednesday", "TH": "Thursday", "FR": "Friday", "SA": "Saturday", "SU": "Sunday"}
+
+
+def _recurrence_label(days):
+    ordered = [d for d in _DAY_ORDER if d in days]
+    if not ordered:
+        return None
+    if ordered == ["MO", "TU", "WE", "TH", "FR"]:
+        return "Weekdays"
+    if ordered == ["SA", "SU"]:
+        return "Weekends"
+    if len(ordered) == 7:
+        return "Every day"
+    if len(ordered) == 1:
+        return f"Every {_DAY_NAMES[ordered[0]]}"
+    return "Every " + ", ".join(_DAY_NAMES[d] for d in ordered)
+
+
 def set_special_recurrence_fields(item):
-    item.recurrence_rule = request.form.get("recurrence_rule", "").strip() or None
-    item.recurrence_label = request.form.get("recurrence_label", "").strip() or None
-    confidence = request.form.get("recurrence_confidence", "").strip().lower()
-    item.recurrence_confidence = confidence if confidence in {"high", "medium", "low"} else None
+    days = [d for d in request.form.getlist("recurrence_days") if d in set(_DAY_ORDER)]
+    if days:
+        ordered = [d for d in _DAY_ORDER if d in days]
+        item.recurrence_rule = f"FREQ=WEEKLY;BYDAY={','.join(ordered)}"
+        item.recurrence_label = _recurrence_label(set(days))
+    else:
+        item.recurrence_rule = None
+        item.recurrence_label = None
+    item.recurrence_confidence = None
 
 
 def has_special_taxonomy_overrides():
@@ -1092,7 +1116,7 @@ def special_from_form(special=None):
     set_special_schedule(special)
     set_special_taxonomy_fields(special)
     special.status = request.form.get("status", "draft")
-    special.source = request.form.get("source", "manual")
+    special.source = special.source or "manual"
     special.raw_text = request.form.get("raw_text", "").strip() or None
     set_special_recurrence_fields(special)
     if special.status == "published" and not special.published_at:

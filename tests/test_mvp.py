@@ -1118,9 +1118,7 @@ def test_admin_special_form_saves_taxonomy_add_on_and_featured_rank(client):
             "add_on_name": "House Margarita",
             "add_on_price": "$7",
             "add_on_value_text": "$10 value",
-            "recurrence_rule": "FREQ=WEEKLY;BYDAY=FR",
-            "recurrence_label": "Every Friday",
-            "recurrence_confidence": "medium",
+            "recurrence_days": ["FR"],
             "featured_rank": "2",
         },
     )
@@ -1135,7 +1133,7 @@ def test_admin_special_form_saves_taxonomy_add_on_and_featured_rank(client):
         assert special.add_on_value_text == "$10 value"
         assert special.recurrence_rule == "FREQ=WEEKLY;BYDAY=FR"
         assert special.recurrence_label == "Every Friday"
-        assert special.recurrence_confidence == "medium"
+        assert special.recurrence_confidence is None
         assert special.featured_rank == 2
 
 
