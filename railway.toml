@@ -2,7 +2,7 @@
 builder = "railpack"
 
 [deploy]
-preDeployCommand = ["flask --app app db upgrade && flask --app app seed-launch-data"]
+preDeployCommand = ["flask --app app db upgrade"]
 startCommand = "gunicorn app:app --bind 0.0.0.0:$PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
