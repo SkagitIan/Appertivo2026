@@ -251,6 +251,23 @@ def create_raw_submission(
     return submission
 
 
+def notify_admin_of_new_submission(draft):
+    admin_email = current_app.config.get("ADMIN_NOTIFICATION_EMAIL", "").strip()
+    if not admin_email:
+        return None
+    from email_system.email_service import send_notification_email
+    base_url = current_app.config.get("APP_BASE_URL", "").rstrip("/")
+    preview_url = f"{base_url}/specials/preview/{draft.approval_token}" if draft.approval_token else None
+    restaurant_name = draft.restaurant.name if draft.restaurant else "Unknown restaurant"
+    source = draft.raw_submission.source_channel if draft.raw_submission else "unknown"
+    parts = [f"New special from {restaurant_name} via {source}."]
+    if draft.title:
+        parts.append(f"Title: {draft.title}")
+    if preview_url:
+        parts.append(f"\nPreview: {preview_url}")
+    return send_notification_email(admin_email, f"New special — {restaurant_name}", "\n".join(parts))
+
+
 def generate_draft_from_submission(raw_submission_id):
     submission = db.session.get(RawSpecialSubmission, raw_submission_id)
     if not submission:
@@ -269,6 +286,8 @@ def generate_draft_from_submission(raw_submission_id):
     submission.status = "drafted" if draft.status == "draft" else "awaiting_approval"
     db.session.add(draft)
     db.session.commit()
+    if draft.status == "awaiting_approval":
+        notify_admin_of_new_submission(draft)
     return draft
 
 

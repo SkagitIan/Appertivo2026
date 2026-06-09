@@ -30,7 +30,7 @@ from flask_migrate import Migrate
 from sqlalchemy import func, or_
 from werkzeug.exceptions import BadRequest
 
-from email_system.email_service import send_special_received_email
+from email_system.email_service import send_notification_email, send_special_received_email
 from markets import SKAGIT_VALLEY, normalize_location, resolve_market
 from models import (
     DistributionLog,
@@ -112,6 +112,7 @@ app.config.update(
     EMAIL_FROM_SALES=os.environ.get("EMAIL_FROM_SALES", "ian@appertivo.com"),
     EMAIL_REPLY_TO_SPECIALS=os.environ.get("EMAIL_REPLY_TO_SPECIALS", "specials@appertivo.com"),
     EMAIL_REPLY_TO_SALES=os.environ.get("EMAIL_REPLY_TO_SALES", "ian@appertivo.com"),
+    ADMIN_NOTIFICATION_EMAIL=os.environ.get("ADMIN_NOTIFICATION_EMAIL", "ian@appertivo.com"),
     APP_BASE_URL=os.environ.get("APP_BASE_URL", "http://127.0.0.1:5000"),
     EMAIL_TEST_ENABLED=os.environ.get("EMAIL_TEST_ENABLED") == "1",
     EMAIL_TEST_RECIPIENT=os.environ.get("EMAIL_TEST_RECIPIENT", "ian.larsen.1976@gmail.com"),
@@ -1539,7 +1540,7 @@ def submit_special(token):
             flash(str(error))
             return render_template("submit.html", restaurant=restaurant), 400
         submission = create_raw_submission(
-            source_channel="public_form",
+            source_channel="operator_link",
             restaurant_id=restaurant.id,
             raw_text=raw_text,
             raw_image_url=image_url,
@@ -1550,6 +1551,20 @@ def submit_special(token):
         if restaurant.direct_publish_enabled:
             approve_draft(draft.approval_token)
             special = publish_draft(draft.id)
+        if restaurant.contact_email:
+            if restaurant.direct_publish_enabled and special:
+                special_url = f"{app.config['APP_BASE_URL'].rstrip('/')}/specials/{special.public_id}"
+                send_notification_email(
+                    restaurant.contact_email,
+                    f"Your special is live on Appertivo",
+                    f"Your special \"{special.title}\" for {restaurant.name} is now live.\n\n{special_url}",
+                )
+            elif not restaurant.direct_publish_enabled:
+                send_notification_email(
+                    restaurant.contact_email,
+                    f"We received your special for {restaurant.name}",
+                    f"We received \"{draft.title}\" for {restaurant.name} and will get it live shortly.",
+                )
         return render_template("submit_success.html", restaurant=restaurant, special=special)
     return render_template("submit.html", restaurant=restaurant)
 
@@ -1590,7 +1605,7 @@ def public_submit_special():
             sender_email,
             restaurant_name=submission.restaurant.name if submission.restaurant else None,
             special_title=draft.title,
-            approval_url=url_for("special_preview", approval_token=draft.approval_token, _external=True),
+            approval_url=None,
             publish_url=url_for("special_preview", approval_token=draft.approval_token, _external=True),
             special_description=draft.description,
             price_text=draft.price_text,
@@ -2556,6 +2571,9 @@ def admin_new_special():
                 included_restaurant_id_from_form(),
                 enhance=request.form.get("enhance") == "on",
             )
+            if request.form.get("notify_operator") == "on" and draft.restaurant and draft.restaurant.contact_email:
+                from email_system.outreach_service import send_draft_publish_email
+                send_draft_publish_email(draft, draft.restaurant.contact_email)
             if request.form.get("status", "draft") == "published":
                 approve_draft(draft.approval_token)
                 special = publish_draft(draft.id)

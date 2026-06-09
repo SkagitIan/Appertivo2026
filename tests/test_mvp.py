@@ -855,7 +855,7 @@ def test_public_preview_publish_button_publishes_special(client):
     assert b"Sold Out" in live_page.data
     assert b"Add Order Now link" in live_page.data
     restaurant_page = client.get("/restaurants/test-kitchen")
-    assert b"Operator tools" in restaurant_page.data
+    assert b"Operator tools" not in restaurant_page.data
     sold_out = client.post(f"/specials/{public_id}/sold-out", data={"csrf_token": csrf(client)})
     assert sold_out.status_code == 302
     with app.app_context():

@@ -132,6 +132,15 @@
         </span>
       </label>
     </div>
+    <div class="md:col-span-2 rounded-lg border bg-white p-4">
+      <label class="flex items-start gap-3 text-sm font-semibold text-stone-700">
+        <input type="checkbox" name="notify_operator" class="mt-1">
+        <span>
+          Notify operator
+          <span class="mt-1 block font-normal text-stone-500">Send the restaurant a preview link when this draft is saved. Only sent if the restaurant has a contact email on file.</span>
+        </span>
+      </label>
+    </div>
   {% endif %}
   <div class="md:col-span-2">
     <button class="rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">{{ "Save special" if special.id else "Create enhanced draft" }}</button>
