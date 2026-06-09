@@ -21,13 +21,6 @@ def _signature(params, api_secret):
     return hashlib.sha1(f"{payload}{api_secret}".encode("utf-8")).hexdigest()
 
 
-def _enhanced_url(secure_url):
-    if not secure_url or "/upload/" not in secure_url:
-        return secure_url
-    transformation = "c_limit,w_1200/e_improve/q_auto/f_auto"
-    return secure_url.replace("/upload/", f"/upload/{transformation}/", 1)
-
-
 def enhance_image_url(source_url):
     if not source_url:
         return {"success": False, "image_url": None, "image_path": None, "error": "No image URL was provided."}
@@ -63,7 +56,7 @@ def enhance_image_url(source_url):
             }
         return {
             "success": True,
-            "image_url": _enhanced_url(data.get("secure_url")),
+            "image_url": data.get("secure_url"),
             "image_path": data.get("public_id"),
             "error": None,
         }

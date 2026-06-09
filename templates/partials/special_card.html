@@ -1,11 +1,10 @@
 <article class="special-card" data-testid="special-card" data-special-title="{{ special.title }}">
   <div class="special-media">
     {% if special.photo_url %}
-      <img src="{{ smart_image_url(special.photo_url, 900, 620) }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo">
+      <img src="{{ smart_image_url(special.photo_url, 900, 620) }}" alt="{{ special.title }} at {{ special.restaurant.name }}" class="special-photo" loading="lazy">
     {% else %}
-      <div class="special-no-image">
+      <div class="special-no-image" data-initial="{{ special.restaurant.name[0]|upper }}">
         <p class="special-no-image-kicker">{{ special.restaurant.name }}</p>
-        <h3>{{ special.title }}</h3>
       </div>
     {% endif %}
     <div class="special-media-badges">

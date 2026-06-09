@@ -713,10 +713,18 @@ app.jinja_env.globals["special_time_value"] = special_time_value
 
 
 def smart_image_url(url, width=900, height=620):
-    if not url or "/upload/" not in url or "res.cloudinary.com" not in url:
+    if not url or "res.cloudinary.com" not in url or "/upload/" not in url:
         return url
-    transformation = f"c_fill,g_auto,w_{int(width)},h_{int(height)}/e_improve/q_auto/f_auto"
-    return url.replace("/upload/", f"/upload/{transformation}/", 1)
+    # Strip any baked-in transformations from the stored URL before adding ours.
+    # The Cloudinary version segment (v\d+) reliably marks where the asset path begins.
+    m = re.search(r"/upload/(v\d+/)", url)
+    if m:
+        idx = url.index("/upload/") + len("/upload/")
+        base = url[:idx] + url[m.start(1):]
+    else:
+        base = url
+    transformation = f"c_fill,g_auto,w_{int(width)},h_{int(height)}/q_auto/f_auto"
+    return base.replace("/upload/", f"/upload/{transformation}/", 1)
 
 
 app.jinja_env.globals["smart_image_url"] = smart_image_url
