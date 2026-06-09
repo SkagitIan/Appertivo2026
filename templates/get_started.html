@@ -2,7 +2,8 @@
 {% block title %}Publish your first special | Appertivo{% endblock %}
 {% block content %}
 <section class="page-width section-space">
-  <div class="grid gap-8 lg:grid-cols-[.9fr_1.1fr]">
+  <div class="grid gap-8 lg:grid-cols-[.9fr_1.1fr] items-start">
+
     <div>
       <p class="eyebrow">For restaurants</p>
       <h1 class="display-lg mt-3">Send one special. We make it ready to publish.</h1>
@@ -12,7 +13,22 @@
         <p><strong class="text-stone-900">2.</strong> Appertivo cleans up the text and prepares the image.</p>
         <p><strong class="text-stone-900">3.</strong> Press Publish from your approval email.</p>
       </div>
+      <div class="gs-sample mt-8">
+        <p class="gs-sample-label">What you send vs. what goes live</p>
+        <div class="gs-sample-row">
+          <div class="gs-sample-col">
+            <span class="gs-sample-tag gs-sample-tag-before">You write</span>
+            <p class="gs-sample-text">salmon tacos tonight $16 while supplies last</p>
+          </div>
+          <div class="gs-sample-arrow">→</div>
+          <div class="gs-sample-col">
+            <span class="gs-sample-tag gs-sample-tag-after">We send</span>
+            <p class="gs-sample-text"><strong>Salmon Tacos</strong> — Fresh-caught, pan-seared. $16. Tonight only, while supplies last.</p>
+          </div>
+        </div>
+      </div>
     </div>
+
     <form method="post" enctype="multipart/form-data" class="card grid gap-4 p-6" data-restaurant-special-form>
       <input type="hidden" name="restaurant_id" data-restaurant-id>
       <input type="hidden" name="place_id" data-place-id>
@@ -29,68 +45,113 @@
         <p class="mt-2 text-sm text-stone-500" data-restaurant-message>Choose an existing Appertivo restaurant or a Google Places match.</p>
       </div>
 
-      <label class="text-sm font-bold">Email<input required type="email" name="sender_email" value="{{ form.sender_email if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2"><span class="mt-1 block text-sm font-normal text-stone-500">We send the polished draft and Publish button here.</span></label>
-      <label class="text-sm font-bold">Special date<input required name="special_date" type="date" value="{{ special_date }}" class="mt-1 w-full rounded-lg border px-3 py-2"></label>
-      <label class="text-sm font-bold">Special details<textarea required name="raw_text" rows="6" placeholder="Tonight only: salmon tacos, $16, available until sold out." class="mt-1 w-full rounded-lg border px-3 py-2">{{ form.raw_text if form else '' }}</textarea><span class="mt-1 block text-sm font-normal text-stone-500">Rough notes are fine. Include price, timing, and whether it repeats.</span></label>
-      <label class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 block w-full text-sm"></label>
-      <button class="button-primary">Send special</button>
+      <div>
+        <label class="text-sm font-bold" for="sender-email">Your email — we'll send the draft here</label>
+        <input id="sender-email" required type="email" name="sender_email" value="{{ form.sender_email if form else '' }}" class="mt-1 w-full rounded-lg border px-3 py-2">
+      </div>
+
+      <div>
+        <label class="text-sm font-bold" for="special-date-input">Special date</label>
+        <div class="gs-date-tabs mt-1" data-date-tabs>
+          <button type="button" class="gs-date-tab is-active" data-date-tab="today">Today</button>
+          <button type="button" class="gs-date-tab" data-date-tab="tomorrow">Tomorrow</button>
+          <button type="button" class="gs-date-tab" data-date-tab="pick">Pick a date</button>
+        </div>
+        <input id="special-date-input" name="special_date" type="date" value="{{ special_date }}" class="mt-2 w-full rounded-lg border px-3 py-2 hidden" data-date-input>
+      </div>
+
+      <div>
+        <label class="text-sm font-bold" for="raw-text">Special details</label>
+        <textarea id="raw-text" required name="raw_text" rows="6" placeholder="Tonight only: salmon tacos, $16, available until sold out." class="mt-1 w-full rounded-lg border px-3 py-2">{{ form.raw_text if form else '' }}</textarea>
+        <p class="mt-1 text-sm text-stone-500">Rough notes are fine. Include price, timing, and whether it repeats.</p>
+      </div>
+
+      <div>
+        <p class="text-sm font-bold">Photo <span class="font-normal text-stone-500">(optional)</span></p>
+        <label class="gs-drop-zone mt-1" data-drop-zone>
+          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" data-photo-input>
+          <span class="gs-drop-icon" aria-hidden="true">📷</span>
+          <span class="gs-drop-cta" data-drop-cta>Drag a photo here, or <span class="text-[#176f70]">click to browse</span></span>
+          <span class="gs-drop-name hidden" data-drop-name></span>
+        </label>
+        <p class="mt-2 text-sm text-stone-500">No photo? We'll find one that fits.</p>
+      </div>
+
+      <div class="grid gap-3">
+        <p class="text-center text-xs text-stone-500">Joining Chuckanut Manor, Adrift, and other Skagit restaurants</p>
+        <button class="button-primary w-full">Send special</button>
+      </div>
     </form>
+
   </div>
 </section>
 <script>
 (() => {
   const form = document.querySelector("[data-restaurant-special-form]");
   if (!form) return;
+
+  // ── Restaurant search ──────────────────────────────────────────────────────
   const search = form.querySelector("[data-restaurant-search]");
   const results = form.querySelector("[data-restaurant-results]");
   const message = form.querySelector("[data-restaurant-message]");
   const fields = {
     restaurant_id: form.querySelector("[data-restaurant-id]"),
-    place_id: form.querySelector("[data-place-id]"),
-    restaurant_name: form.querySelector("[data-restaurant-name]"),
-    restaurant_city: form.querySelector("[data-restaurant-city]"),
+    place_id:      form.querySelector("[data-place-id]"),
+    restaurant_name:    form.querySelector("[data-restaurant-name]"),
+    restaurant_city:    form.querySelector("[data-restaurant-city]"),
     restaurant_address: form.querySelector("[data-restaurant-address]"),
-    restaurant_phone: form.querySelector("[data-restaurant-phone]"),
+    restaurant_phone:   form.querySelector("[data-restaurant-phone]"),
     restaurant_website: form.querySelector("[data-restaurant-website]"),
   };
   let controller;
 
-  const clearSelection = () => Object.values(fields).forEach((field) => { field.value = ""; });
+  const clearSelection = () => Object.values(fields).forEach(f => { f.value = ""; });
   const hideResults = () => { results.classList.add("hidden"); results.innerHTML = ""; };
-  const setSelection = (item) => {
-    fields.restaurant_id.value = item.id || "";
-    fields.place_id.value = item.place_id || "";
-    fields.restaurant_name.value = item.name || "";
-    fields.restaurant_city.value = item.city || "";
+
+  const setSelection = item => {
+    fields.restaurant_id.value      = item.id || "";
+    fields.place_id.value           = item.place_id || "";
+    fields.restaurant_name.value    = item.name || "";
+    fields.restaurant_city.value    = item.city || "";
     fields.restaurant_address.value = item.address || "";
-    fields.restaurant_phone.value = item.phone || "";
+    fields.restaurant_phone.value   = item.phone || "";
     fields.restaurant_website.value = item.website || "";
     search.value = item.name || "";
     message.textContent = `${item.name} selected.`;
+    message.style.color = "var(--teal)";
     hideResults();
   };
 
-  const renderResults = (items) => {
+  const renderResults = items => {
     results.innerHTML = "";
+    const term = search.value.trim();
     if (!items.length) {
       const empty = document.createElement("div");
       empty.className = "p-3 text-sm text-stone-600";
-      empty.textContent = "No match yet. Keep typing the restaurant name.";
+      empty.textContent = "No match found. ";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.style.cssText = "background:none;border:none;color:var(--teal);cursor:pointer;font:inherit;font-weight:800;padding:0;text-decoration:underline;";
+      btn.textContent = `Use "${term}"`;
+      btn.addEventListener("click", () => setSelection({ name: term }));
+      empty.appendChild(btn);
       results.appendChild(empty);
     }
-    items.forEach((item) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "block w-full border-b px-3 py-2 text-left text-sm";
+    items.forEach(item => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "block w-full border-b px-3 py-2 text-left text-sm";
       const detail = item.city || item.address || "Skagit Valley";
-      button.textContent = item.status === "coming_soon" ? `${item.name} - ${detail} (not accepting submissions yet)` : `${item.name} - ${detail}`;
+      btn.textContent = item.status === "coming_soon"
+        ? `${item.name} - ${detail} (not accepting submissions yet)`
+        : `${item.name} - ${detail}`;
       if (item.status === "coming_soon") {
-        button.disabled = true;
-        button.className += " text-stone-400";
+        btn.disabled = true;
+        btn.className += " text-stone-400";
       } else {
-        button.addEventListener("click", () => setSelection(item));
+        btn.addEventListener("click", () => setSelection(item));
       }
-      results.appendChild(button);
+      results.appendChild(btn);
     });
     results.classList.remove("hidden");
   };
@@ -98,6 +159,7 @@
   search.addEventListener("input", async () => {
     const term = search.value.trim();
     clearSelection();
+    message.style.color = "";
     if (controller) controller.abort();
     if (term.length < 2) {
       hideResults();
@@ -110,12 +172,75 @@
     renderResults(await response.json());
   });
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", e => {
     if (!fields.restaurant_id.value && !fields.place_id.value && !fields.restaurant_name.value) {
-      event.preventDefault();
-      message.textContent = "Select a restaurant before sending.";
+      e.preventDefault();
+      message.textContent = 'Select a restaurant or click "Use …" to continue.';
+      message.style.color = "var(--orange)";
       search.focus();
     }
+  });
+
+  // ── Date segmented control ─────────────────────────────────────────────────
+  const tabs = form.querySelectorAll("[data-date-tab]");
+  const dateInput = form.querySelector("[data-date-input]");
+  const pad = n => String(n).padStart(2, "0");
+  const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayStr = fmtDate(new Date());
+  const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowStr = fmtDate(tomorrowDate);
+
+  const activateTab = which => {
+    tabs.forEach(t => t.classList.toggle("is-active", t.dataset.dateTab === which));
+    if (which === "today") {
+      dateInput.value = todayStr;
+      dateInput.classList.add("hidden");
+    } else if (which === "tomorrow") {
+      dateInput.value = tomorrowStr;
+      dateInput.classList.add("hidden");
+    } else {
+      dateInput.classList.remove("hidden");
+    }
+  };
+
+  const current = dateInput.value;
+  activateTab(current === tomorrowStr ? "tomorrow" : current !== todayStr ? "pick" : "today");
+
+  tabs.forEach(tab => tab.addEventListener("click", () => {
+    activateTab(tab.dataset.dateTab);
+    if (tab.dataset.dateTab === "pick") dateInput.focus();
+  }));
+
+  // ── Photo drop zone ────────────────────────────────────────────────────────
+  const dropZone  = form.querySelector("[data-drop-zone]");
+  const photoInput = form.querySelector("[data-photo-input]");
+  const dropCta   = form.querySelector("[data-drop-cta]");
+  const dropName  = form.querySelector("[data-drop-name]");
+
+  const showFile = name => {
+    dropCta.classList.add("hidden");
+    dropName.textContent = name;
+    dropName.classList.remove("hidden");
+  };
+
+  photoInput.addEventListener("change", () => {
+    if (photoInput.files[0]) showFile(photoInput.files[0].name);
+  });
+
+  let dragCount = 0;
+  dropZone.addEventListener("dragenter", e => { e.preventDefault(); dragCount++; dropZone.classList.add("is-over"); });
+  dropZone.addEventListener("dragleave", () => { if (--dragCount === 0) dropZone.classList.remove("is-over"); });
+  dropZone.addEventListener("dragover", e => e.preventDefault());
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dragCount = 0;
+    dropZone.classList.remove("is-over");
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    photoInput.files = dt.files;
+    showFile(file.name);
   });
 })();
 </script>

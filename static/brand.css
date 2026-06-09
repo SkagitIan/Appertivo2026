@@ -544,6 +544,28 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .compose-modal-close:hover { color: var(--ink); }
 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
+/* Get-started page */
+.gs-sample { background: var(--cream-deep); border: 1px solid var(--line); border-radius: 1rem; padding: 1.1rem 1.25rem; }
+.gs-sample-label { color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .12em; margin-bottom: .75rem; text-transform: uppercase; }
+.gs-sample-row { align-items: flex-start; display: grid; gap: .75rem; grid-template-columns: 1fr auto 1fr; }
+.gs-sample-arrow { color: var(--muted); font-size: 1.1rem; padding-top: 1.3rem; }
+.gs-sample-col { display: grid; gap: .4rem; }
+.gs-sample-tag { border-radius: 999px; display: inline-block; font-size: .65rem; font-weight: 800; letter-spacing: .1em; padding: .2rem .55rem; text-transform: uppercase; width: fit-content; }
+.gs-sample-tag-before { background: #ece7e3; color: #746a68; }
+.gs-sample-tag-after { background: var(--teal-soft); color: var(--teal); }
+.gs-sample-text { color: var(--ink); font-size: .88rem; line-height: 1.45; margin: 0; }
+
+.gs-date-tabs { background: var(--cream-deep); border: 1px solid var(--line); border-radius: .75rem; display: flex; gap: .25rem; padding: .25rem; }
+.gs-date-tab { background: transparent; border: none; border-radius: .5rem; color: var(--muted); cursor: pointer; flex: 1; font-size: .85rem; font-weight: 700; padding: .5rem; transition: background .15s, color .15s; }
+.gs-date-tab:hover { background: rgba(255,255,255,.6); color: var(--ink); }
+.gs-date-tab.is-active { background: white; box-shadow: 0 1px 4px rgba(77,44,29,.12); color: var(--plum); font-weight: 800; }
+
+.gs-drop-zone { align-items: center; background: var(--cream-deep); border: 1.5px dashed var(--line); border-radius: .9rem; cursor: pointer; display: flex; flex-direction: column; gap: .4rem; padding: 1.35rem 1rem; text-align: center; transition: background .15s, border-color .15s; }
+.gs-drop-zone:hover, .gs-drop-zone.is-over { background: var(--teal-soft); border-color: var(--teal); }
+.gs-drop-icon { font-size: 1.4rem; line-height: 1; pointer-events: none; }
+.gs-drop-cta { color: var(--muted); font-size: .88rem; font-weight: 700; pointer-events: none; }
+.gs-drop-name { color: var(--teal); font-size: .88rem; font-weight: 700; max-width: 100%; overflow: hidden; pointer-events: none; text-overflow: ellipsis; white-space: nowrap; }
+
 @media (min-width: 640px) {
   .sm\:hidden { display: none !important; }
   .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
