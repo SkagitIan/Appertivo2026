@@ -2192,10 +2192,19 @@ def admin_restaurants():
         flash("Restaurant added.")
         return redirect(url_for("admin_restaurants"))
     term = request.args.get("q", "").strip()
-    query = included_restaurants_query()
+    status_filter = request.args.get("status", "included")
+    valid_statuses = {"included", "review", "excluded", "all"}
+    if status_filter not in valid_statuses:
+        status_filter = "included"
+    query = Restaurant.query if status_filter == "all" else Restaurant.query.filter_by(catalog_status=status_filter)
     if term:
         query = query.filter(restaurant_search_filter(term))
-    return render_template("admin/restaurants.html", restaurants=query.order_by(Restaurant.name).all(), search_term=term)
+    return render_template(
+        "admin/restaurants.html",
+        restaurants=query.order_by(Restaurant.name).all(),
+        search_term=term,
+        status_filter=status_filter,
+    )
 
 
 @app.get("/admin/restaurant-catalog")
@@ -2375,6 +2384,20 @@ def admin_exclude_restaurants_from_enrichment():
     db.session.commit()
     flash(f"{len(restaurants)} restaurants excluded from the active catalog.")
     return redirect(url_for("admin_restaurant_enrichment"))
+
+
+@app.post("/admin/restaurants/<int:restaurant_id>/set-status/<status>")
+@admin_required
+def admin_set_restaurant_status(restaurant_id, status):
+    if status not in {"included", "excluded", "review"}:
+        abort(404)
+    restaurant = Restaurant.query.get_or_404(restaurant_id)
+    restaurant.catalog_status = status
+    restaurant.catalog_reason = "admin manual change"
+    restaurant.catalog_reviewed_at = utc_now()
+    db.session.commit()
+    flash(f"{restaurant.name} marked {status}.")
+    return redirect(request.referrer or url_for("admin_restaurants"))
 
 
 @app.route("/admin/restaurants/<int:restaurant_id>/edit", methods=["GET", "POST"])

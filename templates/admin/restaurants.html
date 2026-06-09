@@ -11,17 +11,27 @@
   </div>
 </div>
 
+<div class="mb-4 flex flex-wrap items-center gap-2">
+  {% for s, label in [("included", "Included"), ("review", "Review"), ("excluded", "Excluded"), ("all", "All")] %}
+    <a href="{{ url_for('admin_restaurants', status=s, q=search_term) }}"
+       class="rounded-full px-3 py-1 text-sm font-semibold {% if status_filter == s %}bg-stone-950 text-white{% else %}bg-stone-100 text-stone-600 hover:bg-stone-200{% endif %}">
+      {{ label }}
+    </a>
+  {% endfor %}
+</div>
+
 <form method="get" class="mb-4 flex flex-wrap gap-2">
+  <input type="hidden" name="status" value="{{ status_filter }}">
   <input name="q" value="{{ search_term }}" placeholder="Search restaurants or cities" class="min-w-[260px] flex-1 rounded-md border border-stone-300 px-3 py-2 text-sm">
   <button class="rounded-md bg-stone-950 px-4 py-2 text-sm font-semibold text-white">Search</button>
-  {% if search_term %}<a href="{{ url_for('admin_restaurants') }}" class="px-2 py-2 text-sm font-semibold text-stone-600">Clear</a>{% endif %}
+  {% if search_term %}<a href="{{ url_for('admin_restaurants', status=status_filter) }}" class="px-2 py-2 text-sm font-semibold text-stone-600">Clear</a>{% endif %}
 </form>
 
 <div class="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
   <div class="border-b border-stone-200 bg-stone-50 px-3 py-2 text-sm font-semibold text-stone-600">{{ restaurants|length }} restaurants</div>
   <table class="w-full text-left text-sm">
     <thead class="bg-stone-100 text-stone-600">
-      <tr><th class="p-3">Restaurant</th><th class="hidden p-3 sm:table-cell">City</th><th class="p-3">Email</th><th class="p-3"></th></tr>
+      <tr><th class="p-3">Restaurant</th><th class="hidden p-3 sm:table-cell">City</th><th class="p-3">Status</th><th class="p-3"></th></tr>
     </thead>
     <tbody class="divide-y divide-stone-200">
       {% for restaurant in restaurants %}
@@ -41,20 +51,36 @@
           </td>
           <td class="hidden p-3 sm:table-cell">{{ restaurant.city }}</td>
           <td class="p-3">
-            {% if restaurant.contact_email %}
-              <span class="status-badge status-contacted">Email</span>
+            {% if restaurant.catalog_status == "included" %}
+              <span class="status-badge status-converted">Included</span>
+            {% elif restaurant.catalog_status == "review" %}
+              <span class="status-badge status-new">Review</span>
             {% else %}
-              <span class="status-badge status-closed">No email</span>
+              <span class="status-badge status-closed">Excluded</span>
             {% endif %}
           </td>
           <td class="p-3">
             <div class="flex items-center justify-end gap-1.5">
-              <a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}" class="icon-button" title="View public page" aria-label="View public page for {{ restaurant.name }}">&#128065;</a>
-              <a href="{{ url_for('admin_new_special', restaurant_id=restaurant.id) }}" class="icon-button" title="Add special" aria-label="Add special for {{ restaurant.name }}">+</a>
-              <a href="{{ url_for('admin_edit_restaurant', restaurant_id=restaurant.id) }}" class="icon-button" title="Edit" aria-label="Edit {{ restaurant.name }}">&#9998;</a>
-              <form method="post" action="{{ url_for('admin_delete_restaurant', restaurant_id=restaurant.id) }}" onsubmit="return confirm('Delete this restaurant and its specials?');">
-                <button class="icon-button danger" title="Delete" aria-label="Delete {{ restaurant.name }}">&#128465;</button>
-              </form>
+              {% if restaurant.catalog_status != "included" %}
+                <form method="post" action="{{ url_for('admin_set_restaurant_status', restaurant_id=restaurant.id, status='included') }}">
+                  <button class="icon-button" title="Mark included" aria-label="Mark {{ restaurant.name }} included">&#10003;</button>
+                </form>
+              {% endif %}
+              {% if restaurant.catalog_status == "included" %}
+                <a href="{{ url_for('restaurant_detail', slug=restaurant.slug) }}" class="icon-button" title="View public page" aria-label="View public page for {{ restaurant.name }}">&#128065;</a>
+                <a href="{{ url_for('admin_new_special', restaurant_id=restaurant.id) }}" class="icon-button" title="Add special" aria-label="Add special for {{ restaurant.name }}">+</a>
+                <a href="{{ url_for('admin_edit_restaurant', restaurant_id=restaurant.id) }}" class="icon-button" title="Edit" aria-label="Edit {{ restaurant.name }}">&#9998;</a>
+              {% endif %}
+              {% if restaurant.catalog_status != "excluded" %}
+                <form method="post" action="{{ url_for('admin_set_restaurant_status', restaurant_id=restaurant.id, status='excluded') }}" onsubmit="return confirm('Exclude {{ restaurant.name }}?')">
+                  <button class="icon-button danger" title="Exclude" aria-label="Exclude {{ restaurant.name }}">&#10007;</button>
+                </form>
+              {% endif %}
+              {% if restaurant.catalog_status == "excluded" %}
+                <form method="post" action="{{ url_for('admin_delete_restaurant', restaurant_id=restaurant.id) }}" onsubmit="return confirm('Delete this restaurant and its specials?');">
+                  <button class="icon-button danger" title="Delete" aria-label="Delete {{ restaurant.name }}">&#128465;</button>
+                </form>
+              {% endif %}
             </div>
           </td>
         </tr>
