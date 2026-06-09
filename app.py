@@ -137,6 +137,10 @@ app.config.update(
     SPECIAL_WEBHOOK_TEST_ENABLED=os.environ.get("SPECIAL_WEBHOOK_TEST_ENABLED") == "1",
     SITEMAP_CACHE_SECONDS=int(os.environ.get("SITEMAP_CACHE_SECONDS", 4 * 60 * 60)),
     SENTRY_DSN=os.environ.get("SENTRY_DSN", ""),
+    VAPI_API_KEY=os.environ.get("VAPI_API_KEY"),
+    VAPI_PHONE_NUMBER_ID=os.environ.get("VAPI_PHONE_NUMBER_ID"),
+    VAPI_JULIE_VOICE_ID=os.environ.get("VAPI_JULIE_VOICE_ID", ""),
+    VAPI_WEBHOOK_SECRET=os.environ.get("VAPI_WEBHOOK_SECRET"),
 )
 
 _sentry_dsn = os.environ.get("SENTRY_DSN", "")
@@ -303,6 +307,7 @@ def protect_mutations():
         "resend_webhook",
         "email_special_webhook",
         "sms_special_webhook",
+        "vapi_webhook",
     }:
         require_csrf()
 
@@ -1808,6 +1813,60 @@ def email_special_webhook():
 @app.post("/webhooks/sms-special")
 def sms_special_webhook():
     return special_webhook_response("sms")
+
+
+@app.post("/api/webhooks/vapi")
+def vapi_webhook():
+    secret = (app.config.get("VAPI_WEBHOOK_SECRET") or "").strip()
+    if secret:
+        provided = request.headers.get("x-vapi-secret", "")
+        if not hmac.compare_digest(secret, provided):
+            app.logger.warning("Vapi webhook rejected: bad secret.")
+            abort(401)
+
+    try:
+        body = request.get_json(force=True) or {}
+    except Exception:
+        abort(400, "Invalid JSON.")
+
+    message = body.get("message", {})
+    if message.get("type") != "end-of-call-report":
+        return jsonify({"received": True})
+
+    call = message.get("call", {})
+    metadata = call.get("metadata") or {}
+    restaurant_id = metadata.get("restaurant_id")
+    transcript = (message.get("artifact", {}).get("transcript") or "").strip()
+
+    if not restaurant_id or not transcript:
+        app.logger.info("Vapi webhook: missing restaurant_id or transcript, skipping.")
+        return jsonify({"received": True})
+
+    restaurant = db.session.get(Restaurant, restaurant_id)
+    if not restaurant:
+        app.logger.warning("Vapi webhook: restaurant %s not found.", restaurant_id)
+        return jsonify({"received": True})
+
+    try:
+        submission = create_raw_submission(
+            source_channel="voice_call",
+            raw_text=transcript,
+            restaurant_id=restaurant.id,
+            sender_phone=(call.get("customer") or {}).get("number"),
+        )
+        draft = generate_draft_from_submission(submission.id)
+
+        if restaurant.direct_publish_enabled:
+            approve_draft(draft.approval_token)
+            publish_draft(draft.id)
+            app.logger.info("Vapi call for restaurant %s auto-published draft %s.", restaurant.id, draft.id)
+        else:
+            app.logger.info("Vapi call for restaurant %s created draft %s.", restaurant.id, draft.id)
+    except Exception:
+        app.logger.exception("Vapi webhook processing failed for restaurant %s.", restaurant_id)
+        abort(500)
+
+    return jsonify({"received": True})
 
 
 @app.get("/uploads/<path:filename>")
