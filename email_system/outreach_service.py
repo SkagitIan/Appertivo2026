@@ -14,6 +14,20 @@ from special_pipeline import create_raw_submission, generate_draft_from_submissi
 
 logger = logging.getLogger(__name__)
 OPT_OUT_RE = re.compile(r"\b(no thanks|unsubscribe|remove me|stop emailing|do not email|don't email)\b", re.I)
+# Matches the start of quoted content in a plain-text email reply so we only
+# check the author's own words for opt-out phrases, not forwarded/quoted text.
+QUOTE_BOUNDARY_RE = re.compile(
+    r"^(>|On .{10,200} wrote:|From:.*\n.*\nTo:|_{5,}|-{5,})",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+def new_message_body(body_text):
+    """Return only the new (non-quoted) portion of an inbound reply body."""
+    match = QUOTE_BOUNDARY_RE.search(body_text or "")
+    if match:
+        return body_text[: match.start()].strip()
+    return (body_text or "").strip()
 SEQUENCE_TEMPLATES = {
     1: {
         "key": "personal_intro",
@@ -472,7 +486,7 @@ def receive_resend_email(payload, headers):
         campaign.status = "replied"
         campaign.paused = True
         campaign.next_follow_up_at = None
-    if OPT_OUT_RE.search(body_text or ""):
+    if OPT_OUT_RE.search(new_message_body(body_text)):
         suppress_email(sender, reason="opt_out", source="inbound_reply")
         message.status = "opted_out"
         if campaign:

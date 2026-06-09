@@ -36,6 +36,7 @@ from models import (
     DistributionLog,
     OutreachCampaign,
     OutreachMessage,
+    OutreachSuppression,
     OutreachTemplate,
     Restaurant,
     RestaurantLead,
@@ -1996,6 +1997,12 @@ def admin_tools():
             "url": url_for("admin_email_tools"),
             "count": None,
         },
+        {
+            "title": "Suppressions",
+            "description": "View and remove outreach opt-out suppressions.",
+            "url": url_for("admin_suppressions"),
+            "count": OutreachSuppression.query.count(),
+        },
     ]
     return render_template("admin/tools.html", tools=tools)
 
@@ -2050,6 +2057,38 @@ def rotate_restaurant_submission_url(restaurant):
     restaurant.submission_token_hash = hash_token(token)
     db.session.commit()
     return url_for("submit_special", token=token, _external=True)
+
+
+@app.get("/admin/suppressions")
+@admin_required
+def admin_suppressions():
+    suppressions = OutreachSuppression.query.order_by(OutreachSuppression.created_at.desc()).all()
+    return render_template("admin/suppressions.html", suppressions=suppressions)
+
+
+@app.post("/admin/suppressions/<int:suppression_id>/remove")
+@admin_required
+def admin_remove_suppression(suppression_id):
+    suppression = OutreachSuppression.query.get_or_404(suppression_id)
+    email = suppression.email
+    db.session.delete(suppression)
+    db.session.commit()
+    flash(f"Suppression removed for {email}.")
+    return redirect(url_for("admin_suppressions"))
+
+
+@app.post("/admin/suppressions/add")
+@admin_required
+def admin_add_suppression():
+    from email_system.outreach_service import suppress_email
+    email = request.form.get("email", "").strip().lower()
+    if not email:
+        flash("Email is required.")
+        return redirect(url_for("admin_suppressions"))
+    suppress_email(email, reason="opt_out", source="admin_manual")
+    db.session.commit()
+    flash(f"Suppression added for {email}.")
+    return redirect(url_for("admin_suppressions"))
 
 
 @app.route("/admin/outreach", methods=["GET", "POST"])
