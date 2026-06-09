@@ -93,14 +93,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .feed-trust-row strong { color: var(--plum); font-size: .82rem; }
 .feed-trust-row small { color: var(--muted); font-size: .68rem; line-height: 1.2; }
 .feed-trust-icon { align-items: center; background: #fff7ea; border: 1px solid #f2d6bf; border-radius: .8rem; box-shadow: 0 10px 22px rgba(77, 44, 29, .08); color: var(--plum); display: inline-flex; font-size: 1rem; font-weight: 900; height: 4.1rem; justify-content: center; position: relative; width: 4.6rem; }
-.feed-trust-icon::before, .feed-trust-icon::after { content: ""; position: absolute; }
-.icon-curated::before { background: white; border: 2px solid currentColor; border-radius: 50%; box-shadow: inset 0 -.55rem 0 #fed7aa; height: 2rem; width: 2rem; }
-.icon-curated::after { background: var(--orange); border-radius: 999px; box-shadow: -.45rem .28rem 0 #397026, .44rem -.22rem 0 #176f70; height: .34rem; width: .34rem; }
-.icon-local::before { background: white; border: 2px solid currentColor; border-radius: .18rem .18rem .55rem .55rem; box-shadow: inset 0 .5rem 0 #ed4b0b; height: 1.95rem; width: 2.35rem; }
-.icon-local::after { background: currentColor; border-radius: 999px; bottom: .92rem; height: .4rem; width: 2.65rem; }
-.icon-save::before, .icon-save::after { border: 2px solid currentColor; border-bottom: 0; border-radius: 1rem 1rem 0 0; height: 1.1rem; top: 1.38rem; width: .8rem; }
-.icon-save::before { left: 1.65rem; transform: rotate(-45deg); transform-origin: 0 100%; }
-.icon-save::after { right: 1.65rem; transform: rotate(45deg); transform-origin: 100% 100%; }
+.feed-trust-icon i { font-size: 1.55rem; }
+.icon-curated i { color: var(--orange); }
+.icon-local i { color: var(--orange); }
+.icon-save { background: white; border-color: rgba(61, 23, 48, .14); border-radius: 50%; box-shadow: 0 10px 24px rgba(44, 17, 37, .22); height: 3.6rem; width: 3.6rem; }
+.icon-save i { color: var(--plum); }
 .featured-special-panel { min-width: 0; }
 .featured-special-card { background: var(--paper); border: 1px solid var(--line); border-radius: 1rem; box-shadow: 0 18px 48px rgba(77, 44, 29, .14); overflow: hidden; }
 .featured-special-media { height: clamp(14rem, 27vw, 19rem); overflow: hidden; position: relative; }
