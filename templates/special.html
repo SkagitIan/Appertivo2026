@@ -7,8 +7,30 @@
     {% set special_card_action_label = "View restaurant" %}
     {% set special_card_url = url_for('restaurant_detail', slug=special.restaurant.slug) %}
     {% include "partials/special_card.html" %}
-    <div class="mt-5 flex flex-wrap gap-2">{% if special.restaurant.latitude is not none %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='directions') }}" class="button-primary" data-testid="special-action-directions">Directions</a>{% endif %}{% if special.restaurant.phone %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='call') }}" class="button-secondary" data-testid="special-action-call">Call</a>{% endif %}{% if special.restaurant.site %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='website') }}" class="button-secondary" data-testid="special-action-website">Website</a>{% endif %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='share') }}" class="button-secondary" data-testid="special-action-share">Share link</a></div>
+    <div class="special-actions-toolbar mt-4">
+      {% if special.restaurant.latitude is not none %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='directions') }}" class="special-action-btn" data-testid="special-action-directions"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Directions</a>{% endif %}
+      {% if special.restaurant.phone %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='call') }}" class="special-action-btn" data-testid="special-action-call"><i class="fa-solid fa-phone" aria-hidden="true"></i>Call</a>{% endif %}
+      {% if special.restaurant.site %}<a href="{{ url_for('special_action', public_id=special.public_id, event_type='website') }}" class="special-action-btn" data-testid="special-action-website"><i class="fa-solid fa-globe" aria-hidden="true"></i>Website</a>{% endif %}
+      <a href="{{ url_for('special_action', public_id=special.public_id, event_type='share') }}" class="special-action-btn" data-testid="special-action-share"><i class="fa-solid fa-link" aria-hidden="true"></i>Share</a>
+    </div>
     {% if can_manage %}
+      <div class="card mt-4 p-5">
+        <p class="eyebrow">Your stats</p>
+        <div class="mt-3 grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p class="special-stat-count">{{ stats.get('view', 0) }}</p>
+            <p class="special-stat-label">Views</p>
+          </div>
+          <div>
+            <p class="special-stat-count">{{ stats.get('directions', 0) + stats.get('call', 0) + stats.get('website', 0) + stats.get('share', 0) }}</p>
+            <p class="special-stat-label">Actions</p>
+          </div>
+          <div>
+            <p class="special-stat-count">{{ stats.get('save', 0) }}</p>
+            <p class="special-stat-label">Saves</p>
+          </div>
+        </div>
+      </div>
       {% include "partials/operator_tools.html" %}
     {% endif %}
   </div>

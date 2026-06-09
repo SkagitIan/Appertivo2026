@@ -27,10 +27,16 @@
     <textarea name="description" rows="3" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">{{ special.description or '' }}</textarea>
   </div>
 
-  <!-- Date -->
-  <div>
-    <label class="block text-sm font-semibold text-stone-700">Date</label>
-    <input name="special_date" type="date" value="{{ special_date_value(special) }}" class="mt-1 rounded-md border border-stone-300 px-3 py-2 text-sm">
+  <!-- Date range -->
+  <div class="grid gap-4 md:grid-cols-2">
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">Start date</label>
+      <input name="special_date" type="date" value="{{ special_date_value(special) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-stone-700">End date <span class="font-normal text-stone-400">(optional)</span></label>
+      <input name="special_end_date" type="date" value="{{ special_end_date_value(special) }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm">
+    </div>
   </div>
 
   <!-- Repeats -->

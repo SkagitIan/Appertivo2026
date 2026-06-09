@@ -703,6 +703,19 @@ def special_date_value(special):
 app.jinja_env.globals["special_date_value"] = special_date_value
 
 
+def special_end_date_value(special):
+    if not special.expires_at:
+        return ""
+    starts = special.starts_at.replace(tzinfo=UTC).astimezone(LOCAL_TZ) if special.starts_at else None
+    expires = special.expires_at.replace(tzinfo=UTC).astimezone(LOCAL_TZ)
+    if starts and starts.date() == expires.date():
+        return ""
+    return expires.strftime("%Y-%m-%d")
+
+
+app.jinja_env.globals["special_end_date_value"] = special_end_date_value
+
+
 def special_time_value(moment):
     if not moment:
         return ""
@@ -850,8 +863,19 @@ def restaurant_graph_schema(restaurant, specials):
 
 
 def special_display_date(special):
+    today = datetime.now(LOCAL_TZ).date()
+    starts = special.starts_at.replace(tzinfo=UTC).astimezone(LOCAL_TZ) if special.starts_at else None
+    expires = special.expires_at.replace(tzinfo=UTC).astimezone(LOCAL_TZ) if special.expires_at else None
+    starts_date = starts.date() if starts else None
+    expires_date = expires.date() if expires else None
+    if starts_date and expires_date and starts_date != expires_date:
+        if starts_date.month == expires_date.month:
+            return f"{starts.strftime('%b')} {starts_date.day}–{expires_date.day}"
+        return f"{starts.strftime('%b')} {starts_date.day} – {expires.strftime('%b')} {expires_date.day}"
     moment = special.starts_at or special.expires_at or special.created_at or utc_now()
     local_moment = moment.replace(tzinfo=UTC).astimezone(LOCAL_TZ)
+    if local_moment.date() == today:
+        return "Today"
     return local_moment.strftime("%b %d").replace(" 0", " ")
 
 
@@ -975,9 +999,10 @@ def draft_as_preview_special(draft):
 
 
 def schedule_window_from_form():
-    date_value = request.form.get("special_date") or utc_now().strftime("%Y-%m-%d")
-    start = parse_local_datetime(date_value, default_time=time(0, 0))
-    end = parse_local_datetime(date_value, default_time=time(23, 59))
+    start_value = request.form.get("special_date") or utc_now().strftime("%Y-%m-%d")
+    end_value = request.form.get("special_end_date", "").strip() or start_value
+    start = parse_local_datetime(start_value, default_time=time(0, 0))
+    end = parse_local_datetime(end_value, default_time=time(23, 59))
     return start, end, None
 
 
@@ -1887,7 +1912,9 @@ def special_detail(public_id):
         )
     special = active_special_by_public_id(public_id)
     record_metric(special, "view", request.args.get("channel"))
-    return render_template("special.html", special=special, can_manage=can_manage_special(special))
+    can_manage = can_manage_special(special)
+    stats = metric_counts(special.id) if can_manage else {}
+    return render_template("special.html", special=special, can_manage=can_manage, stats=stats)
 
 
 @app.post("/specials/<public_id>/save")
@@ -1931,6 +1958,23 @@ def special_action(public_id, event_type):
         abort(404)
     record_metric(special, event_type, request.args.get("channel"))
     return redirect(destination)
+
+
+@app.post("/newsletter/weekend-specials")
+def subscribe_weekend_report():
+    require_csrf()
+    email = request.form.get("email", "").strip().lower()
+    if not email:
+        flash("Please enter your email.")
+        return redirect(request.referrer or url_for("specials_feed"))
+    from email_system.email_service import create_or_update_marketing_contact
+    list_id = app.config.get("LOOPS_WEEKEND_LIST_ID", "")
+    props = {"source": "weekend-specials-report", "subscribed": True}
+    if list_id:
+        props["mailingLists"] = {list_id: True}
+    create_or_update_marketing_contact(email, props)
+    flash("You’re in! Watch for the Weekend Specials Report every Friday morning.")
+    return redirect(request.referrer or url_for("specials_feed"))
 
 
 @app.route("/admin/login", methods=["GET", "POST"])

@@ -15,58 +15,27 @@
       </div>
     </div>
     <aside class="featured-special-panel">
-      {% if featured_special %}
-        {% set special = featured_special %}
-        <article class="featured-special-card" data-testid="featured-special">
-          <div data-testid="special-card" data-special-title="{{ special.title }}">
-          <div class="featured-special-media">
-            {% if special.photo_url %}
-              <img src="{{ smart_image_url(special.photo_url, 1100, 760) }}" alt="{{ special.title }} at {{ special.restaurant.name }}" loading="lazy">
-            {% else %}
-              <div class="special-no-image" data-initial="{{ special.restaurant.name[0]|upper }}">
-                <p class="special-no-image-kicker">{{ special.restaurant.name }}</p>
-                <h3>{{ special.title }}</h3>
-              </div>
-            {% endif %}
-            <div class="special-media-badges">
-              <span class="special-badge-time">{{ special_display_date(special) }}</span>
-            </div>
-            <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form save-special-media-form">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="save-special-heart {% if is_special_saved(special) %}is-saved{% endif %}" data-testid="featured-save-special" aria-label="{{ 'Remove saved special' if is_special_saved(special) else 'Save special' }}">
-                <i class="fa-solid fa-heart" aria-hidden="true"></i>
-              </button>
-            </form>
-          </div>
-          <div class="featured-special-body">
-            <div>
-              <p class="eyebrow">{{ special.restaurant.name }}</p>
-              <h2>{{ special.title }}</h2>
-              <p>{{ special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}</p>
-              <div class="special-card-meta">
-                {% if special.price %}<strong class="special-card-price">{{ special.price }}</strong>{% endif %}
-              </div>
-            </div>
-            <div class="featured-special-side">
-              {% if special.add_on_name %}
-                <div class="special-add-on">
-                  <span class="special-add-on-label">Add-on</span>
-                  <strong>{{ special.add_on_name }}</strong>
-                  {% if special.add_on_price %}<span>{{ special.add_on_price }}</span>{% endif %}
-                </div>
-              {% endif %}
-              <a href="{{ url_for('special_detail', public_id=special.public_id) }}" class="button-primary w-full" data-testid="special-card-action">View Special</a>
-            </div>
-          </div>
-          </div>
-        </article>
-      {% else %}
-        <div class="soft-panel p-8">
-          <p class="eyebrow">Fresh Special</p>
-          <h2 class="mt-2 text-3xl">No specials are live right now.</h2>
-          <p class="mt-3 text-stone-600">Check back soon or join alerts below.</p>
+      <div class="wsr-card">
+        <div class="wsr-head">
+          <p class="eyebrow" style="color:rgba(255,179,140,.9)">Weekly digest</p>
+          <h2 class="wsr-title">Weekend<br>Specials<br>Report</h2>
         </div>
-      {% endif %}
+        <div class="wsr-body">
+          <p class="wsr-desc">The best Skagit Valley restaurant specials — curated and delivered every Friday morning.</p>
+          {% with messages = get_flashed_messages() %}
+            {% if messages %}
+              <p class="wsr-success">{{ messages[0] }}</p>
+            {% else %}
+              <form method="post" action="{{ url_for('subscribe_weekend_report') }}" class="wsr-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input required type="email" name="email" placeholder="your@email.com" class="wsr-email">
+                <button class="button-primary" style="white-space:nowrap">Subscribe free</button>
+              </form>
+              <p class="wsr-note">No spam. Unsubscribe anytime.</p>
+            {% endif %}
+          {% endwith %}
+        </div>
+      </div>
     </aside>
   </div>
 </section>
