@@ -106,6 +106,7 @@ class Restaurant(db.Model):
     submission_token_hash = db.Column(db.String(64), nullable=True, unique=True)
     direct_publish_enabled = db.Column(db.Boolean, default=False, nullable=False)
     menu_url = db.Column(db.Text, nullable=True)
+    call_schedule_token = db.Column(db.String(64), nullable=True, unique=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
     specials = db.relationship("Special", back_populates="restaurant", cascade="all, delete-orphan")
@@ -120,6 +121,9 @@ class Restaurant(db.Model):
     )
     outreach_campaigns = db.relationship(
         "OutreachCampaign", back_populates="restaurant", cascade="all, delete-orphan"
+    )
+    call_schedule = db.relationship(
+        "CallSchedule", back_populates="restaurant", uselist=False, cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -404,3 +408,16 @@ class OutreachMessage(db.Model):
 
     restaurant = db.relationship("Restaurant")
     campaign = db.relationship("OutreachCampaign", back_populates="messages")
+
+
+class CallSchedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    restaurant_id = db.Column(db.Integer, db.ForeignKey("restaurant.id"), nullable=False, index=True)
+    # 0 = Monday, 6 = Sunday (matches Python datetime.weekday())
+    day_of_week = db.Column(db.Integer, nullable=False)
+    call_time = db.Column(db.Time, nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    last_called_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+    restaurant = db.relationship("Restaurant", back_populates="call_schedule")

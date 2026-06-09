@@ -33,6 +33,7 @@ from werkzeug.exceptions import BadRequest
 from email_system.email_service import send_notification_email, send_special_received_email
 from markets import SKAGIT_VALLEY, normalize_location, resolve_market
 from models import (
+    CallSchedule,
     DistributionLog,
     OutreachCampaign,
     OutreachMessage,
@@ -1670,6 +1671,58 @@ def submit_special(token):
                 )
         return render_template("submit_success.html", restaurant=restaurant, special=special)
     return render_template("submit.html", restaurant=restaurant)
+
+
+DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+def _format_call_time(t):
+    h12 = t.hour % 12 or 12
+    suffix = "AM" if t.hour < 12 else "PM"
+    return f"{h12}:{t.minute:02d} {suffix}"
+
+
+@app.route("/schedule-call/<token>", methods=["GET", "POST"])
+def schedule_call(token):
+    restaurant = Restaurant.query.filter_by(call_schedule_token=token).first_or_404()
+    existing = restaurant.call_schedule
+
+    def _render(saved=False, status=200):
+        return render_template(
+            "schedule_call.html",
+            restaurant=restaurant,
+            day_names=DAY_NAMES,
+            existing=existing,
+            existing_time_display=_format_call_time(existing.call_time) if existing else None,
+            saved=saved,
+        ), status
+
+    if request.method == "POST":
+        day_of_week = request.form.get("day_of_week", type=int)
+        call_time_str = request.form.get("call_time", "").strip()
+        if day_of_week is None or day_of_week not in range(7) or not call_time_str:
+            flash("Please choose a day and time.")
+            return _render(status=400)
+        try:
+            call_time = datetime.strptime(call_time_str, "%H:%M").time()
+        except ValueError:
+            flash("Invalid time.")
+            return _render(status=400)
+
+        if existing:
+            existing.day_of_week = day_of_week
+            existing.call_time = call_time
+            existing.is_active = True
+        else:
+            db.session.add(CallSchedule(
+                restaurant_id=restaurant.id,
+                day_of_week=day_of_week,
+                call_time=call_time,
+            ))
+        db.session.commit()
+        return redirect(url_for("schedule_call", token=token, saved="1"))
+
+    return _render(saved=request.args.get("saved") == "1")
 
 
 @app.route("/submit-special", methods=["GET", "POST"])

@@ -1,4 +1,5 @@
 import re
+import secrets
 from datetime import UTC, datetime
 
 from flask import current_app
@@ -335,6 +336,13 @@ def reject_draft(token):
     return draft
 
 
+def _ensure_call_schedule_token(restaurant):
+    if not restaurant.call_schedule_token:
+        restaurant.call_schedule_token = secrets.token_hex(24)
+        db.session.commit()
+    return restaurant.call_schedule_token
+
+
 def schedule_first_special_followup_if_needed(special, recipient_email=None):
     recipient = (recipient_email or getattr(special.restaurant, "contact_email", "") or "").strip().lower()
     if not recipient:
@@ -355,10 +363,13 @@ def schedule_first_special_followup_if_needed(special, recipient_email=None):
 
     base_url = current_app.config["APP_BASE_URL"].rstrip("/")
     restaurant_url = f"{base_url}/restaurants/{special.restaurant.slug}" if special.restaurant else None
+    token = _ensure_call_schedule_token(special.restaurant) if special.restaurant else None
+    schedule_call_url = f"{base_url}/schedule-call/{token}" if token else None
     return send_first_special_followup_email(
         recipient,
         restaurant_name=special.restaurant.name if special.restaurant else None,
         restaurant_url=restaurant_url,
+        schedule_call_url=schedule_call_url,
         scheduled_at="in 5 minutes",
     )
 
