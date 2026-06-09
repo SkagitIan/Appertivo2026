@@ -104,42 +104,9 @@ def test_catalog_status_hides_nonincluded_venues_from_normal_admin_workflows():
         assert b"Included Cafe" in enrichment_page.data
         assert b"Hidden Market" not in enrichment_page.data
         assert b"Pending Bakery" not in enrichment_page.data
-        catalog_page = client.get("/admin/restaurant-catalog")
-        assert b"Pending Bakery" in catalog_page.data
-        assert b"Hidden Market" not in catalog_page.data
+        assert client.get("/admin/restaurant-catalog").status_code == 404
         assert client.get("/admin/restaurants/2/edit").status_code == 404
         assert client.get("/submit/hidden-token").status_code == 404
-        assert client.post(
-            "/admin/restaurants/2/catalog/included",
-            data={"csrf_token": csrf(client)},
-        ).status_code == 404
-        response = client.post(
-            "/admin/restaurants/3/catalog/included",
-            data={"csrf_token": csrf(client)},
-            follow_redirects=True,
-        )
-        assert response.status_code == 200
-        assert b"Pending Bakery marked included" in response.data
-        assert b"Pending Bakery" in client.get("/restaurants/pending-bakery").data
-
-        with app.app_context():
-            db.session.add(
-                Restaurant(
-                    name="Pending Deli",
-                    slug="pending-deli",
-                    city="Anacortes",
-                    catalog_status="review",
-                )
-            )
-            db.session.commit()
-        response = client.post(
-            "/admin/restaurants/catalog/excluded",
-            data={"csrf_token": csrf(client), "restaurant_ids": ["4"]},
-            follow_redirects=True,
-        )
-        assert response.status_code == 200
-        assert b"1 venues marked excluded" in response.data
-        assert b"Pending Deli" not in client.get("/admin/restaurant-catalog").data
 
     with app.app_context():
         db.session.remove()

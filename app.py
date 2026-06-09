@@ -45,6 +45,7 @@ from models import (
     SpecialDraft,
     SpecialMetric,
     Subscriber,
+    SystemEmailTemplate,
     db,
     utc_now,
 )
@@ -1169,11 +1170,17 @@ def restaurant_from_form(restaurant=None):
     if is_new and not place_id:
         abort(400, "Choose a Google Places match before adding a restaurant.")
     if place_id:
-        duplicate_query = Restaurant.query.filter_by(place_id=place_id)
+        dup_query = Restaurant.query.filter_by(place_id=place_id)
         if restaurant.id:
-            duplicate_query = duplicate_query.filter(Restaurant.id != restaurant.id)
-        if duplicate_query.first():
-            abort(400, "That Google Places restaurant is already in Appertivo.")
+            dup_query = dup_query.filter(Restaurant.id != restaurant.id)
+        existing = dup_query.first()
+        if existing:
+            flash(
+                f"That Google Places ID is already attached to '{existing.name}' (#{existing.id}). "
+                "Other fields were saved but the Google Places link was not changed.",
+                "warning",
+            )
+            place_id = None
     restaurant.name = request.form["name"].strip()
     restaurant.city = canonical_market_city(request.form["city"].strip())
     if is_new and restaurant.city not in SKAGIT_VALLEY["cities"]:
@@ -1191,6 +1198,7 @@ def restaurant_from_form(restaurant=None):
     restaurant.subtypes = request.form.get("subtypes", "").strip()
     cuisine_tags = serialize_tag_keys(request.form.getlist("cuisine_tags"), allowed=CUISINE_TAG_KEYS)
     restaurant.cuisine_tags = cuisine_tags or serialize_tag_keys(infer_restaurant_cuisine_tags(restaurant), allowed=CUISINE_TAG_KEYS)
+    restaurant.menu_url = request.form.get("menu_url", "").strip() or None
     restaurant.claimed = request.form.get("claimed") == "on"
     restaurant.direct_publish_enabled = request.form.get("direct_publish_enabled") == "on"
     if is_new:
@@ -1924,7 +1932,6 @@ def admin_dashboard():
     active_count = active_specials_query().count()
     distributed = db.session.query(DistributionLog.special_id).distinct()
     counts = {
-        "new leads": RestaurantLead.query.filter_by(status="new").count(),
         "drafts awaiting review": (
             Special.query.join(Restaurant)
             .filter(Special.status == "draft", Restaurant.catalog_status == "included")
@@ -1943,7 +1950,6 @@ def admin_dashboard():
             or_(OutreachCampaign.next_follow_up_at.is_(None), OutreachCampaign.next_follow_up_at <= utc_now()),
         )
         .count(),
-        "catalog reviews": Restaurant.query.filter_by(catalog_status="review").count(),
     }
     return render_template("admin/dashboard.html", counts=counts)
 
@@ -1952,18 +1958,6 @@ def admin_dashboard():
 @admin_required
 def admin_tools():
     tools = [
-        {
-            "title": "Leads",
-            "description": "Review restaurant leads and move them through outreach statuses.",
-            "url": url_for("admin_leads"),
-            "count": RestaurantLead.query.filter_by(status="new").count(),
-        },
-        {
-            "title": "Catalog review",
-            "description": "Review venues that need an include or exclude decision.",
-            "url": url_for("admin_restaurant_catalog"),
-            "count": Restaurant.query.filter_by(catalog_status="review").count(),
-        },
         {
             "title": "Enhance restaurants",
             "description": "Attach or pull Google Places details for included restaurants that still need enrichment.",
@@ -2037,7 +2031,7 @@ def admin_diner_digest():
 @app.route("/admin/email-tools", methods=["GET", "POST"])
 @admin_required
 def admin_email_tools():
-    from email_system.email_service import SUBJECTS, render_test_email, send_all_test_emails
+    from email_system.email_service import SUBJECTS, TEMPLATE_VARS, render_test_email, send_all_test_emails
 
     recipient = app.config["EMAIL_TEST_RECIPIENT"]
     if request.method == "POST":
@@ -2050,7 +2044,48 @@ def admin_email_tools():
         return redirect(url_for("admin_email_tools"))
     previews = {name: render_test_email(name)["html"] for name in SUBJECTS}
     templates = OutreachTemplate.query.filter_by(is_active=True).order_by(OutreachTemplate.name).all()
-    return render_template("admin/email_tools.html", previews=previews, recipient=recipient, templates=templates)
+    overrides = {t.name: t for t in SystemEmailTemplate.query.filter_by(is_active=True).all()}
+    return render_template(
+        "admin/email_tools.html",
+        previews=previews,
+        recipient=recipient,
+        templates=templates,
+        system_subjects=SUBJECTS,
+        system_template_vars=TEMPLATE_VARS,
+        system_overrides=overrides,
+    )
+
+
+@app.route("/admin/system-email-templates/<name>", methods=["POST"])
+@admin_required
+def admin_system_email_template_upsert(name):
+    from email_system.email_service import SUBJECTS
+
+    if name not in SUBJECTS:
+        abort(404)
+    action = request.form.get("action")
+    override = SystemEmailTemplate.query.filter_by(name=name).first()
+    if action == "remove":
+        if override:
+            db.session.delete(override)
+            db.session.commit()
+            flash("Email override removed.", "success")
+        return redirect(url_for("admin_email_tools"))
+    subject = request.form.get("subject", "").strip()
+    body_text = request.form.get("body_text", "").strip()
+    if not subject or not body_text:
+        flash("Subject and body are required.", "error")
+        return redirect(url_for("admin_email_tools"))
+    if override:
+        override.subject = subject
+        override.body_text = body_text
+        override.is_active = True
+    else:
+        override = SystemEmailTemplate(name=name, subject=subject, body_text=body_text)
+        db.session.add(override)
+    db.session.commit()
+    flash(f"Email override for '{name}' saved.", "success")
+    return redirect(url_for("admin_email_tools"))
 
 
 def rotate_restaurant_submission_url(restaurant):
@@ -2241,31 +2276,6 @@ def resend_webhook():
     return jsonify({"received": True})
 
 
-@app.get("/admin/leads")
-@admin_required
-def admin_leads():
-    status = request.args.get("status", "")
-    query = RestaurantLead.query
-    if status in LEAD_STATUSES:
-        query = query.filter_by(status=status)
-    return render_template(
-        "admin/leads.html",
-        leads=query.order_by(RestaurantLead.created_at.desc()).all(),
-        status=status,
-    )
-
-
-@app.post("/admin/leads/<int:lead_id>/<action>")
-@admin_required
-def admin_lead_action(lead_id, action):
-    if action not in LEAD_STATUSES:
-        abort(404)
-    lead = RestaurantLead.query.get_or_404(lead_id)
-    lead.status = action
-    db.session.commit()
-    flash(f"{lead.restaurant_name} marked {action}.")
-    return redirect(request.referrer or url_for("admin_leads"))
-
 
 @app.route("/admin/restaurants", methods=["GET", "POST"])
 @admin_required
@@ -2289,56 +2299,6 @@ def admin_restaurants():
         search_term=term,
         status_filter=status_filter,
     )
-
-
-@app.get("/admin/restaurant-catalog")
-@admin_required
-def admin_restaurant_catalog():
-    return render_template(
-        "admin/restaurant_catalog.html",
-        restaurants=Restaurant.query.filter_by(catalog_status="review").order_by(Restaurant.city, Restaurant.name).all(),
-    )
-
-
-@app.post("/admin/restaurants/<int:restaurant_id>/catalog/<status>")
-@admin_required
-def admin_restaurant_catalog_action(restaurant_id, status):
-    if status not in {"included", "excluded"}:
-        abort(404)
-    restaurant = Restaurant.query.filter_by(id=restaurant_id, catalog_status="review").first_or_404()
-    restaurant.catalog_status = status
-    restaurant.catalog_reason = "manual admin review"
-    restaurant.catalog_reviewed_at = utc_now()
-    db.session.commit()
-    flash(f"{restaurant.name} marked {status}.")
-    return redirect(request.referrer or url_for("admin_restaurant_catalog"))
-
-
-@app.post("/admin/restaurants/catalog/<status>")
-@admin_required
-def admin_restaurant_catalog_bulk_action(status):
-    if status not in {"included", "excluded"}:
-        abort(404)
-    submitted_ids = request.form.getlist("restaurant_ids")
-    if not submitted_ids:
-        abort(400, "Select at least one venue.")
-    try:
-        restaurant_ids = [int(restaurant_id) for restaurant_id in submitted_ids]
-    except ValueError:
-        abort(400, "One or more selected restaurant IDs are invalid.")
-    restaurants = Restaurant.query.filter(
-        Restaurant.id.in_(restaurant_ids),
-        Restaurant.catalog_status == "review",
-    ).all()
-    if len(restaurants) != len(set(restaurant_ids)):
-        abort(400, "One or more selected venues are not pending review.")
-    for restaurant in restaurants:
-        restaurant.catalog_status = status
-        restaurant.catalog_reason = "manual admin review"
-        restaurant.catalog_reviewed_at = utc_now()
-    db.session.commit()
-    flash(f"{len(restaurants)} venues marked {status}.")
-    return redirect(request.referrer or url_for("admin_restaurant_catalog"))
 
 
 @app.get("/admin/restaurant-enrichment")

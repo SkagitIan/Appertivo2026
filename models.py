@@ -105,6 +105,7 @@ class Restaurant(db.Model):
     claimed = db.Column(db.Boolean, default=False, nullable=False)
     submission_token_hash = db.Column(db.String(64), nullable=True, unique=True)
     direct_publish_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    menu_url = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
     specials = db.relationship("Special", back_populates="restaurant", cascade="all, delete-orphan")
@@ -358,6 +359,16 @@ class OutreachTemplate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True, index=True)
     subject = db.Column(db.String(240), nullable=False, default="")
+    body_text = db.Column(db.Text, nullable=False, default="")
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class SystemEmailTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    subject = db.Column(db.String(300), nullable=False, default="")
     body_text = db.Column(db.Text, nullable=False, default="")
     is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)

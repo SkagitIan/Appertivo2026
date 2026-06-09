@@ -9,8 +9,7 @@
       </div>
     {% endif %}
     <div class="special-media-badges">
-      <span class="special-badge-primary">{{ tag_label(special.primary_tag) or "Fresh Special" }}</span>
-      <span class="special-badge-time">{{ special_timing_badge(special) }}</span>
+      <span class="special-badge-time">{{ special_display_date(special) }}</span>
     </div>
     {% if special.public_id %}
       <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form save-special-media-form">
@@ -25,16 +24,8 @@
     <p class="eyebrow">{{ special.restaurant.name }} <span class="text-stone-500">- {{ special.restaurant.city }}</span></p>
     <h3 class="special-card-title">{{ special.title }}</h3>
     <p class="special-card-description">{{ special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}</p>
-    {% if special_tag_labels(special) %}
-      <div class="special-tag-row" aria-label="Special tags">
-        {% for label in special_tag_labels(special) %}
-          <span>{{ label }}</span>
-        {% endfor %}
-      </div>
-    {% endif %}
     <div class="special-card-meta">
       {% if special.price %}<strong class="special-card-price">{{ special.price }}</strong>{% endif %}
-      {% if special_timestamp_iso(special) %}<time datetime="{{ special_timestamp_iso(special) }}" class="text-xs font-bold text-stone-500">Updated {{ special_display_date(special) }}</time>{% endif %}
     </div>
     {% if special.add_on_name %}
       <div class="special-add-on">

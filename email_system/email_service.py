@@ -1,4 +1,7 @@
+import re
+
 from flask import current_app, render_template
+from sqlalchemy.exc import OperationalError
 
 from email_system import loops_client, resend_client
 
@@ -15,15 +18,51 @@ SUBJECTS = {
     "diner_digest": "What's good today in Skagit Valley",
 }
 
+TEMPLATE_VARS = {
+    "magic_link": ["magic_link_url"],
+    "email_verification": ["verification_url"],
+    "user_signup": ["user_name"],
+    "notification": ["message"],
+    "special_received": ["restaurant_name", "special_title", "approval_url", "publish_url", "special_description", "price_text", "availability_text", "image_url"],
+    "first_special_followup": ["restaurant_name", "restaurant_url", "schedule_call_url", "specials_email", "get_started_url"],
+    "restaurant_welcome": ["restaurant_name"],
+    "sales_outreach": ["restaurant_name", "contact_name", "custom_message"],
+    "diner_digest": ["unsubscribe_url"],
+}
+
+
+def _apply_template_vars(text, context):
+    def _replace(match):
+        val = context.get(match.group(1).strip())
+        return str(val) if val is not None else match.group(0)
+    return re.sub(r'\{\{\s*(\w+)\s*\}\}', _replace, text)
+
+
+def _strip_html_tags(html):
+    return re.sub(r'<[^>]+>', '', html)
+
 
 def render_email_template(template_name, context=None):
+    from models import SystemEmailTemplate
     template_context = {
         "app_base_url": current_app.config.get("APP_BASE_URL", ""),
         **(context or {}),
     }
+    try:
+        override = SystemEmailTemplate.query.filter_by(name=template_name, is_active=True).first()
+    except OperationalError:
+        override = None
+    if override:
+        body_html = _apply_template_vars(override.body_text, template_context)
+        return {
+            "html": render_template("emails/email_override.html", body_html=body_html, **template_context),
+            "text": _strip_html_tags(body_html),
+            "subject_override": _apply_template_vars(override.subject, template_context) if override.subject else None,
+        }
     return {
         "html": render_template(f"emails/{template_name}.html", **template_context),
         "text": render_template(f"emails/{template_name}.txt", **template_context),
+        "subject_override": None,
     }
 
 
@@ -50,9 +89,10 @@ def send_transactional_email(
     scheduled_at=None,
 ):
     rendered = render_email_template(template_name, context)
+    effective_subject = rendered.get("subject_override") or subject
     return resend_client.send_email(
         to=to,
-        subject=subject,
+        subject=effective_subject,
         html=rendered["html"],
         text=rendered["text"],
         from_email=from_email or current_app.config["EMAIL_FROM_NOREPLY"],

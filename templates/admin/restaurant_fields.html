@@ -51,6 +51,10 @@
     <label class="block text-sm font-semibold text-stone-700">Website</label>
     <input name="website" value="{{ restaurant.website if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2" data-admin-restaurant-website {% if is_new_restaurant %}readonly{% endif %}>
   </div>
+  <div class="md:col-span-2">
+    <label class="block text-sm font-semibold text-stone-700">Menu URL <span class="font-normal text-stone-400">(optional)</span></label>
+    <input name="menu_url" type="url" value="{{ restaurant.menu_url if restaurant and restaurant.menu_url else '' }}" placeholder="https://example.com/menu" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">
+  </div>
   <div>
     <label class="block text-sm font-semibold text-stone-700">Category</label>
     <input name="category" value="{{ restaurant.category if restaurant else '' }}" class="mt-1 w-full rounded-md border border-stone-300 px-3 py-2">

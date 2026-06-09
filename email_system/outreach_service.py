@@ -14,6 +14,7 @@ from special_pipeline import create_raw_submission, generate_draft_from_submissi
 
 logger = logging.getLogger(__name__)
 OPT_OUT_RE = re.compile(r"\b(no thanks|unsubscribe|remove me|stop emailing|do not email|don't email)\b", re.I)
+PRICE_RE = re.compile(r'\$\d+|\d+\s*dollars?', re.I)
 # Matches the start of quoted content in a plain-text email reply so we only
 # check the author's own words for opt-out phrases, not forwarded/quoted text.
 QUOTE_BOUNDARY_RE = re.compile(
@@ -450,8 +451,12 @@ def receive_resend_email(payload, headers):
     specials_email = normalize_email(current_app.config["EMAIL_FROM_SPECIALS"])
     sales_reply_to = normalize_email(current_app.config.get("EMAIL_REPLY_TO_SALES", ""))
     is_to_specials = specials_email in recipients
+    new_body = new_message_body(body_text)
     is_outreach_reply_with_special = bool(
-        sales_reply_to and sales_reply_to in recipients and campaign is not None
+        sales_reply_to
+        and sales_reply_to in recipients
+        and campaign is not None
+        and (len(new_body) > 80 or PRICE_RE.search(new_body))
     )
 
     if is_to_specials or is_outreach_reply_with_special:
@@ -513,7 +518,7 @@ def receive_resend_email(payload, headers):
         campaign.status = "replied"
         campaign.paused = True
         campaign.next_follow_up_at = None
-    if OPT_OUT_RE.search(new_message_body(body_text)):
+    if OPT_OUT_RE.search(new_body):
         suppress_email(sender, reason="opt_out", source="inbound_reply")
         message.status = "opted_out"
         if campaign:

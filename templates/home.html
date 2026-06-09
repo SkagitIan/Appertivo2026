@@ -29,8 +29,7 @@
               </div>
             {% endif %}
             <div class="special-media-badges">
-              <span class="special-badge-primary">{{ tag_label(special.primary_tag) or "Fresh Special" }}</span>
-              <span class="special-badge-time">{{ special_timing_badge(special) }}</span>
+              <span class="special-badge-time">{{ special_display_date(special) }}</span>
             </div>
             <form method="post" action="{{ url_for('save_special', public_id=special.public_id) }}" class="save-special-form save-special-media-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -46,7 +45,6 @@
               <p>{{ special.description|replace("Sample post: ", "")|replace("Sample post:", "") }}</p>
               <div class="special-card-meta">
                 {% if special.price %}<strong class="special-card-price">{{ special.price }}</strong>{% endif %}
-                {% if special_timestamp_iso(special) %}<time datetime="{{ special_timestamp_iso(special) }}" class="text-xs font-bold text-stone-500">Updated {{ special_display_date(special) }}</time>{% endif %}
               </div>
             </div>
             <div class="featured-special-side">
@@ -98,13 +96,6 @@
       {% endif %}
     </div>
   </div>
-
-  <nav class="feed-chip-row" aria-label="Special filters">
-    <a class="feed-chip {% if not active_tag %}is-active{% endif %}" href="{{ url_for('specials_feed', location=location, city=city) }}#specials">All Specials</a>
-    {% for option in feed_tags %}
-      <a class="feed-chip {% if active_tag == option.key %}is-active{% endif %}" href="{{ url_for('specials_feed', location=location, city=city, tag=option.key) }}#specials">{{ option.label }}</a>
-    {% endfor %}
-  </nav>
 
   <div id="specials-list-view" class="{% if view == 'map' %}hidden{% endif %}">
     <div class="special-feed-grid">

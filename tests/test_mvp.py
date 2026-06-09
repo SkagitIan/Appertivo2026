@@ -335,7 +335,6 @@ def test_restaurant_schema_graph_includes_offer_requirements(client):
     assert offer["price"] == "12.00"
     assert offer["itemOffered"]["@type"] == "MenuItem"
     assert offer["itemOffered"]["name"] == "Taco Tuesday"
-    assert b'<time datetime="' in response.data
 
 
 def test_sitemap_and_robots_include_cached_seo_urls(client):
@@ -545,10 +544,8 @@ def test_marketing_routes_and_first_special_workflow(client, monkeypatch):
         assert draft.restaurant_id == restaurant.id
         assert sent == [(draft.id, "chef@example.com")]
 
-    assert client.get("/admin/leads").status_code == 302
     login(client)
-    assert b"Local Table" not in client.get("/admin/leads").data
-    assert b"Leads" in client.get("/admin/tools").data
+    assert b"Leads" not in client.get("/admin/tools").data
     assert b"Leads" not in client.get("/admin").data
 
 
@@ -642,30 +639,6 @@ def test_get_started_restaurant_lookup_marks_outside_market_places_coming_soon(c
     with app.app_context():
         assert RawSpecialSubmission.query.count() == 0
 
-
-def test_restaurant_lead_admin_actions_still_work_from_tools(client):
-    with app.app_context():
-        db.session.add(
-            RestaurantLead(
-                restaurant_name="Local Table",
-                contact_name="Alex Cook",
-                city="Anacortes",
-                email="alex@example.com",
-                phone="360-555-0199",
-                status="new",
-            )
-        )
-        db.session.commit()
-    login(client)
-    assert b"Local Table" in client.get("/admin/leads").data
-    response = client.post(
-        "/admin/leads/1/contacted",
-        data={"csrf_token": csrf(client)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    with app.app_context():
-        assert RestaurantLead.query.one().status == "contacted"
 
 
 def test_r2_storage_uses_s3_compatible_client(monkeypatch):

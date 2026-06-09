@@ -116,10 +116,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--teal) !important
 .special-feed-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .special-card { background: var(--paper); border: 1px solid var(--line); border-radius: .75rem; box-shadow: var(--shadow); overflow: hidden; }
 .special-media { height: 12.8rem; overflow: hidden; position: relative; }
-.special-media-badges { display: flex; gap: .55rem; justify-content: space-between; left: .7rem; pointer-events: none; position: absolute; right: .7rem; top: .7rem; z-index: 2; }
+.special-media-badges { display: flex; gap: .55rem; justify-content: flex-end; left: .7rem; pointer-events: none; position: absolute; right: .7rem; top: .7rem; z-index: 2; }
 .special-badge-primary, .special-badge-time { align-items: center; border-radius: .45rem; color: white; display: inline-flex; font-size: .72rem; font-weight: 900; letter-spacing: .03em; min-height: 2.15rem; padding: .46rem .62rem; text-transform: uppercase; }
 .special-badge-primary { background: var(--orange); }
-.special-badge-time { background: var(--plum); margin-left: auto; text-align: center; }
+.special-badge-time { background: var(--plum); text-align: center; }
 .special-card-body { padding: 1.1rem; }
 .special-card-title { font-size: 1.7rem; letter-spacing: -.02em; line-height: 1.02; margin-top: .55rem; }
 .special-card-description { color: var(--muted); font-size: .92rem; line-height: 1.45; margin-top: .65rem; }
