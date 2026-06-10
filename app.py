@@ -2658,11 +2658,9 @@ def admin_exclude_restaurants_from_enrichment():
     if len(restaurants) != len(set(restaurant_ids)):
         abort(400, "One or more selected restaurants cannot be excluded from this queue.")
     for restaurant in restaurants:
-        restaurant.catalog_status = "excluded"
-        restaurant.catalog_reason = "excluded from enrichment queue"
-        restaurant.catalog_reviewed_at = utc_now()
+        restaurant.google_place_refreshed_at = utc_now()
     db.session.commit()
-    flash(f"{len(restaurants)} restaurants excluded from the active catalog.")
+    flash(f"{len(restaurants)} restaurants removed from the enrichment queue.")
     return redirect(url_for("admin_restaurant_enrichment"))
 
 
