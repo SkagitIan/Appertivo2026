@@ -2220,7 +2220,7 @@ def admin_diner_digest():
 @app.route("/admin/email-tools", methods=["GET", "POST"])
 @admin_required
 def admin_email_tools():
-    from email_system.email_service import SUBJECTS, render_test_email, send_all_test_emails
+    from email_system.email_service import SUBJECTS, TEMPLATE_VARS, render_test_email, send_all_test_emails
 
     recipient = app.config["EMAIL_TEST_RECIPIENT"]
     if request.method == "POST":
@@ -2233,11 +2233,15 @@ def admin_email_tools():
         return redirect(url_for("admin_email_tools"))
     previews = {name: render_test_email(name)["html"] for name in SUBJECTS}
     templates = OutreachTemplate.query.filter_by(is_active=True).order_by(OutreachTemplate.name).all()
+    overrides = {t.name: t for t in SystemEmailTemplate.query.filter_by(is_active=True).all()}
     return render_template(
         "admin/email_tools.html",
         previews=previews,
         recipient=recipient,
         templates=templates,
+        system_subjects=SUBJECTS,
+        system_template_vars=TEMPLATE_VARS,
+        system_overrides=overrides,
     )
 
 

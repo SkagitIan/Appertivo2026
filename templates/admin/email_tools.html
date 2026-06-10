@@ -2,78 +2,51 @@
 {% block title %}Email tools | Appertivo admin{% endblock %}
 {% block content %}
 <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-  <div><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Email tools</h1><p class="mt-2 text-sm text-stone-600">Preview transactional templates and manage outreach templates.</p></div>
-  <form method="post" action="{{ url_for('admin_email_tools') }}"><button class="button-primary">Send all templates to {{ recipient }}</button></form>
+  <div><p class="eyebrow">Admin</p><h1 class="display-md mt-2">Email tools</h1></div>
+  <form method="post" action="{{ url_for('admin_email_tools') }}"><button class="button-primary">Send all to {{ recipient }}</button></form>
 </div>
-<p class="mb-5 text-sm text-stone-600">Test sending is gated by <code>EMAIL_TEST_ENABLED=1</code>. System templates live under <code>templates/emails</code>.</p>
 
 <div class="grid gap-5 lg:grid-cols-2">
   {% for name, preview in previews.items() %}
+    {% set override = system_overrides.get(name) %}
     <article class="admin-card overflow-hidden">
-      <div class="border-b px-4 py-3"><h2 class="text-xl">{{ name|replace("_", " ")|title }}</h2></div>
+      <div class="border-b px-4 py-3 flex items-center justify-between gap-3">
+        <h2 class="text-xl">{{ name|replace("_", " ")|title }}</h2>
+        <button type="button" class="button-quiet text-sm flex-shrink-0" onclick="document.getElementById('email-modal-{{ name }}').showModal()">Edit</button>
+      </div>
       <iframe title="{{ name }} preview" srcdoc="{{ preview|e }}" class="h-[420px] w-full bg-white"></iframe>
     </article>
+
+    <dialog id="email-modal-{{ name }}" class="compose-modal">
+      <div class="compose-modal-head">
+        <h2>Edit — {{ name|replace("_", " ")|title }}</h2>
+        <button type="button" class="compose-modal-close" onclick="document.getElementById('email-modal-{{ name }}').close()" aria-label="Close">✕</button>
+      </div>
+      <form method="post" action="{{ url_for('admin_system_email_template_upsert', name=name) }}" class="compose-form">
+        <label>Subject<input required name="subject" value="{{ override.subject if override else system_subjects[name] }}"></label>
+        <label>Body (HTML ok)
+          <textarea required name="body_text" rows="14" placeholder="Leave blank to use the default file template…">{{ override.body_text if override else '' }}</textarea>
+        </label>
+        {% if system_template_vars.get(name) %}
+          <p class="text-xs text-stone-500">Variables: {% for v in system_template_vars[name] %}<code>{{ '{{' }} {{ v }} {{ '}}' }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+        {% endif %}
+        <div class="flex gap-2">
+          <button class="button-primary flex-1">Save</button>
+          {% if override %}
+            <button type="submit" name="action" value="remove" class="button-quiet" onclick="return confirm('Revert to the default file template?')">Revert to default</button>
+          {% endif %}
+        </div>
+      </form>
+    </dialog>
   {% endfor %}
 </div>
 
-<!-- System email overrides -->
-<div class="mt-10">
-  <div class="mb-4">
-    <h2 class="text-2xl font-black">System email overrides</h2>
-    <p class="mt-1 text-sm text-stone-600">Override the default file-based templates with editable versions. Use <code>{{ '{{ var_name }}' }}</code> syntax for variables.</p>
-  </div>
-  <div class="grid gap-4 lg:grid-cols-2">
-    {% for name, default_subject in system_subjects.items() %}
-      {% set override = system_overrides.get(name) %}
-      <div class="admin-card p-4">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h3 class="font-black">{{ name|replace("_", " ")|title }}</h3>
-              {% if override %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">Override active</span>{% endif %}
-            </div>
-            <p class="mt-1 text-sm text-stone-500">{{ override.subject if override else default_subject }}</p>
-            {% if system_template_vars.get(name) %}
-              <p class="mt-2 text-xs text-stone-400">Vars: {% for v in system_template_vars[name] %}<code>{{ '{{' }} {{ v }} {{ '}}' }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
-            {% endif %}
-          </div>
-          <div class="flex flex-shrink-0 gap-2">
-            <button type="button" class="button-quiet text-sm" onclick="document.getElementById('sys-email-modal-{{ name }}').showModal()">{{ 'Edit' if override else 'Set override' }}</button>
-          </div>
-        </div>
-      </div>
-
-      <dialog id="sys-email-modal-{{ name }}" class="compose-modal">
-        <div class="compose-modal-head">
-          <h2>{{ name|replace("_", " ")|title }}</h2>
-          <button type="button" class="compose-modal-close" onclick="document.getElementById('sys-email-modal-{{ name }}').close()" aria-label="Close">✕</button>
-        </div>
-        <form method="post" action="{{ url_for('admin_system_email_template_upsert', name=name) }}" class="compose-form">
-          <label>Subject<input required name="subject" value="{{ override.subject if override else default_subject }}"></label>
-          <label>Body (HTML supported)
-            <textarea required name="body_text" rows="14">{{ override.body_text if override else '' }}</textarea>
-          </label>
-          {% if system_template_vars.get(name) %}
-            <p class="text-xs text-stone-500">Available: {% for v in system_template_vars[name] %}<code>{{ '{{' }} {{ v }} {{ '}}' }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</p>
-          {% endif %}
-          <div class="flex gap-2">
-            <button class="button-primary flex-1">Save override</button>
-            {% if override %}
-              <button type="submit" name="action" value="remove" class="button-quiet" onclick="return confirm('Remove this override and revert to the default template?')">Remove</button>
-            {% endif %}
-          </div>
-        </form>
-      </dialog>
-    {% endfor %}
-  </div>
-</div>
-
-<!-- Outreach templates management -->
+<!-- Outreach templates -->
 <div class="mt-10">
   <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
     <div>
       <h2 class="text-2xl font-black">Outreach templates</h2>
-      <p class="mt-1 text-sm text-stone-600">Used in the outreach inbox compose flow. Supports <code>{{ '{{ restaurant_name }}' }}</code>, <code>{{ '{{ submission_url }}' }}</code>, <code>{{ '{{ city }}' }}</code>.</p>
+      <p class="mt-1 text-sm text-stone-600">Compose flow templates. Supports <code>{{ '{{ restaurant_name }}' }}</code>, <code>{{ '{{ submission_url }}' }}</code>, <code>{{ '{{ city }}' }}</code>.</p>
     </div>
     <button type="button" class="button-secondary" onclick="document.getElementById('template-create-modal').showModal()">New template</button>
   </div>
@@ -112,7 +85,6 @@
   </div>
 </div>
 
-<!-- New template modal -->
 <dialog id="template-create-modal" class="compose-modal">
   <div class="compose-modal-head">
     <h2>New template</h2>
